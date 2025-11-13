@@ -1,3 +1,6 @@
+import * as THREE from 'three';
+
+// DOM Elements
 const boardContainer = document.getElementById('board-container');
 const statusDiv = document.getElementById('status');
 const unstackModal = document.getElementById('unstack-modal');
@@ -9,109 +12,244 @@ const loadGameBtn = document.getElementById('load-game-btn');
 const undoBtn = document.getElementById('undo-btn');
 const askEngineBtn = document.getElementById('ask-engine-btn');
 
+// Game State
 let config = null;
 let boardData = null;
 let possibleMoves = [];
 let selectedPiece = null; // { from: int, to: int[] }
 let selectedMove = null; // { from: int, to: int }
-let boardFlipped = false; // Track if the board is flipped
-let boardCells = []; // Store references to board cells
-let hoveredPiece = null; // Track currently hovered piece position
-let moveHistory = []; // Array of moves in format "A1-B2"
-let gameHistory = []; // Array of board states (Uint8Array)
+let boardFlipped = false;
+let hoveredPiece = null;
+let moveHistory = [];
+let gameHistory = [];
 
+// Three.js variables
+let scene, camera, renderer, canvas;
+let boardSprite, overlaySprites = [], pieceSprites = [];
+let raycaster, mouse;
+
+// Constants
 const BOARD_SIZE = 9;
 const LAST_BOARD_INDEX = (BOARD_SIZE * BOARD_SIZE) - 1;
+const BOARD_ASPECT_RATIO = 3860 / 3163; // board.jpg dimensions
+const PIECE_OFFSET_Y = 0.08; // Vertical offset for pieces above tiles
 
 const PIECE_CODE = {
-    0b001: 'S',
-    0b010: 'J',
-    0b011: 'C',
-    0b100: 'P',
-    0b101: 'G',
-    0b110: 'D',
-    0b111: 'B',
+    0b001: 'soldier',
+    0b010: 'jester',
+    0b011: 'commander',
+    0b100: 'paladin',
+    0b101: 'guard',
+    0b110: 'dragon',
+    0b111: 'ballista',
 };
 
-/**
- * Creates the board HTML structure dynamically
- */
-function createBoard() {
-    const columns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
-    const rows = boardFlipped ? [1, 2, 3, 4, 5, 6, 7, 8, 9] : [9, 8, 7, 6, 5, 4, 3, 2, 1];
-    const displayColumns = boardFlipped ? [...columns].reverse() : columns;
+// Color mapping: 0=black(red), 1=white
+const COLOR_NAME = {
+    0: 'red',
+    1: 'white'
+};
+
+// Initialize Three.js scene
+function initThreeJS() {
+    // Create canvas
+    canvas = document.createElement('canvas');
+    canvas.id = 'board-canvas';
+    boardContainer.appendChild(canvas);
     
-    const table = document.createElement('table');
-    table.className = 'board';
-    table.id = 'arx-board';
+    // Create scene
+    scene = new THREE.Scene();
     
-    // Create thead
-    const thead = document.createElement('thead');
-    const headerRow = document.createElement('tr');
-    headerRow.appendChild(document.createElement('th')); // Empty corner
-    displayColumns.forEach(col => {
-        const th = document.createElement('th');
-        th.textContent = col;
-        headerRow.appendChild(th);
-    });
-    headerRow.appendChild(document.createElement('th')); // Empty corner
-    thead.appendChild(headerRow);
-    table.appendChild(thead);
+    // Create orthographic camera
+    const aspect = BOARD_ASPECT_RATIO;
+    const viewSize = 10;
+    camera = new THREE.OrthographicCamera(
+        -viewSize * aspect / 2,
+        viewSize * aspect / 2,
+        viewSize / 2,
+        -viewSize / 2,
+        0.1,
+        1000
+    );
+    camera.position.z = 10;
     
-    // Create tbody with cells
-    const tbody = document.createElement('tbody');
-    boardCells = []; // Reset cells array
+    // Create renderer
+    renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    updateRendererSize();
     
-    rows.forEach((rowNum, rowIndex) => {
-        const tr = document.createElement('tr');
-        
-        // Row number on the left
-        const leftHeader = document.createElement('th');
-        leftHeader.textContent = rowNum;
-        tr.appendChild(leftHeader);
-        
-        // Create 9 cells for this row
-        for (let colIndex = 0; colIndex < 9; colIndex++) {
-            const td = document.createElement('td');
-            tr.appendChild(td);
-            boardCells.push(td); // Store cell reference
-        }
-        
-        // Row number on the right
-        const rightHeader = document.createElement('th');
-        rightHeader.textContent = rowNum;
-        tr.appendChild(rightHeader);
-        
-        tbody.appendChild(tr);
-    });
+    // Raycaster for mouse picking
+    raycaster = new THREE.Raycaster();
+    mouse = new THREE.Vector2();
     
-    table.appendChild(tbody);
+    // Handle window resize
+    window.addEventListener('resize', onWindowResize);
     
-    // Create tfoot
-    const tfoot = document.createElement('tfoot');
-    const footerRow = document.createElement('tr');
-    footerRow.appendChild(document.createElement('th')); // Empty corner
-    displayColumns.forEach(col => {
-        const th = document.createElement('th');
-        th.textContent = col;
-        footerRow.appendChild(th);
-    });
-    footerRow.appendChild(document.createElement('th')); // Empty corner
-    tfoot.appendChild(footerRow);
-    table.appendChild(tfoot);
-    
-    // Clear and append to container
-    boardContainer.innerHTML = '';
-    boardContainer.appendChild(table);
+    // Handle mouse events
+    canvas.addEventListener('click', onCanvasClick);
+    canvas.addEventListener('mousemove', onCanvasMouseMove);
+    canvas.addEventListener('mouseleave', onCanvasMouseLeave);
 }
 
+function updateRendererSize() {
+    const containerWidth = boardContainer.clientWidth;
+    const height = containerWidth / BOARD_ASPECT_RATIO;
+    renderer.setSize(containerWidth, height);
+}
+
+function onWindowResize() {
+    updateRendererSize();
+    
+    const containerWidth = boardContainer.clientWidth;
+    const height = containerWidth / BOARD_ASPECT_RATIO;
+    
+    const aspect = BOARD_ASPECT_RATIO;
+    const viewSize = 10;
+    camera.left = -viewSize * aspect / 2;
+    camera.right = viewSize * aspect / 2;
+    camera.top = viewSize / 2;
+    camera.bottom = -viewSize / 2;
+    camera.updateProjectionMatrix();
+}
+
+// Load texture helper
+function loadTexture(path) {
+    return new Promise((resolve, reject) => {
+        const loader = new THREE.TextureLoader();
+        loader.load(
+            path,
+            texture => resolve(texture),
+            undefined,
+            error => reject(error)
+        );
+    });
+}
+
+// Create board sprite
+async function createBoard() {
+    // Remove existing board if any
+    if (boardSprite) {
+        scene.remove(boardSprite);
+        boardSprite.geometry.dispose();
+        boardSprite.material.dispose();
+    }
+    
+    // Load board texture
+    const texture = await loadTexture('images/board.jpg');
+    texture.minFilter = THREE.LinearFilter;
+    
+    // Create sprite material
+    const material = new THREE.SpriteMaterial({ map: texture });
+    boardSprite = new THREE.Sprite(material);
+    
+    // Scale to fit the view
+    const viewSize = 10;
+    boardSprite.scale.set(viewSize * BOARD_ASPECT_RATIO, viewSize, 1);
+    boardSprite.position.z = -1; // Behind overlays and pieces
+    
+    scene.add(boardSprite);
+}
+
+// Get board position for a tile index (0-80)
+function getTilePosition(index) {
+    // Flip index if board is flipped
+    const actualIndex = boardFlipped ? (LAST_BOARD_INDEX - index) : index;
+    
+    const col = actualIndex % 9;
+    const row = Math.floor(actualIndex / 9);
+    
+    // Map tile to board coordinates
+    // Board goes from -BOARD_ASPECT_RATIO*5 to BOARD_ASPECT_RATIO*5 horizontally
+    // and from -5 to 5 vertically
+    const viewSize = 10;
+    const tileWidth = (viewSize * BOARD_ASPECT_RATIO) / 9;
+    const tileHeight = viewSize / 9;
+    
+    const x = -viewSize * BOARD_ASPECT_RATIO / 2 + tileWidth * (col + 0.5);
+    const y = viewSize / 2 - tileHeight * (row + 0.5);
+    
+    return { x, y };
+}
+
+// Create overlay sprites for tile states
+function createOverlays() {
+    // Clear existing overlays
+    overlaySprites.forEach(sprite => {
+        scene.remove(sprite);
+        sprite.geometry.dispose();
+        sprite.material.dispose();
+    });
+    overlaySprites = [];
+    
+    const viewSize = 10;
+    const tileWidth = (viewSize * BOARD_ASPECT_RATIO) / 9;
+    const tileHeight = viewSize / 9;
+    
+    // Create overlays for each tile
+    for (let i = 0; i < 81; i++) {
+        const pos = getTilePosition(i);
+        
+        // Create a colored plane for overlay
+        const geometry = new THREE.PlaneGeometry(tileWidth * 0.9, tileHeight * 0.9);
+        const material = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0,
+            side: THREE.DoubleSide
+        });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.set(pos.x, pos.y, 0);
+        mesh.userData = { tileIndex: i };
+        
+        scene.add(mesh);
+        overlaySprites.push(mesh);
+    }
+}
+
+// Update overlay colors based on game state
+function updateOverlays() {
+    for (let i = 0; i < 81; i++) {
+        const overlay = overlaySprites[i];
+        const tileIndex = overlay.userData.tileIndex;
+        
+        // Map visual index to actual board position
+        const actualPos = boardFlipped ? (LAST_BOARD_INDEX - tileIndex) : tileIndex;
+        
+        let color = 0xffffff;
+        let opacity = 0;
+        
+        // Selected piece
+        if (selectedPiece && selectedPiece.from === actualPos) {
+            color = 0x7fa0dd; // Cornflower blue
+            opacity = 0.6;
+        }
+        // Possible move
+        else if (selectedPiece && selectedPiece.to.includes(actualPos)) {
+            color = 0x55d157; // Light green
+            opacity = 0.5;
+        }
+        // Hovered moves
+        else if (hoveredPiece !== null) {
+            const hoveredMoves = getMovesForPiece(hoveredPiece);
+            if (hoveredMoves.includes(actualPos) && (!selectedPiece || selectedPiece.from !== hoveredPiece)) {
+                color = 0xe1ca58; // Soft yellow
+                opacity = 0.4;
+            }
+        }
+        
+        overlay.material.color.setHex(color);
+        overlay.material.opacity = opacity;
+    }
+}
+
+// Decode piece helper
 function decodePiece(piece) {
-    if (piece === 0) return '';
+    if (piece === 0) return null;
     const color = (piece >> 6) & 0b1;
     const payload = piece & 0b00111111;
 
     if (payload === 0b111000) {
-        return { top: 'K', bottom: null, color: color };
+        return { top: 'king', bottom: null, color: color };
     }
 
     const topCode = (payload >> 3) & 0b111;
@@ -126,50 +264,166 @@ function decodePiece(piece) {
             return { top: PIECE_CODE[topCode], bottom: PIECE_CODE[bottomCode], color: color };
         }
     }
-    return ''; // Invalid code
+    return null;
 }
 
-function renderBoard() {
-    const turn = boardData[81] === 1 ? "White" : "Black";
+// Load piece sprite
+async function loadPieceSprite(pieceName, color, reversed = false) {
+    const colorName = COLOR_NAME[color];
+    const reversedSuffix = reversed ? '-reversed' : '';
+    const path = `images/${pieceName}-${colorName}${reversedSuffix}.png`;
+    return await loadTexture(path);
+}
+
+// Create piece sprites
+async function createPieceSprites() {
+    // Clear existing pieces
+    pieceSprites.forEach(sprite => {
+        scene.remove(sprite);
+        sprite.geometry.dispose();
+        sprite.material.dispose();
+    });
+    pieceSprites = [];
+    
+    const viewSize = 10;
+    const tileWidth = (viewSize * BOARD_ASPECT_RATIO) / 9;
+    const tileHeight = viewSize / 9;
+    const pieceSize = Math.max(tileWidth, tileHeight) * 1.2;
+    
+    // Load all piece sprites
+    for (let i = 0; i < 81; i++) {
+        const pieceVal = boardData[i];
+        const piece = decodePiece(pieceVal);
+        
+        if (!piece) continue;
+        
+        const pos = getTilePosition(i);
+        
+        // Determine if piece should be reversed (opponent view)
+        const reversed = boardFlipped;
+        
+        // Load bottom piece if stacked
+        if (piece.bottom) {
+            const bottomTexture = await loadPieceSprite(piece.bottom, piece.color, reversed);
+            const bottomMaterial = new THREE.SpriteMaterial({ map: bottomTexture });
+            const bottomSprite = new THREE.Sprite(bottomMaterial);
+            bottomSprite.scale.set(pieceSize, pieceSize, 1);
+            bottomSprite.position.set(pos.x, pos.y + PIECE_OFFSET_Y, 1);
+            scene.add(bottomSprite);
+            pieceSprites.push(bottomSprite);
+        }
+        
+        // Load top piece
+        const topTexture = await loadPieceSprite(piece.top, piece.color, reversed);
+        const topMaterial = new THREE.SpriteMaterial({ map: topTexture });
+        const topSprite = new THREE.Sprite(topMaterial);
+        topSprite.scale.set(pieceSize, pieceSize, 1);
+        const zOffset = piece.bottom ? 2 : 1; // Stack pieces slightly higher
+        topSprite.position.set(pos.x, pos.y + PIECE_OFFSET_Y, zOffset);
+        scene.add(topSprite);
+        pieceSprites.push(topSprite);
+    }
+}
+
+// Render the scene
+function render() {
+    renderer.render(scene, camera);
+}
+
+// Update the board
+async function renderBoard() {
+    const turn = boardData[81] === 1 ? "White" : "Red";
     statusDiv.innerText = `${turn}'s turn to play.`;
     
-    // Update each cell using the stored cell references
-    for (let pos = 0; pos < 81; pos++) {
-        // Map position based on board orientation
-        const visualIndex = boardFlipped ? (LAST_BOARD_INDEX - pos) : pos;
-        const cell = boardCells[visualIndex];
-        if (!cell) continue;
+    await createPieceSprites();
+    updateOverlays();
+    render();
+}
+
+// Mouse event handlers
+function onCanvasClick(event) {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(overlaySprites);
+    
+    if (intersects.length > 0) {
+        const tileIndex = intersects[0].object.userData.tileIndex;
+        const pos = boardFlipped ? (LAST_BOARD_INDEX - tileIndex) : tileIndex;
         
-        const pieceVal = boardData[pos];
-        const piece = decodePiece(pieceVal);
-        cell.innerText = '';
-        cell.className = '';
-        
-        if (piece) {
-            let text = piece.top;
-            if (piece.bottom) {
-                text += `+${piece.bottom}`;
+        if (selectedPiece) {
+            if (selectedPiece.to.includes(pos)) {
+                // This is a move
+                selectedMove = { from: selectedPiece.from, to: pos };
+                const potentialMove = getPotentialMove(selectedPiece.from, pos);
+                if (potentialMove && potentialMove.unstackable) {
+                    unstackModal.classList.add('is-active');
+                } else {
+                    playMove(selectedMove.from, selectedMove.to, false);
+                }
+            } else {
+                // Clicked somewhere else, deselect
+                selectedPiece = null;
+                renderBoard();
             }
-            cell.innerText = text;
-            cell.classList.add(piece.color === 1 ? 'white-piece' : 'black-piece');
-        }
-        
-        if (selectedPiece && selectedPiece.from === pos) {
-            cell.classList.add('selected');
-        }
-        if (selectedPiece && selectedPiece.to.includes(pos)) {
-            cell.classList.add('possible-move');
-        }
-        // Highlight hovered possible moves
-        if (hoveredPiece !== null) {
-            const hoveredMoves = getMovesForPiece(hoveredPiece);
-            if (hoveredMoves.includes(pos) && (!selectedPiece || selectedPiece.from !== hoveredPiece)) {
-                cell.classList.add('hovered-move');
+        } else {
+            const moves = getMovesForPiece(pos);
+            if (moves.length > 0) {
+                selectedPiece = { from: pos, to: moves };
+                renderBoard();
             }
         }
     }
 }
 
+function onCanvasMouseMove(event) {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(overlaySprites);
+    
+    if (intersects.length > 0) {
+        const tileIndex = intersects[0].object.userData.tileIndex;
+        const pos = boardFlipped ? (LAST_BOARD_INDEX - tileIndex) : tileIndex;
+        
+        const pieceVal = boardData[pos];
+        const piece = decodePiece(pieceVal);
+        
+        if (piece && piece.color === boardData[81] && (!selectedPiece || selectedPiece.from !== pos)) {
+            if (hoveredPiece !== pos) {
+                hoveredPiece = pos;
+                updateOverlays();
+                render();
+            }
+        } else {
+            if (hoveredPiece !== null) {
+                hoveredPiece = null;
+                updateOverlays();
+                render();
+            }
+        }
+    } else {
+        if (hoveredPiece !== null) {
+            hoveredPiece = null;
+            updateOverlays();
+            render();
+        }
+    }
+}
+
+function onCanvasMouseLeave() {
+    if (hoveredPiece !== null) {
+        hoveredPiece = null;
+        updateOverlays();
+        render();
+    }
+}
+
+// Game logic functions (same as before)
 async function getPossibleMoves() {
     const response = await fetch(`${config.backendUrl}/moves`, {
         method: 'POST',
@@ -206,16 +460,6 @@ function getPotentialMove(fromPos, toPos) {
     return null;
 }
 
-function isStacked(pos) {
-    const pieceVal = boardData[pos];
-    const payload = pieceVal & 0b0111111;
-    const topCode = (payload >> 3) & 0b111;
-    return topCode !== 0;
-}
-
-/**
- * Convert position index (0-80) to algebraic notation (A1-I9)
- */
 function posToAlgebraic(pos) {
     const x = pos % 9;
     const y = Math.floor(pos / 9);
@@ -224,9 +468,6 @@ function posToAlgebraic(pos) {
     return col + row;
 }
 
-/**
- * Convert algebraic notation (A1-I9) to position index (0-80)
- */
 function algebraicToPos(algebraic) {
     if (!algebraic || algebraic.length < 2) return null;
     const col = algebraic[0].toUpperCase();
@@ -237,9 +478,6 @@ function algebraicToPos(algebraic) {
     return y * 9 + x;
 }
 
-/**
- * Update the move history textarea
- */
 function updateMoveHistoryDisplay() {
     let text = '';
     for (let i = 0; i < moveHistory.length; i += 2) {
@@ -269,16 +507,10 @@ async function playMove(from, to, unstack = false) {
     });
 
     const newBoardBuffer = await response.arrayBuffer();
-
-    // Save current board state to history before updating
     gameHistory.push(new Uint8Array(boardData));
-
     boardData = new Uint8Array(newBoardBuffer);
-
-    // Update URL
     window.location.hash = btoa(String.fromCharCode.apply(null, boardData));
 
-    // Record move in algebraic notation
     const moveNotation = posToAlgebraic(from) + '-' + posToAlgebraic(to);
     moveHistory.push(moveNotation);
     updateMoveHistoryDisplay();
@@ -286,45 +518,10 @@ async function playMove(from, to, unstack = false) {
     selectedPiece = null;
     selectedMove = null;
     await getPossibleMoves();
-    renderBoard();
+    await renderBoard();
 }
 
-boardContainer.addEventListener('click', (e) => {
-    const cell = e.target.closest('td');
-    if (!cell) return;
-    
-    // Find the position by finding the cell index in our boardCells array
-    let visualIndex = boardCells.indexOf(cell);
-    if (visualIndex === -1) return;
-    
-    // Map visual index back to actual position based on orientation
-    const pos = boardFlipped ? (LAST_BOARD_INDEX - visualIndex) : visualIndex;
-
-    if (selectedPiece) {
-        if (selectedPiece.to.includes(pos)) {
-            // This is a move
-            selectedMove = { from: selectedPiece.from, to: pos };
-            const potentialMove = getPotentialMove(selectedPiece.from, pos);
-            if (potentialMove && potentialMove.unstackable) {
-                // Show modal only if the move is unstackable
-                unstackModal.classList.add('is-active');
-            } else {
-                playMove(selectedMove.from, selectedMove.to, false);
-            }
-        } else {
-            // Clicked somewhere else, deselect
-            selectedPiece = null;
-            renderBoard();
-        }
-    } else {
-        const moves = getMovesForPiece(pos);
-        if (moves.length > 0) {
-            selectedPiece = { from: pos, to: moves };
-            renderBoard();
-        }
-    }
-});
-
+// Button event handlers
 moveStackBtn.addEventListener('click', () => {
     unstackModal.classList.remove('is-active');
     if (selectedMove) {
@@ -339,7 +536,6 @@ moveUnstackBtn.addEventListener('click', () => {
     }
 });
 
-// Close modal
 document.querySelector('#unstack-modal .modal-background').addEventListener('click', () => {
     unstackModal.classList.remove('is-active');
     selectedPiece = null;
@@ -347,24 +543,18 @@ document.querySelector('#unstack-modal .modal-background').addEventListener('cli
     renderBoard();
 });
 
-// Switch sides button handler
 switchSidesBtn.addEventListener('click', () => {
     boardFlipped = !boardFlipped;
     selectedPiece = null;
     selectedMove = null;
-    createBoard();
     renderBoard();
-    setTimeout(addBoardCellHoverListeners, 0);
 });
 
-// Ask Engine button handler
 askEngineBtn.addEventListener('click', async () => {
     try {
-        // Disable button while processing
         askEngineBtn.disabled = true;
         askEngineBtn.innerText = 'Thinking...';
 
-        // Request engine move
         const response = await fetch(`${config.backendUrl}/engine-move`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/octet-stream' },
@@ -379,70 +569,37 @@ askEngineBtn.addEventListener('click', async () => {
         const moveArray = new Uint16Array(moveBuffer);
         const engineMove = moveArray[0];
 
-        // Decode the move
         const from = engineMove & 0x7F;
         const to = (engineMove >> 7) & 0x7F;
         const unstack = (engineMove >> 14) & 0x1;
 
-        // Apply the move
         await playMove(from, to, unstack === 1);
-
     } catch (error) {
         console.error('Error getting engine move:', error);
         statusDiv.innerText = `Error: ${error.message}. Engine may not be available.`;
     } finally {
-        // Re-enable button
         askEngineBtn.disabled = false;
         askEngineBtn.innerText = 'Ask Engine';
     }
 });
 
-function addBoardCellHoverListeners() {
-    boardCells.forEach((cell, visualIndex) => {
-        cell.onmouseenter = () => {
-            // Map visual index back to actual position
-            const pos = boardFlipped ? (LAST_BOARD_INDEX - visualIndex) : visualIndex;
-            const pieceVal = boardData[pos];
-            const piece = decodePiece(pieceVal);
-            // Only highlight if friendly piece and not currently selected
-            if (piece && piece.color === boardData[81] && (!selectedPiece || selectedPiece.from !== pos)) {
-                hoveredPiece = pos;
-                renderBoard();
-            }
-        };
-        cell.onmouseleave = () => {
-            if (hoveredPiece !== null) {
-                hoveredPiece = null;
-                renderBoard();
-            }
-        };
-    });
-}
-
-// Undo button handler
 undoBtn.addEventListener('click', async () => {
     if (gameHistory.length === 0) {
         alert('No moves to undo');
         return;
     }
 
-    // Restore previous board state
     boardData = gameHistory.pop();
-
-    // Remove last move from history
     moveHistory.pop();
     updateMoveHistoryDisplay();
-
-    // Update URL
     window.location.hash = btoa(String.fromCharCode.apply(null, boardData));
 
     selectedPiece = null;
     selectedMove = null;
     await getPossibleMoves();
-    renderBoard();
+    await renderBoard();
 });
 
-// Load game button handler
 loadGameBtn.addEventListener('click', async () => {
     const text = moveHistoryTextarea.value.trim();
     if (!text) {
@@ -450,7 +607,6 @@ loadGameBtn.addEventListener('click', async () => {
         return;
     }
 
-    // Parse moves from textarea
     const lines = text.split('\n');
     const moves = [];
     for (const line of lines) {
@@ -467,14 +623,12 @@ loadGameBtn.addEventListener('click', async () => {
         return;
     }
 
-    // Start a new game
     const response = await fetch(`${config.backendUrl}/new`);
     const buffer = await response.arrayBuffer();
     boardData = new Uint8Array(buffer);
     moveHistory = [];
     gameHistory = [];
 
-    // Apply each move
     for (const moveNotation of moves) {
         const parts = moveNotation.split('-');
         if (parts.length !== 2) {
@@ -490,32 +644,25 @@ loadGameBtn.addEventListener('click', async () => {
             return;
         }
 
-        // Get possible moves for current board state
         await getPossibleMoves();
-
-        // Check if this move is legal
         const moves = getMovesForPiece(fromPos);
         if (!moves.includes(toPos)) {
             alert(`Illegal move: ${moveNotation}`);
             return;
         }
 
-        // Always move full stack when loading from history
         await playMove(fromPos, toPos, false);
     }
 
-    renderBoard();
+    await renderBoard();
 });
 
+// Initialize
 async function init() {
-    // Show loading message
     statusDiv.innerText = 'Loading...';
     
-    // Create the empty board structure first
-    createBoard();
-    setTimeout(addBoardCellHoverListeners, 0);
-
-    // Then fetch config and initialize game
+    initThreeJS();
+    
     const response = await fetch(`/config.json`);
     config = await response.json();
 
@@ -529,7 +676,6 @@ async function init() {
                 bytes[i] = binaryString.charCodeAt(i);
             }
             boardData = bytes;
-            // When loading from URL, clear history since we don't know the moves
             moveHistory = [];
             gameHistory = [];
         } catch (e) {
@@ -548,8 +694,10 @@ async function init() {
         gameHistory = [];
     }
 
-    await getPossibleMoves(config);
-    renderBoard();
+    await createBoard();
+    createOverlays();
+    await getPossibleMoves();
+    await renderBoard();
     updateMoveHistoryDisplay();
 }
 
