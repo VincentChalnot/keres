@@ -1,12 +1,16 @@
 services:
   frontend:
-    image: joseluisq/static-web-server:2
+    image: node:20-slim
+    working_dir: /app
     ports:
-      - "8080:80"
+      - "8080:8080"
     volumes:
-      - ./public:/public:ro
+      - ./public:/app
+    command: sh -c "npm install && npm run dev"
     depends_on:
       - backend
+    environment:
+      - NODE_ENV=development
 
   backend:
     build:
