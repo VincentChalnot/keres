@@ -21,3 +21,7 @@ target/
 #.idea/
 
 public/config.json
+
+# Node modules for three.js
+public/node_modules/
+public/package-lock.json
