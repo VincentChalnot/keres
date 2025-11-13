@@ -15,13 +15,37 @@ let possibleMoves = [];
 let selectedPiece = null; // { from: int, to: int[] }
 let selectedMove = null; // { from: int, to: int }
 let boardFlipped = false; // Track if the board is flipped
-let boardCells = []; // Store references to board cells
 let hoveredPiece = null; // Track currently hovered piece position
 let moveHistory = []; // Array of moves in format "A1-B2"
 let gameHistory = []; // Array of board states (Uint8Array)
 
 const BOARD_SIZE = 9;
 const LAST_BOARD_INDEX = (BOARD_SIZE * BOARD_SIZE) - 1;
+
+// Board rendering constants
+const BOARD_WIDTH = 800;
+const BOARD_HEIGHT = 655; // 800 * (3163/3860) to maintain aspect ratio
+const PIECE_OFFSET_Y = -20; // Isometric offset: pieces positioned slightly above tiles
+const TILE_SIZE = 88; // Size of each tile for positioning (adjusted for board image)
+const PIECE_SIZE = 80; // Display size for piece sprites
+const OVERLAY_SIZE = 70; // Size of overlay indicators
+
+// Board margins to align with the actual board image tiles
+const BOARD_START_X = 8; // Left margin
+const BOARD_START_Y = 80; // Top margin (adjusted to show bottom pieces)
+
+let boardWrapper = null;
+let boardOverlay = null;
+
+const PIECE_CODE_TO_NAME = {
+    0b001: 'soldier',
+    0b010: 'jester',
+    0b011: 'commander',
+    0b100: 'paladin',
+    0b101: 'guard',
+    0b110: 'dragon',
+    0b111: 'ballista',
+};
 
 const PIECE_CODE = {
     0b001: 'S',
@@ -34,75 +58,57 @@ const PIECE_CODE = {
 };
 
 /**
+ * Get board position coordinates for a given tile index
+ * @param {number} pos - Position index (0-80)
+ * @returns {{x: number, y: number}} - Pixel coordinates on the board
+ */
+function getTilePosition(pos) {
+    const col = pos % 9;
+    const row = Math.floor(pos / 9);
+    
+    // Calculate position based on board dimensions
+    const x = BOARD_START_X + col * TILE_SIZE;
+    const y = BOARD_START_Y + row * TILE_SIZE;
+    
+    return { x, y };
+}
+
+/**
+ * Get the tile index from mouse coordinates
+ * @param {number} x - Mouse X coordinate relative to board
+ * @param {number} y - Mouse Y coordinate relative to board
+ * @returns {number|null} - Tile index (0-80) or null if outside board
+ */
+function getTileFromPosition(x, y) {
+    const col = Math.floor((x - BOARD_START_X) / TILE_SIZE);
+    const row = Math.floor((y - BOARD_START_Y) / TILE_SIZE);
+    
+    if (col < 0 || col >= 9 || row < 0 || row >= 9) {
+        return null;
+    }
+    
+    return row * 9 + col;
+}
+
+/**
  * Creates the board HTML structure dynamically
  */
 function createBoard() {
-    const columns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
-    const rows = boardFlipped ? [1, 2, 3, 4, 5, 6, 7, 8, 9] : [9, 8, 7, 6, 5, 4, 3, 2, 1];
-    const displayColumns = boardFlipped ? [...columns].reverse() : columns;
-    
-    const table = document.createElement('table');
-    table.className = 'board';
-    table.id = 'arx-board';
-    
-    // Create thead
-    const thead = document.createElement('thead');
-    const headerRow = document.createElement('tr');
-    headerRow.appendChild(document.createElement('th')); // Empty corner
-    displayColumns.forEach(col => {
-        const th = document.createElement('th');
-        th.textContent = col;
-        headerRow.appendChild(th);
-    });
-    headerRow.appendChild(document.createElement('th')); // Empty corner
-    thead.appendChild(headerRow);
-    table.appendChild(thead);
-    
-    // Create tbody with cells
-    const tbody = document.createElement('tbody');
-    boardCells = []; // Reset cells array
-    
-    rows.forEach((rowNum, rowIndex) => {
-        const tr = document.createElement('tr');
-        
-        // Row number on the left
-        const leftHeader = document.createElement('th');
-        leftHeader.textContent = rowNum;
-        tr.appendChild(leftHeader);
-        
-        // Create 9 cells for this row
-        for (let colIndex = 0; colIndex < 9; colIndex++) {
-            const td = document.createElement('td');
-            tr.appendChild(td);
-            boardCells.push(td); // Store cell reference
-        }
-        
-        // Row number on the right
-        const rightHeader = document.createElement('th');
-        rightHeader.textContent = rowNum;
-        tr.appendChild(rightHeader);
-        
-        tbody.appendChild(tr);
-    });
-    
-    table.appendChild(tbody);
-    
-    // Create tfoot
-    const tfoot = document.createElement('tfoot');
-    const footerRow = document.createElement('tr');
-    footerRow.appendChild(document.createElement('th')); // Empty corner
-    displayColumns.forEach(col => {
-        const th = document.createElement('th');
-        th.textContent = col;
-        footerRow.appendChild(th);
-    });
-    footerRow.appendChild(document.createElement('th')); // Empty corner
-    tfoot.appendChild(footerRow);
-    table.appendChild(tfoot);
-    
-    // Clear and append to container
+    // Clear container
     boardContainer.innerHTML = '';
-    boardContainer.appendChild(table);
+    
+    // Create board wrapper
+    boardWrapper = document.createElement('div');
+    boardWrapper.className = 'board-wrapper';
+    boardWrapper.style.width = BOARD_WIDTH + 'px';
+    boardWrapper.style.height = BOARD_HEIGHT + 'px';
+    
+    // Create overlay layer for tile states
+    boardOverlay = document.createElement('div');
+    boardOverlay.className = 'board-overlay';
+    boardWrapper.appendChild(boardOverlay);
+    
+    boardContainer.appendChild(boardWrapper);
 }
 
 function decodePiece(piece) {
@@ -111,7 +117,7 @@ function decodePiece(piece) {
     const payload = piece & 0b00111111;
 
     if (payload === 0b111000) {
-        return { top: 'K', bottom: null, color: color };
+        return { top: 'K', bottom: null, color: color, topName: 'king', bottomName: null };
     }
 
     const topCode = (payload >> 3) & 0b111;
@@ -119,53 +125,115 @@ function decodePiece(piece) {
 
     if (topCode === 0) { // Single piece
         if (PIECE_CODE[bottomCode]) {
-            return { top: PIECE_CODE[bottomCode], bottom: null, color: color };
+            return { 
+                top: PIECE_CODE[bottomCode], 
+                bottom: null, 
+                color: color,
+                topName: PIECE_CODE_TO_NAME[bottomCode],
+                bottomName: null
+            };
         }
     } else { // Stacked piece
         if (PIECE_CODE[topCode] && PIECE_CODE[bottomCode]) {
-            return { top: PIECE_CODE[topCode], bottom: PIECE_CODE[bottomCode], color: color };
+            return { 
+                top: PIECE_CODE[topCode], 
+                bottom: PIECE_CODE[bottomCode], 
+                color: color,
+                topName: PIECE_CODE_TO_NAME[topCode],
+                bottomName: PIECE_CODE_TO_NAME[bottomCode]
+            };
         }
     }
     return ''; // Invalid code
+}
+
+/**
+ * Get the sprite filename for a piece
+ * @param {string} pieceName - Name of the piece (e.g., 'soldier', 'king')
+ * @param {number} color - Color (0 for black/red, 1 for white)
+ * @param {boolean} reversed - Whether to use reversed sprite (for opponent view)
+ * @returns {string} - Filename of the sprite
+ */
+function getSpriteFilename(pieceName, color, reversed) {
+    // Color mapping: 0 (black) -> red, 1 (white) -> white
+    const colorName = color === 1 ? 'white' : 'red';
+    const suffix = reversed ? '-reversed' : '';
+    return `images/${pieceName}-${colorName}${suffix}.png`;
 }
 
 function renderBoard() {
     const turn = boardData[81] === 1 ? "White" : "Black";
     statusDiv.innerText = `${turn}'s turn to play.`;
     
-    // Update each cell using the stored cell references
+    // Clear current pieces and overlays
+    const oldPieces = boardWrapper.querySelectorAll('.piece');
+    oldPieces.forEach(p => p.remove());
+    
+    const oldOverlays = boardOverlay.querySelectorAll('.tile-overlay');
+    oldOverlays.forEach(o => o.remove());
+    
+    // Render overlays first (under pieces)
     for (let pos = 0; pos < 81; pos++) {
-        // Map position based on board orientation
-        const visualIndex = boardFlipped ? (LAST_BOARD_INDEX - pos) : pos;
-        const cell = boardCells[visualIndex];
-        if (!cell) continue;
+        const visualPos = boardFlipped ? (LAST_BOARD_INDEX - pos) : pos;
+        const tilePos = getTilePosition(visualPos);
         
-        const pieceVal = boardData[pos];
-        const piece = decodePiece(pieceVal);
-        cell.innerText = '';
-        cell.className = '';
-        
-        if (piece) {
-            let text = piece.top;
-            if (piece.bottom) {
-                text += `+${piece.bottom}`;
-            }
-            cell.innerText = text;
-            cell.classList.add(piece.color === 1 ? 'white-piece' : 'black-piece');
-        }
-        
+        // Check if this tile needs an overlay
+        let overlayClass = null;
         if (selectedPiece && selectedPiece.from === pos) {
-            cell.classList.add('selected');
-        }
-        if (selectedPiece && selectedPiece.to.includes(pos)) {
-            cell.classList.add('possible-move');
-        }
-        // Highlight hovered possible moves
-        if (hoveredPiece !== null) {
+            overlayClass = 'selected';
+        } else if (selectedPiece && selectedPiece.to.includes(pos)) {
+            overlayClass = 'possible-move';
+        } else if (hoveredPiece !== null) {
             const hoveredMoves = getMovesForPiece(hoveredPiece);
             if (hoveredMoves.includes(pos) && (!selectedPiece || selectedPiece.from !== hoveredPiece)) {
-                cell.classList.add('hovered-move');
+                overlayClass = 'hovered-move';
             }
+        }
+        
+        if (overlayClass) {
+            const overlay = document.createElement('div');
+            overlay.className = `tile-overlay ${overlayClass}`;
+            overlay.style.left = (tilePos.x + (TILE_SIZE - OVERLAY_SIZE) / 2) + 'px';
+            overlay.style.top = (tilePos.y + (TILE_SIZE - OVERLAY_SIZE) / 2) + 'px';
+            overlay.style.width = OVERLAY_SIZE + 'px';
+            overlay.style.height = OVERLAY_SIZE + 'px';
+            boardOverlay.appendChild(overlay);
+        }
+    }
+    
+    // Render pieces
+    for (let pos = 0; pos < 81; pos++) {
+        const pieceVal = boardData[pos];
+        const piece = decodePiece(pieceVal);
+        
+        if (piece && piece.topName) {
+            const visualPos = boardFlipped ? (LAST_BOARD_INDEX - pos) : pos;
+            const tilePos = getTilePosition(visualPos);
+            
+            // Determine if we need reversed sprite
+            // From current player's perspective: opponent pieces are seen from behind
+            const currentPlayerColor = boardData[81]; // 0 = black, 1 = white
+            const isOpponentPiece = piece.color !== currentPlayerColor;
+            const useReversed = isOpponentPiece !== boardFlipped; // Flip logic when board is flipped
+            
+            // Create piece image
+            const pieceImg = document.createElement('img');
+            pieceImg.className = 'piece';
+            pieceImg.src = getSpriteFilename(piece.topName, piece.color, useReversed);
+            pieceImg.style.left = (tilePos.x + (TILE_SIZE - PIECE_SIZE) / 2) + 'px';
+            pieceImg.style.top = (tilePos.y + (TILE_SIZE - PIECE_SIZE) / 2 + PIECE_OFFSET_Y) + 'px';
+            pieceImg.style.width = PIECE_SIZE + 'px';
+            pieceImg.style.height = PIECE_SIZE + 'px';
+            
+            // Add title for debugging/accessibility
+            let title = piece.top;
+            if (piece.bottom) {
+                title += `+${piece.bottom}`;
+            }
+            title += ` (${piece.color === 1 ? 'White' : 'Red'})`;
+            pieceImg.title = title;
+            
+            boardWrapper.appendChild(pieceImg);
         }
     }
 }
@@ -289,16 +357,17 @@ async function playMove(from, to, unstack = false) {
     renderBoard();
 }
 
-boardContainer.addEventListener('click', (e) => {
-    const cell = e.target.closest('td');
-    if (!cell) return;
+// Board click handler
+function handleBoardClick(e) {
+    const rect = boardWrapper.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
     
-    // Find the position by finding the cell index in our boardCells array
-    let visualIndex = boardCells.indexOf(cell);
-    if (visualIndex === -1) return;
+    const visualPos = getTileFromPosition(x, y);
+    if (visualPos === null) return;
     
-    // Map visual index back to actual position based on orientation
-    const pos = boardFlipped ? (LAST_BOARD_INDEX - visualIndex) : visualIndex;
+    // Map visual position back to actual position based on orientation
+    const pos = boardFlipped ? (LAST_BOARD_INDEX - visualPos) : visualPos;
 
     if (selectedPiece) {
         if (selectedPiece.to.includes(pos)) {
@@ -323,7 +392,40 @@ boardContainer.addEventListener('click', (e) => {
             renderBoard();
         }
     }
-});
+}
+
+// Board hover handler
+function handleBoardHover(e) {
+    const rect = boardWrapper.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const visualPos = getTileFromPosition(x, y);
+    if (visualPos === null) {
+        if (hoveredPiece !== null) {
+            hoveredPiece = null;
+            renderBoard();
+        }
+        return;
+    }
+    
+    const pos = boardFlipped ? (LAST_BOARD_INDEX - visualPos) : visualPos;
+    const pieceVal = boardData[pos];
+    const piece = decodePiece(pieceVal);
+    
+    // Only highlight if friendly piece and not currently selected
+    if (piece && piece.color === boardData[81] && (!selectedPiece || selectedPiece.from !== pos)) {
+        if (hoveredPiece !== pos) {
+            hoveredPiece = pos;
+            renderBoard();
+        }
+    } else {
+        if (hoveredPiece !== null) {
+            hoveredPiece = null;
+            renderBoard();
+        }
+    }
+}
 
 moveStackBtn.addEventListener('click', () => {
     unstackModal.classList.remove('is-active');
@@ -354,7 +456,6 @@ switchSidesBtn.addEventListener('click', () => {
     selectedMove = null;
     createBoard();
     renderBoard();
-    setTimeout(addBoardCellHoverListeners, 0);
 });
 
 // Ask Engine button handler
@@ -396,28 +497,6 @@ askEngineBtn.addEventListener('click', async () => {
         askEngineBtn.innerText = 'Ask Engine';
     }
 });
-
-function addBoardCellHoverListeners() {
-    boardCells.forEach((cell, visualIndex) => {
-        cell.onmouseenter = () => {
-            // Map visual index back to actual position
-            const pos = boardFlipped ? (LAST_BOARD_INDEX - visualIndex) : visualIndex;
-            const pieceVal = boardData[pos];
-            const piece = decodePiece(pieceVal);
-            // Only highlight if friendly piece and not currently selected
-            if (piece && piece.color === boardData[81] && (!selectedPiece || selectedPiece.from !== pos)) {
-                hoveredPiece = pos;
-                renderBoard();
-            }
-        };
-        cell.onmouseleave = () => {
-            if (hoveredPiece !== null) {
-                hoveredPiece = null;
-                renderBoard();
-            }
-        };
-    });
-}
 
 // Undo button handler
 undoBtn.addEventListener('click', async () => {
@@ -513,7 +592,10 @@ async function init() {
     
     // Create the empty board structure first
     createBoard();
-    setTimeout(addBoardCellHoverListeners, 0);
+    
+    // Add event listeners to board
+    boardWrapper.addEventListener('click', handleBoardClick);
+    boardWrapper.addEventListener('mousemove', handleBoardHover);
 
     // Then fetch config and initialize game
     const response = await fetch(`/config.json`);

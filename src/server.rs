@@ -12,6 +12,7 @@ use axum::{
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::services::ServeDir;
 
 // Shared engine state
 struct AppState {
@@ -55,6 +56,7 @@ async fn main() {
         .route("/moves", post(post_moves))
         .route("/play", post(play_move))
         .route("/engine-move", post(engine_move))
+        .nest_service("/", ServeDir::new("public"))
         .with_state(state)
         .layer(cors);
 
