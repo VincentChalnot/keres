@@ -139,3 +139,85 @@ async fn engine_move(State(state): State<Arc<AppState>>, payload: Bytes) -> Resu
     // Return the move as 2-byte little-endian u16
     Ok(move_encoding.to_le_bytes().to_vec())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use arx_engine::board::Position;
+
+    #[test]
+    fn test_potential_move_to_move_conversion() {
+        // Test case 1: force_unstack = true
+        let potential_move = PotentialMove {
+            from: Position::from_u8(10),
+            to: Position::from_u8(20),
+            unstackable: true,
+            force_unstack: true,
+        };
+        let potential_u16 = potential_move.to_u16();
+        
+        // Decode and convert as the server does
+        let decoded = PotentialMove::from_u16(potential_u16);
+        let unstack = decoded.force_unstack;
+        let mv = decoded.to_move(unstack);
+        
+        assert_eq!(mv.from, potential_move.from);
+        assert_eq!(mv.to, potential_move.to);
+        assert_eq!(mv.unstack, true);
+        
+        // Test case 2: force_unstack = false, unstackable = true
+        let potential_move2 = PotentialMove {
+            from: Position::from_u8(30),
+            to: Position::from_u8(40),
+            unstackable: true,
+            force_unstack: false,
+        };
+        let potential_u16_2 = potential_move2.to_u16();
+        
+        let decoded2 = PotentialMove::from_u16(potential_u16_2);
+        let unstack2 = decoded2.force_unstack;
+        let mv2 = decoded2.to_move(unstack2);
+        
+        assert_eq!(mv2.from, potential_move2.from);
+        assert_eq!(mv2.to, potential_move2.to);
+        assert_eq!(mv2.unstack, false);
+        
+        // Test case 3: force_unstack = false, unstackable = false
+        let potential_move3 = PotentialMove {
+            from: Position::from_u8(50),
+            to: Position::from_u8(60),
+            unstackable: false,
+            force_unstack: false,
+        };
+        let potential_u16_3 = potential_move3.to_u16();
+        
+        let decoded3 = PotentialMove::from_u16(potential_u16_3);
+        let unstack3 = decoded3.force_unstack;
+        let mv3 = decoded3.to_move(unstack3);
+        
+        assert_eq!(mv3.from, potential_move3.from);
+        assert_eq!(mv3.to, potential_move3.to);
+        assert_eq!(mv3.unstack, false);
+    }
+
+    #[test]
+    fn test_move_encoding_matches_client_expectations() {
+        // Create a move
+        let mv = Move {
+            from: Position::from_u8(15),
+            to: Position::from_u8(25),
+            unstack: true,
+        };
+        
+        let encoded = mv.to_u16();
+        
+        // Decode as the TypeScript client would
+        let from_decoded = (encoded & 0x7F) as u8;
+        let to_decoded = ((encoded >> 7) & 0x7F) as u8;
+        let unstack_decoded = ((encoded >> 14) & 0x1) != 0;
+        
+        assert_eq!(from_decoded, 15);
+        assert_eq!(to_decoded, 25);
+        assert_eq!(unstack_decoded, true);
+    }
+}
