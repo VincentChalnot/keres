@@ -1,6 +1,12 @@
 import * as THREE from 'three';
 import { IBoardView, TileHighlight } from './IBoardView';
-import { Piece, BOARD_ASPECT_RATIO, LAST_BOARD_INDEX, PIECE_OFFSET_Y, COLOR_NAME } from '../models/types';
+import {
+  BOARD_ASPECT_RATIO,
+  LAST_BOARD_INDEX,
+  PIECE_OFFSET_Y,
+  COLOR_NAME,
+  PIECE_TOP_OFFSET_FACTOR
+} from '../models/types';
 import { GameState } from '../models/GameState';
 
 interface TileOverlay {
@@ -63,6 +69,8 @@ export class ThreeJSBoardView implements IBoardView {
     // Create renderer
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, alpha: true, antialias: true });
     this.renderer.setPixelRatio(window.devicePixelRatio);
+    this.renderer.toneMapping = THREE.NoToneMapping;
+    this.renderer.toneMappingExposure = 1.0;
     this.updateRendererSize();
 
     // Raycaster for mouse picking
@@ -70,10 +78,34 @@ export class ThreeJSBoardView implements IBoardView {
     this.mouse = new THREE.Vector2();
 
     // Event listeners
-    window.addEventListener('resize', () => this.onResize());
-    this.canvas.addEventListener('click', (e) => this.handleClick(e));
-    this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-    this.canvas.addEventListener('mouseleave', () => this.handleMouseLeave());
+    window.addEventListener('resize', () => {
+      try {
+        this.onResize();
+      } catch (err) {
+        console.error('Resize event error:', err);
+      }
+    });
+    this.canvas.addEventListener('click', (e) => {
+      try {
+        this.handleClick(e);
+      } catch (err) {
+        console.error('Click event error:', err);
+      }
+    });
+    this.canvas.addEventListener('mousemove', (e) => {
+      try {
+        this.handleMouseMove(e);
+      } catch (err) {
+        console.error('MouseMove event error:', err);
+      }
+    });
+    this.canvas.addEventListener('mouseleave', () => {
+      try {
+        this.handleMouseLeave();
+      } catch (err) {
+        console.error('MouseLeave event error:', err);
+      }
+    });
 
     // Create board and overlays
     this.createBoard();
@@ -99,23 +131,23 @@ export class ThreeJSBoardView implements IBoardView {
   }
 
   private async createBoard(): Promise<void> {
-    if (this.boardSprite) {
-      this.scene.remove(this.boardSprite);
-      this.boardSprite.geometry.dispose();
-      this.boardSprite.material.dispose();
+    try {
+      if (this.boardSprite) {
+        this.scene.remove(this.boardSprite);
+        this.boardSprite.geometry.dispose();
+        this.boardSprite.material.dispose();
+      }
+      const texture = await this.loadTexture('images/board.jpg');
+      texture.colorSpace = THREE.SRGBColorSpace;
+      const material = new THREE.SpriteMaterial({ map: texture });
+      this.boardSprite = new THREE.Sprite(material);
+      const viewSize = 10;
+      this.boardSprite.scale.set(viewSize * BOARD_ASPECT_RATIO, viewSize, 1);
+      this.boardSprite.position.z = -1;
+      this.scene.add(this.boardSprite);
+    } catch (err) {
+      console.error('Error in createBoard:', err);
     }
-
-    const texture = await this.loadTexture('images/board.jpg');
-    texture.minFilter = THREE.LinearFilter;
-
-    const material = new THREE.SpriteMaterial({ map: texture });
-    this.boardSprite = new THREE.Sprite(material);
-
-    const viewSize = 10;
-    this.boardSprite.scale.set(viewSize * BOARD_ASPECT_RATIO, viewSize, 1);
-    this.boardSprite.position.z = -1;
-
-    this.scene.add(this.boardSprite);
   }
 
   private createOverlays(): void {
@@ -199,66 +231,88 @@ export class ThreeJSBoardView implements IBoardView {
   }
 
   async render(boardData: Uint8Array, flipped: boolean): Promise<void> {
-    await this.createPieceSprites(boardData, flipped);
-    this.renderScene();
+    try {
+      await this.createPieceSprites(boardData, flipped);
+      this.renderScene();
+    } catch (err) {
+      console.error('Error in render:', err);
+    }
   }
 
   private async createPieceSprites(boardData: Uint8Array, flipped: boolean): Promise<void> {
-    // Clear existing pieces
-    this.pieceSprites.forEach(sprite => {
-      this.scene.remove(sprite);
-      sprite.geometry.dispose();
-      sprite.material.dispose();
-    });
-    this.pieceSprites = [];
+    try {
+      // Clear existing pieces
+      this.pieceSprites.forEach(sprite => {
+        this.scene.remove(sprite);
+        sprite.geometry.dispose();
+        sprite.material.dispose();
+      });
+      this.pieceSprites = [];
 
-    const viewSize = 10;
-    const tileWidth = (viewSize * BOARD_ASPECT_RATIO) / 9;
-    const tileHeight = viewSize / 9;
-    const pieceSize = Math.max(tileWidth, tileHeight) * 1.2;
+      const viewSize = 10;
+      const tileWidth = (viewSize * BOARD_ASPECT_RATIO) / 9;
+      const tileHeight = viewSize / 9;
+      const pieceSize = Math.max(tileWidth, tileHeight) * 0.8;
 
-    for (let i = 0; i < 81; i++) {
-      const pieceVal = boardData[i];
-      const piece = this.gameState.decodePiece(pieceVal);
+      for (let i = 0; i < 81; i++) {
+        try {
+          const pieceVal = boardData[i];
+          const piece = this.gameState.decodePiece(pieceVal);
 
-      if (!piece) continue;
+          if (!piece) continue;
 
-      const pos = this.getTilePosition(i);
+          const pos = this.getTilePosition(i);
 
-      // Load bottom piece if stacked
-      if (piece.bottom) {
-        const bottomTexture = await this.loadPieceSprite(piece.bottom, piece.color, flipped);
-        const bottomMaterial = new THREE.SpriteMaterial({ map: bottomTexture });
-        const bottomSprite = new THREE.Sprite(bottomMaterial);
-        bottomSprite.scale.set(pieceSize, pieceSize, 1);
-        bottomSprite.position.set(pos.x, pos.y + PIECE_OFFSET_Y, 1);
-        this.scene.add(bottomSprite);
-        this.pieceSprites.push(bottomSprite);
+
+          // Load bottom piece
+          const bottomTexture = await this.loadPieceSprite(piece.bottom, piece.color, flipped);
+          const bottomMaterial = new THREE.SpriteMaterial({ map: bottomTexture });
+          const bottomSprite = new THREE.Sprite(bottomMaterial);
+          bottomSprite.scale.set(pieceSize, pieceSize, 1);
+          bottomSprite.position.set(pos.x, pos.y + PIECE_OFFSET_Y, 1);
+          this.scene.add(bottomSprite);
+          this.pieceSprites.push(bottomSprite);
+
+          // Load bottom piece if stacked
+          if (!piece.top) continue;
+
+          const topTexture = await this.loadPieceSprite(piece.top, piece.color, flipped);
+          const topMaterial = new THREE.SpriteMaterial({ map: topTexture });
+          const topSprite = new THREE.Sprite(topMaterial);
+          topSprite.scale.set(pieceSize, pieceSize, 1);
+          topSprite.position.set(pos.x, pos.y + PIECE_OFFSET_Y + pieceSize * PIECE_TOP_OFFSET_FACTOR, 2);
+          this.scene.add(topSprite);
+          this.pieceSprites.push(topSprite);
+        } catch (err) {
+          console.error(`Error creating piece sprite at index ${i}:`, err);
+        }
       }
-
-      // Load top piece
-      const topTexture = await this.loadPieceSprite(piece.top, piece.color, flipped);
-      const topMaterial = new THREE.SpriteMaterial({ map: topTexture });
-      const topSprite = new THREE.Sprite(topMaterial);
-      topSprite.scale.set(pieceSize, pieceSize, 1);
-      const zOffset = piece.bottom ? 2 : 1;
-      topSprite.position.set(pos.x, pos.y + PIECE_OFFSET_Y, zOffset);
-      this.scene.add(topSprite);
-      this.pieceSprites.push(topSprite);
+    } catch (err) {
+      console.error('Error in createPieceSprites:', err);
     }
   }
 
   private async loadPieceSprite(pieceName: string, color: number, reversed: boolean): Promise<THREE.Texture> {
-    const colorName = COLOR_NAME[color];
-    const reversedSuffix = reversed ? '-reversed' : '';
-    const path = `images/${pieceName}-${colorName}${reversedSuffix}.png`;
-    return await this.loadTexture(path);
+    try {
+      const colorName = COLOR_NAME[color];
+      const reversedSuffix = reversed ? '-reversed' : '';
+      const path = `images/${pieceName}-${colorName}${reversedSuffix}.png`;
+      const texture = await this.loadTexture(path);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      return texture;
+    } catch (err) {
+      console.error(`Error loading piece sprite: ${pieceName}, color: ${color}, reversed: ${reversed}`, err);
+      throw err;
+    }
   }
 
   private loadTexture(path: string): Promise<THREE.Texture> {
     return new Promise((resolve, reject) => {
       const loader = new THREE.TextureLoader();
-      loader.load(path, resolve, undefined, reject);
+      loader.load(path, resolve, undefined, (err) => {
+        console.error(`Error loading texture: ${path}`, err);
+        reject(err);
+      });
     });
   }
 

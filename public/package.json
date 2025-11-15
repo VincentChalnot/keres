@@ -9,7 +9,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "three": "^0.170.0"
+    "three": "^0.181.0"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
