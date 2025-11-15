@@ -119,12 +119,27 @@ async fn engine_move(State(state): State<Arc<AppState>>, payload: Bytes) -> Resu
     let engine = engine_guard.as_mut().ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
 
     // Find best move using the engine
-    let best_move = engine.find_best_move(&board_array)
+    // The engine returns a PotentialMove encoding (with unstackable and force_unstack flags)
+    let potential_move_u16 = engine.find_best_move(&board_array)
         .map_err(|e| {
             eprintln!("Engine error: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
+    // Decode the PotentialMove from engine
+    let from = (potential_move_u16 & 0x7F) as u8;
+    let to = ((potential_move_u16 >> 7) & 0x7F) as u8;
+    let _unstackable = (potential_move_u16 & 0x4000) != 0;
+    let force_unstack = (potential_move_u16 & 0x8000) != 0;
+
+    // Decide whether to unstack: must unstack if force_unstack is true
+    // For now, if force_unstack is false but unstackable is true, we don't unstack
+    // (the engine could be made smarter about this decision)
+    let unstack = force_unstack;
+
+    // Encode as Move (bit 14 is the unstack decision)
+    let move_encoding = (from as u16) | ((to as u16) << 7) | ((unstack as u16) << 14);
+
     // Return the move as 2-byte little-endian u16
-    Ok(best_move.to_le_bytes().to_vec())
+    Ok(move_encoding.to_le_bytes().to_vec())
 }
