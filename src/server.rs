@@ -1,5 +1,5 @@
 use arx_engine::board::{Board, BOARD_SIZE};
-use arx_engine::game::{Game, Move};
+use arx_engine::game::{Game, Move, PotentialMove};
 use arx_engine::engine::{MctsEngine, EngineConfig};
 use axum::{
     http::StatusCode,
@@ -126,19 +126,15 @@ async fn engine_move(State(state): State<Arc<AppState>>, payload: Bytes) -> Resu
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-    // Decode the PotentialMove from engine
-    let from = (potential_move_u16 & 0x7F) as u8;
-    let to = ((potential_move_u16 >> 7) & 0x7F) as u8;
-    let _unstackable = (potential_move_u16 & 0x4000) != 0;
-    let force_unstack = (potential_move_u16 & 0x8000) != 0;
-
+    // Convert from PotentialMove encoding to Move encoding
+    let potential_move = PotentialMove::from_u16(potential_move_u16);
+    
     // Decide whether to unstack: must unstack if force_unstack is true
     // For now, if force_unstack is false but unstackable is true, we don't unstack
     // (the engine could be made smarter about this decision)
-    let unstack = force_unstack;
-
-    // Encode as Move (bit 14 is the unstack decision)
-    let move_encoding = (from as u16) | ((to as u16) << 7) | ((unstack as u16) << 14);
+    let unstack = potential_move.force_unstack;
+    let mv = potential_move.to_move(unstack);
+    let move_encoding = mv.to_u16();
 
     // Return the move as 2-byte little-endian u16
     Ok(move_encoding.to_le_bytes().to_vec())
