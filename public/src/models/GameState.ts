@@ -111,7 +111,7 @@ export class GameState {
     const payload = piece & 0b00111111;
 
     if (payload === 0b111000) {
-      return { top: 'king', bottom: null, color };
+      return { bottom: 'king', top: null, color };
     }
 
     const topCode = (payload >> 3) & 0b111;
@@ -119,11 +119,11 @@ export class GameState {
 
     if (topCode === 0) {
       if (PIECE_CODE[bottomCode]) {
-        return { top: PIECE_CODE[bottomCode], bottom: null, color };
+        return { color, bottom: PIECE_CODE[bottomCode], top: null };
       }
     } else {
       if (PIECE_CODE[topCode] && PIECE_CODE[bottomCode]) {
-        return { top: PIECE_CODE[topCode], bottom: PIECE_CODE[bottomCode], color };
+        return { color, bottom: PIECE_CODE[bottomCode], top: PIECE_CODE[topCode] };
       }
     }
     return null;

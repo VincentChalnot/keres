@@ -5,9 +5,9 @@ export interface Config {
 }
 
 export interface Piece {
-  top: string;
-  bottom: string | null;
   color: number;
+  bottom: string;
+  top: string | null;
 }
 
 export interface SelectedPiece {
@@ -38,6 +38,7 @@ export const BOARD_SIZE = 9;
 export const LAST_BOARD_INDEX = (BOARD_SIZE * BOARD_SIZE) - 1;
 export const BOARD_ASPECT_RATIO = 3860 / 3163;
 export const PIECE_OFFSET_Y = 0.08;
+export const PIECE_TOP_OFFSET_FACTOR = 0.2;
 
 export const PIECE_CODE: Record<number, string> = {
   0b001: 'soldier',

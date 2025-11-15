@@ -1,6 +1,6 @@
 services:
   frontend:
-    image: node:20-slim
+    image: node:24-slim
     working_dir: /app
     ports:
       - "8080:8080"

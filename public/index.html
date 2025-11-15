@@ -16,16 +16,6 @@
       cursor: pointer;
       touch-action: none;
     }
-    #board-container {
-      position: relative;
-      width: 100%;
-      max-width: 900px;
-    }
-    .game-container {
-      display: flex;
-      gap: 2rem;
-      align-items: flex-start;
-    }
     .move-history {
       min-width: 250px;
       flex-shrink: 0;
@@ -43,7 +33,7 @@
     <div class="container">
       <h1 class="title">Arx</h1>
       <div class="game-container">
-        <div>
+        <div class="main-container">
           <div id="board-container"></div>
           <div id="status">Loading...</div>
           <div class="buttons mt-4">
@@ -53,8 +43,8 @@
           </div>
         </div>
         <div class="move-history">
-          <label class="label">Move History</label>
-          <textarea class="textarea" id="move-history" placeholder="B1-D2 F9-E8&#10;E1-F2 B7-C6&#10;..."></textarea>
+          <label class="label" for="move-history">Move History</label>
+          <textarea class="textarea" id="move-history" placeholder=""></textarea>
           <div class="buttons mt-2">
             <button class="button is-info" id="load-game-btn">Load</button>
             <button class="button is-warning" id="undo-btn">Undo</button>
