@@ -19,6 +19,7 @@
 //!
 //! ```no_run
 //! use arx_engine::engine::{MctsEngine, EngineConfig};
+//! use arx_engine::{Game, Board};
 //!
 //! // Create engine with custom configuration
 //! let config = EngineConfig {
@@ -31,8 +32,8 @@
 //! let mut engine = MctsEngine::with_config(config).expect("Failed to create engine");
 //!
 //! // Find best move for a board position
-//! let board_state = [0u8; 82]; // Your board state
-//! let best_move = engine.find_best_move(&board_state).expect("No legal moves");
+//! let game = Game::new();
+//! let best_move = engine.find_best_move(&game.board).expect("No legal moves");
 //!
 //! // Get search statistics
 //! let stats = engine.get_statistics();
@@ -45,6 +46,9 @@ use rayon::prelude::*;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
+use crate::board::Board;
+use crate::game::{Game, Move, PotentialMove};
+
 mod gpu_context;
 pub use gpu_context::{GpuContext, get_shared_context};
 
@@ -53,8 +57,6 @@ pub use gpu_move_gen::MoveGenerationEngine;
 
 mod gpu_batch_sim;
 pub use gpu_batch_sim::BatchSimulationEngine;
-
-const BOARD_SIZE: usize = 81;
 
 /// Piece values for evaluation (based on chess piece values, scaled with Soldier=1)
 const PIECE_VALUES: [i32; 8] = [
@@ -213,50 +215,53 @@ impl MctsEngine {
 
     /// Evaluate a board position and return the value
     /// Positive values favor the current player
-    fn evaluate_board(&self, board: &[u8; 82]) -> i32 {
-        let white_to_move = board[81] == 1;
+    fn evaluate_board(&self, board: &Board) -> i32 {
+        let white_to_move = board.is_white_to_move();
         let mut white_value = 0;
         let mut black_value = 0;
 
-        for i in 0..BOARD_SIZE {
-            let piece = board[i];
-            if piece == 0 {
-                continue;
-            }
+        // Iterate through all positions on the board
+        for y in 0..9 {
+            for x in 0..9 {
+                let pos = crate::board::Position::new(x, y);
+                if let Some(piece) = board.get_piece(&pos) {
+                    // Add value for bottom piece
+                    let bottom_value = match piece.bottom {
+                        crate::board::PieceType::Soldier => PIECE_VALUES[1],
+                        crate::board::PieceType::Jester => PIECE_VALUES[2],
+                        crate::board::PieceType::Commander => PIECE_VALUES[3],
+                        crate::board::PieceType::Paladin => PIECE_VALUES[4],
+                        crate::board::PieceType::Guard => PIECE_VALUES[5],
+                        crate::board::PieceType::Dragon => PIECE_VALUES[6],
+                        crate::board::PieceType::Ballista => PIECE_VALUES[7],
+                        crate::board::PieceType::King => KING_VALUE,
+                    };
 
-            let is_white = (piece >> 6) == 1;
-            let payload = piece & 0x3F;
+                    if piece.color == crate::board::Color::White {
+                        white_value += bottom_value;
+                    } else {
+                        black_value += bottom_value;
+                    }
 
-            // Check for King
-            if payload == 0x38 {
-                if is_white {
-                    white_value += KING_VALUE;
-                } else {
-                    black_value += KING_VALUE;
-                }
-                continue;
-            }
+                    // Add value for top piece if stacked
+                    if let Some(top_piece) = piece.top {
+                        let top_value = match top_piece {
+                            crate::board::PieceType::Soldier => PIECE_VALUES[1],
+                            crate::board::PieceType::Jester => PIECE_VALUES[2],
+                            crate::board::PieceType::Commander => PIECE_VALUES[3],
+                            crate::board::PieceType::Paladin => PIECE_VALUES[4],
+                            crate::board::PieceType::Guard => PIECE_VALUES[5],
+                            crate::board::PieceType::Dragon => PIECE_VALUES[6],
+                            crate::board::PieceType::Ballista => PIECE_VALUES[7],
+                            crate::board::PieceType::King => KING_VALUE,
+                        };
 
-            let top_code = (payload >> 3) & 0x07;
-            let bottom_code = payload & 0x07;
-
-            // Add value for bottom piece
-            if bottom_code > 0 && (bottom_code as usize) < PIECE_VALUES.len() {
-                let value = PIECE_VALUES[bottom_code as usize];
-                if is_white {
-                    white_value += value;
-                } else {
-                    black_value += value;
-                }
-            }
-
-            // Add value for top piece if stacked
-            if top_code > 0 && (top_code as usize) < PIECE_VALUES.len() {
-                let value = PIECE_VALUES[top_code as usize];
-                if is_white {
-                    white_value += value;
-                } else {
-                    black_value += value;
+                        if piece.color == crate::board::Color::White {
+                            white_value += top_value;
+                        } else {
+                            black_value += top_value;
+                        }
+                    }
                 }
             }
         }
@@ -269,104 +274,78 @@ impl MctsEngine {
         }
     }
 
-    /// Apply a move to a board state (simplified version without full game logic)
-    /// This is a GPU-independent implementation for the engine
-    fn apply_move_simple(&self, board: &[u8; 82], move_encoding: u16) -> Result<[u8; 82], String> {
-        let mut new_board = board.clone();
-        
-        let from = (move_encoding & 0x7F) as usize;
-        let to = ((move_encoding >> 7) & 0x7F) as usize;
-        let unstack = (move_encoding & 0x4000) != 0;
-
-        if from >= BOARD_SIZE || to >= BOARD_SIZE {
-            return Err("Invalid move: position out of bounds".to_string());
-        }
-
-        let piece = board[from];
-        if piece == 0 {
-            return Err("No piece at source position".to_string());
-        }
-
-        if unstack {
-            // Unstack top piece
-            let payload = piece & 0x3F;
-            let top_code = (payload >> 3) & 0x07;
-            let bottom_code = payload & 0x07;
-            let color_bit = piece & 0x40;
-
-            if top_code == 0 {
-                return Err("Cannot unstack: no top piece".to_string());
-            }
-
-            // Create new bottom piece (remove top)
-            new_board[from] = color_bit | bottom_code;
-
-            // Create moving piece (top becomes new bottom)
-            let moving_piece = color_bit | top_code;
-
-            // Place at destination (simple: just replace, no stacking logic)
-            new_board[to] = moving_piece;
-        } else {
-            // Move entire piece/stack
-            new_board[from] = 0;
-            new_board[to] = piece; // Simplified: just capture/replace
-        }
-
-        // Switch turn
-        new_board[81] = if new_board[81] == 1 { 0 } else { 1 };
-
-        Ok(new_board)
+    /// Apply a move to a board state using proper game logic
+    fn apply_move(&self, board: &Board, mv: &Move) -> Result<Board, String> {
+        let game = Game::from_board(board.clone());
+        game.apply_move_copy(*mv)
     }
 
     /// Run simulations from a given board state
-    fn simulate(&self, board: &[u8; 82], depth: u32) -> i32 {
+    /// Run simulations from a given board state
+    fn simulate(&self, board: &Board, depth: u32) -> i32 {
         // Terminal condition: max depth reached or game over
         if depth >= self.config.max_depth {
             return self.evaluate_board(board);
         }
 
-        // Generate legal moves
-        let moves = match self.move_gen.generate_moves(board) {
-            Ok(m) => m,
-            Err(_) => return self.evaluate_board(board), // No moves, evaluate position
-        };
+        // Generate legal moves using the Game API
+        let game = Game::from_board(board.clone());
+        let potential_moves = game.get_all_moves();
 
-        if moves.is_empty() {
+        if potential_moves.is_empty() {
             return self.evaluate_board(board);
         }
 
         // Simple rollout: pick random move and continue
         let mut rng = rand::thread_rng();
-        let random_move = moves[rng.gen_range(0..moves.len())];
+        let random_potential_move = &potential_moves[rng.gen_range(0..potential_moves.len())];
+        
+        // Decide whether to unstack based on force_unstack
+        let unstack = random_potential_move.force_unstack;
+        let mv = random_potential_move.to_move(unstack);
 
-        match self.apply_move_simple(board, random_move) {
+        match self.apply_move(board, &mv) {
             Ok(new_board) => -self.simulate(&new_board, depth + 1), // Negate for opponent's perspective
             Err(_) => self.evaluate_board(board), // Invalid move, evaluate current position
         }
     }
 
     /// Find the best move using MCTS with GPU acceleration and multi-threading
-    pub fn find_best_move(&mut self, board: &[u8; 82]) -> Result<u16, String> {
+    pub fn find_best_move(&mut self, board: &Board) -> Result<Move, String> {
         // Reset search-specific stats
         let search_start_moves = self.stats.total_moves.load(Ordering::Relaxed);
         
-        // Generate all legal moves
-        let moves = self.move_gen.generate_moves(board)?;
+        // Generate all legal moves using Game API
+        let game = Game::from_board(board.clone());
+        let potential_moves = game.get_all_moves();
 
-        if moves.is_empty() {
+        if potential_moves.is_empty() {
             return Err("No legal moves available".to_string());
         }
 
-        if moves.len() == 1 {
-            return Ok(moves[0]);
+        if potential_moves.len() == 1 {
+            // Return the only move, deciding on unstack based on force_unstack
+            let unstack = potential_moves[0].force_unstack;
+            return Ok(potential_moves[0].to_move(unstack));
         }
 
+        // Convert board to binary for GPU communication
+        let board_binary = board.to_binary();
+
+        // Use GPU for move generation
+        let moves_u16 = self.move_gen.generate_moves(&board_binary)?;
+
         // Use GPU batch processing if available
-        if let Some(ref batch_sim) = self.batch_sim {
-            self.find_best_move_gpu(board, &moves, batch_sim, search_start_moves)
+        let best_move_u16 = if let Some(ref batch_sim) = self.batch_sim {
+            self.find_best_move_gpu(&board_binary, &moves_u16, batch_sim, search_start_moves)?
         } else {
-            self.find_best_move_cpu(board, &moves, search_start_moves)
-        }
+            self.find_best_move_cpu(board, &potential_moves, search_start_moves)?
+        };
+
+        // Convert the u16 back to a Move
+        let potential_move = PotentialMove::from_u16(best_move_u16);
+        let unstack = potential_move.force_unstack;
+        Ok(potential_move.to_move(unstack))
     }
 
     /// GPU-accelerated move evaluation with batch processing
@@ -419,9 +398,20 @@ impl MctsEngine {
                         }
                         Err(_) => {
                             // Fall back to CPU for this batch
+                            // Convert binary board to Board object for CPU processing
+                            let board_obj = match Board::from_binary(*board) {
+                                Ok(b) => b,
+                                Err(_) => continue,
+                            };
+                            
+                            // Decode the move
+                            let potential_move = PotentialMove::from_u16(mv);
+                            let unstack = potential_move.force_unstack;
+                            let move_obj = potential_move.to_move(unstack);
+                            
                             self.stats.cpu_sims.fetch_add(sims_in_batch as u64, Ordering::Relaxed);
                             for _ in 0..sims_in_batch {
-                                if let Ok(new_board) = self.apply_move_simple(board, mv) {
+                                if let Ok(new_board) = self.apply_move(&board_obj, &move_obj) {
                                     let score = -self.simulate(&new_board, 1);
                                     total_score += score;
                                     valid_simulations += 1;
@@ -457,19 +447,23 @@ impl MctsEngine {
     /// CPU-based move evaluation with multi-threading (fallback)
     fn find_best_move_cpu(
         &self,
-        board: &[u8; 82],
-        moves: &[u16],
+        board: &Board,
+        potential_moves: &[PotentialMove],
         _search_start_moves: u64,
     ) -> Result<u16, String> {
         // Evaluate each move using parallel processing
-        let move_scores: Vec<(u16, i32, u32)> = moves
+        let move_scores: Vec<(u16, i32, u32)> = potential_moves
             .par_iter()
-            .map(|&mv| {
+            .map(|potential_mv| {
                 let mut total_score = 0;
                 let mut simulations = 0;
 
+                // Decide on unstack based on force_unstack
+                let unstack = potential_mv.force_unstack;
+                let mv = potential_mv.to_move(unstack);
+
                 for _ in 0..self.config.simulations_per_move {
-                    match self.apply_move_simple(board, mv) {
+                    match self.apply_move(board, &mv) {
                         Ok(new_board) => {
                             let score = -self.simulate(&new_board, 1);
                             total_score += score;
@@ -483,7 +477,7 @@ impl MctsEngine {
                 self.stats.cpu_sims.fetch_add(simulations as u64, Ordering::Relaxed);
                 self.stats.total_moves.fetch_add(simulations as u64, Ordering::Relaxed);
 
-                (mv, total_score, simulations)
+                (potential_mv.to_u16(), total_score, simulations)
             })
             .collect();
 
@@ -558,13 +552,25 @@ mod tests {
         let engine = engine.unwrap();
         
         // Test empty board
-        let mut board = [0u8; 82];
-        board[81] = 1; // White to move
+        let mut board = Board::new();
+        // Clear the board
+        for y in 0..9 {
+            for x in 0..9 {
+                let pos = crate::board::Position::new(x, y);
+                board.set_piece(&pos, None);
+            }
+        }
         let eval = engine.evaluate_board(&board);
         assert_eq!(eval, 0, "Empty board should evaluate to 0");
 
         // Test board with one white soldier
-        board[40] = 0b1000001; // White Soldier at center
+        let pos = crate::board::Position::new(4, 4); // Center
+        let piece = crate::board::Piece {
+            color: crate::board::Color::White,
+            bottom: crate::board::PieceType::Soldier,
+            top: None,
+        };
+        board.set_piece(&pos, Some(piece));
         let eval = engine.evaluate_board(&board);
         assert_eq!(eval, 1, "Board with one white soldier should evaluate to 1 for white");
     }

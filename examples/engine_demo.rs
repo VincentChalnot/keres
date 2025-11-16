@@ -1,4 +1,4 @@
-use arx_engine::{engine::{MctsEngine, EngineConfig}, Game, Move};
+use arx_engine::{engine::{MctsEngine, EngineConfig}, Game};
 
 fn main() {
     println!("Arx Engine - MCTS GPU Engine Example");
@@ -37,9 +37,6 @@ fn main() {
     println!("Playing first 500 moves with the engine:\n");
 
     for move_num in 1..=500 {
-        // Get current board state
-        let board_state = game.to_binary();
-        
         // Check if game is over
         if game.board.is_game_over() {
             println!("Game over!");
@@ -50,7 +47,7 @@ fn main() {
         println!("Move {}: Thinking...", move_num);
         let start = std::time::Instant::now();
         
-        let best_move = match engine.find_best_move(&board_state) {
+        let best_move = match engine.find_best_move(&game.board) {
             Ok(m) => m,
             Err(e) => {
                 eprintln!("✗ Failed to find move: {}", e);
@@ -63,11 +60,10 @@ fn main() {
         // Get statistics
         let stats = engine.get_statistics();
         
-        // Decode and display the move
-        let mv = Move::from_u16(best_move);
-        let from_str = mv.from.to_string();
-        let to_str = mv.to.to_string();
-        let unstack_str = if mv.unstack { " (unstack)" } else { "" };
+        // Display the move
+        let from_str = best_move.from.to_string();
+        let to_str = best_move.to.to_string();
+        let unstack_str = if best_move.unstack { " (unstack)" } else { "" };
         
         println!("  Best move: {} -> {}{}", from_str, to_str, unstack_str);
         println!("  Time: {:.3}s", elapsed.as_secs_f64());
@@ -79,7 +75,7 @@ fn main() {
         println!("    - Avg moves/simulation: {:.2}", stats.avg_moves_per_simulation());
 
         // Apply the move
-        match game.apply_move(mv) {
+        match game.apply_move(best_move) {
             Ok(_) => println!("  ✓ Move applied\n"),
             Err(e) => {
                 eprintln!("  ✗ Failed to apply move: {}", e);
