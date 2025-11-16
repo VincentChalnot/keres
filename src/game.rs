@@ -119,21 +119,31 @@ impl Game {
         // Check what's at the destination position
         let destination_piece_opt = new_board.get_piece(&mv.to).cloned();
         
+        let mut final_piece = source_piece;
+        
         if destination_piece_opt.is_none() {
             // Empty square: just place the piece
-            new_board.set_piece(&mv.to, Some(source_piece));
+            new_board.set_piece(&mv.to, Some(final_piece));
         } else {
             let destination_piece = destination_piece_opt.unwrap();
             
             if destination_piece.color != source_piece.color {
                 // Enemy piece: capture it (replace with our piece)
-                new_board.set_piece(&mv.to, Some(source_piece));
+                new_board.set_piece(&mv.to, Some(final_piece));
             } else {
                 // Friendly piece: attempt to stack
                 if let Err(e) = new_board.stack_piece(&mv.to, source_piece) {
                     return Err(format!("Cannot complete move: {}", e));
                 }
+                // Update final_piece to reflect the stacked piece for promotion check
+                final_piece = *new_board.get_piece(&mv.to).unwrap();
             }
+        }
+        
+        // Check for promotion: Soldier → Paladin, Ballista → Commander on opposite side
+        let promote_piece = Self::check_promotion(&final_piece, &mv.to);
+        if let Some(promoted) = promote_piece {
+            new_board.set_piece(&mv.to, Some(promoted));
         }
         
         new_board.set_white_to_move(!new_board.is_white_to_move()); // Switch turn
@@ -273,6 +283,53 @@ impl Game {
         Ok(Game::from_board(board))
     }
 
+    /// Check if a piece needs to be promoted when it reaches the opposite side
+    /// Soldier → Paladin, Ballista → Commander
+    /// Returns Some(promoted_piece) if promotion is needed, None otherwise
+    fn check_promotion(piece: &Piece, position: &Position) -> Option<Piece> {
+        // Check if the piece reached the opposite side
+        let reached_opposite_side = match piece.color {
+            Color::White => position.y == 0, // White pieces start at bottom (y=8) and move up (y=0)
+            Color::Black => position.y == 8, // Black pieces start at top (y=0) and move down (y=8)
+        };
+        
+        if !reached_opposite_side {
+            return None;
+        }
+        
+        // Check if promotion is needed based on piece type
+        let needs_promotion = if piece.top.is_some() {
+            // For stacked pieces, check if the top piece needs promotion
+            piece.top == Some(PieceType::Soldier) || piece.top == Some(PieceType::Ballista)
+        } else {
+            // For single pieces, check if the bottom piece needs promotion
+            piece.bottom == PieceType::Soldier || piece.bottom == PieceType::Ballista
+        };
+        
+        if !needs_promotion {
+            return None;
+        }
+        
+        // Perform the promotion
+        if piece.top.is_some() {
+            // Promote the top piece
+            let promoted_top = match piece.top.unwrap() {
+                PieceType::Soldier => PieceType::Paladin,
+                PieceType::Ballista => PieceType::Commander,
+                _ => return None, // Should not happen based on needs_promotion check
+            };
+            Some(Piece::new(piece.color, piece.bottom, Some(promoted_top)))
+        } else {
+            // Promote the single piece (bottom)
+            let promoted_bottom = match piece.bottom {
+                PieceType::Soldier => PieceType::Paladin,
+                PieceType::Ballista => PieceType::Commander,
+                _ => return None, // Should not happen based on needs_promotion check
+            };
+            Some(Piece::new(piece.color, promoted_bottom, None))
+        }
+    }
+
     fn compute_soldier_moves(
         &self,
         position: &Position,
@@ -347,5 +404,205 @@ impl Game {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_soldier_promotion_to_paladin_white() {
+        let mut game = Game::new();
+        
+        // Place a white soldier at position (4, 1) - near the top
+        let soldier_pos = Position::new(4, 1);
+        game.board.set_piece(&soldier_pos, Some(Piece::new(Color::White, PieceType::Soldier, None)));
+        
+        // Move the soldier to (3, 0) - top row (opposite side for white)
+        let mv = Move {
+            from: soldier_pos,
+            to: Position::new(3, 0),
+            unstack: false,
+        };
+        
+        let result = game.apply_move_copy(mv);
+        assert!(result.is_ok(), "Move should be valid");
+        
+        let new_board = result.unwrap();
+        let piece = new_board.get_piece(&Position::new(3, 0));
+        assert!(piece.is_some(), "Piece should be at destination");
+        
+        let piece = piece.unwrap();
+        assert_eq!(piece.color, Color::White);
+        assert_eq!(piece.bottom, PieceType::Paladin, "Soldier should be promoted to Paladin");
+        assert_eq!(piece.top, None);
+    }
+
+    #[test]
+    fn test_soldier_promotion_to_paladin_black() {
+        let mut game = Game::new();
+        
+        // Place a black soldier at position (4, 7) - near the bottom
+        let soldier_pos = Position::new(4, 7);
+        game.board.set_piece(&soldier_pos, Some(Piece::new(Color::Black, PieceType::Soldier, None)));
+        
+        // Move the soldier to (3, 8) - bottom row (opposite side for black)
+        let mv = Move {
+            from: soldier_pos,
+            to: Position::new(3, 8),
+            unstack: false,
+        };
+        
+        let result = game.apply_move_copy(mv);
+        assert!(result.is_ok(), "Move should be valid");
+        
+        let new_board = result.unwrap();
+        let piece = new_board.get_piece(&Position::new(3, 8));
+        assert!(piece.is_some(), "Piece should be at destination");
+        
+        let piece = piece.unwrap();
+        assert_eq!(piece.color, Color::Black);
+        assert_eq!(piece.bottom, PieceType::Paladin, "Soldier should be promoted to Paladin");
+        assert_eq!(piece.top, None);
+    }
+
+    #[test]
+    fn test_ballista_promotion_to_commander_white() {
+        let mut game = Game::new();
+        
+        // Place a white ballista at position (4, 1) - near the top
+        let ballista_pos = Position::new(4, 1);
+        game.board.set_piece(&ballista_pos, Some(Piece::new(Color::White, PieceType::Ballista, None)));
+        
+        // Move the ballista to (4, 0) - top row (opposite side for white)
+        let mv = Move {
+            from: ballista_pos,
+            to: Position::new(4, 0),
+            unstack: false,
+        };
+        
+        let result = game.apply_move_copy(mv);
+        assert!(result.is_ok(), "Move should be valid");
+        
+        let new_board = result.unwrap();
+        let piece = new_board.get_piece(&Position::new(4, 0));
+        assert!(piece.is_some(), "Piece should be at destination");
+        
+        let piece = piece.unwrap();
+        assert_eq!(piece.color, Color::White);
+        assert_eq!(piece.bottom, PieceType::Commander, "Ballista should be promoted to Commander");
+        assert_eq!(piece.top, None);
+    }
+
+    #[test]
+    fn test_ballista_promotion_to_commander_black() {
+        let mut game = Game::new();
+        
+        // Place a black ballista at position (4, 7) - near the bottom
+        let ballista_pos = Position::new(4, 7);
+        game.board.set_piece(&ballista_pos, Some(Piece::new(Color::Black, PieceType::Ballista, None)));
+        
+        // Move the ballista to (4, 8) - bottom row (opposite side for black)
+        let mv = Move {
+            from: ballista_pos,
+            to: Position::new(4, 8),
+            unstack: false,
+        };
+        
+        let result = game.apply_move_copy(mv);
+        assert!(result.is_ok(), "Move should be valid");
+        
+        let new_board = result.unwrap();
+        let piece = new_board.get_piece(&Position::new(4, 8));
+        assert!(piece.is_some(), "Piece should be at destination");
+        
+        let piece = piece.unwrap();
+        assert_eq!(piece.color, Color::Black);
+        assert_eq!(piece.bottom, PieceType::Commander, "Ballista should be promoted to Commander");
+        assert_eq!(piece.top, None);
+    }
+
+    #[test]
+    fn test_soldier_no_promotion_middle_board() {
+        let mut game = Game::new();
+        
+        // Place a white soldier at position (4, 5)
+        let soldier_pos = Position::new(4, 5);
+        game.board.set_piece(&soldier_pos, Some(Piece::new(Color::White, PieceType::Soldier, None)));
+        
+        // Move the soldier to (3, 4) - not on opposite side
+        let mv = Move {
+            from: soldier_pos,
+            to: Position::new(3, 4),
+            unstack: false,
+        };
+        
+        let result = game.apply_move_copy(mv);
+        assert!(result.is_ok(), "Move should be valid");
+        
+        let new_board = result.unwrap();
+        let piece = new_board.get_piece(&Position::new(3, 4));
+        assert!(piece.is_some(), "Piece should be at destination");
+        
+        let piece = piece.unwrap();
+        assert_eq!(piece.color, Color::White);
+        assert_eq!(piece.bottom, PieceType::Soldier, "Soldier should NOT be promoted in middle of board");
+        assert_eq!(piece.top, None);
+    }
+
+    #[test]
+    fn test_stacked_soldier_promotion() {
+        let mut game = Game::new();
+        
+        // Place a stacked piece: Soldier on top of Guard at position (4, 1)
+        let stack_pos = Position::new(4, 1);
+        game.board.set_piece(&stack_pos, Some(Piece::new(Color::White, PieceType::Guard, Some(PieceType::Soldier))));
+        
+        // Unstack and move the soldier to (3, 0) - top row
+        let mv = Move {
+            from: stack_pos,
+            to: Position::new(3, 0),
+            unstack: true,
+        };
+        
+        let result = game.apply_move_copy(mv);
+        assert!(result.is_ok(), "Move should be valid");
+        
+        let new_board = result.unwrap();
+        let piece = new_board.get_piece(&Position::new(3, 0));
+        assert!(piece.is_some(), "Piece should be at destination");
+        
+        let piece = piece.unwrap();
+        assert_eq!(piece.color, Color::White);
+        assert_eq!(piece.bottom, PieceType::Paladin, "Unstacked Soldier should be promoted to Paladin");
+        assert_eq!(piece.top, None);
+    }
+
+    #[test]
+    fn test_other_pieces_no_promotion() {
+        let mut game = Game::new();
+        
+        // Test that other pieces (like Guard) don't get promoted
+        let guard_pos = Position::new(4, 1);
+        game.board.set_piece(&guard_pos, Some(Piece::new(Color::White, PieceType::Guard, None)));
+        
+        let mv = Move {
+            from: guard_pos,
+            to: Position::new(3, 0),
+            unstack: false,
+        };
+        
+        let result = game.apply_move_copy(mv);
+        assert!(result.is_ok(), "Move should be valid");
+        
+        let new_board = result.unwrap();
+        let piece = new_board.get_piece(&Position::new(3, 0));
+        assert!(piece.is_some(), "Piece should be at destination");
+        
+        let piece = piece.unwrap();
+        assert_eq!(piece.color, Color::White);
+        assert_eq!(piece.bottom, PieceType::Guard, "Guard should NOT be promoted");
+        assert_eq!(piece.top, None);
     }
 }

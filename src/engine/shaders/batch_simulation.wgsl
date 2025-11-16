@@ -65,6 +65,61 @@ fn is_king(piece: u32) -> bool {
     return payload == KING_PAYLOAD;
 }
 
+// Check if a piece needs promotion and return the promoted piece
+// Soldier (1) → Paladin (4), Ballista (7) → Commander (3) on opposite side
+fn check_promotion(piece: u32, to_idx: u32) -> u32 {
+    if piece == 0u {
+        return piece;
+    }
+    
+    // Calculate position from index
+    let to_y = to_idx / u32(BOARD_DIM);
+    let color_bit = piece & 0x40u;
+    let is_white = (piece >> 6u) == 1u;
+    let payload = piece & 0x3Fu;
+    
+    // Check if piece reached opposite side
+    let reached_opposite = (is_white && to_y == 0u) || (!is_white && to_y == 8u);
+    if !reached_opposite {
+        return piece;
+    }
+    
+    // For King or non-promotable pieces, no promotion
+    if payload == KING_PAYLOAD {
+        return piece;
+    }
+    
+    let top_code = (payload >> 3u) & 7u;
+    let bottom_code = payload & 7u;
+    
+    // Check if top piece needs promotion (for stacked pieces)
+    if top_code != 0u {
+        var promoted_top = top_code;
+        if top_code == PIECE_SOLDIER {
+            promoted_top = PIECE_PALADIN;
+        } else if top_code == PIECE_BALLISTA {
+            promoted_top = PIECE_COMMANDER;
+        }
+        if promoted_top != top_code {
+            return color_bit | (promoted_top << 3u) | bottom_code;
+        }
+        return piece;
+    }
+    
+    // Check if single piece (bottom) needs promotion
+    var promoted_bottom = bottom_code;
+    if bottom_code == PIECE_SOLDIER {
+        promoted_bottom = PIECE_PALADIN;
+    } else if bottom_code == PIECE_BALLISTA {
+        promoted_bottom = PIECE_COMMANDER;
+    }
+    if promoted_bottom != bottom_code {
+        return color_bit | promoted_bottom;
+    }
+    
+    return piece;
+}
+
 // Apply a move to a board state
 fn apply_move(board: ptr<function, BoardState>, move_encoding: u32) -> bool {
     let from_idx = move_encoding & 0x7Fu;
@@ -99,10 +154,16 @@ fn apply_move(board: ptr<function, BoardState>, move_encoding: u32) -> bool {
         
         // Place at destination (simple: just replace, no stacking logic)
         (*board).squares[to] = moving_piece;
+        
+        // Apply promotion if needed
+        (*board).squares[to] = check_promotion((*board).squares[to], to);
     } else {
         // Move entire piece/stack
         (*board).squares[from_idx] = 0u;
         (*board).squares[to] = piece; // Simplified: just capture/replace
+        
+        // Apply promotion if needed
+        (*board).squares[to] = check_promotion((*board).squares[to], to);
     }
     
     // Switch turn
