@@ -87,9 +87,9 @@ pub enum PieceType {
     Soldier = 0b001,   // 1
     Jester = 0b010,    // 2
     Commander = 0b011, // 3
-    Paladin = 0b100,  // 4
-    Guard = 0b101,    // 5
-    Dragon = 0b110,   // 6
+    Paladin = 0b100,   // 4
+    Guard = 0b101,     // 5
+    Dragon = 0b110,    // 6
     Ballista = 0b111,  // 7
     King,              // Handled specially, its discriminant (8) is not used in 3-bit piece codes
 }

@@ -1,4 +1,7 @@
-use arx_engine::{engine::{MctsEngine, EngineConfig}, Game};
+use arx_engine::{
+    engine::{EngineConfig, MctsEngine},
+    Game,
+};
 
 fn main() {
     println!("Arx Engine - MCTS GPU Engine Example");
@@ -21,7 +24,7 @@ fn main() {
     println!("  Simulations per move: {}", config.simulations_per_move);
     println!("  GPU batch size: {}", config.gpu_batch_size);
     println!("  GPU simulation: {}", config.use_gpu_simulation);
-    
+
     let mut engine = match MctsEngine::with_config(config) {
         Ok(e) => {
             println!("✓ Engine created successfully\n");
@@ -46,7 +49,7 @@ fn main() {
         // Find best move
         println!("Move {}: Thinking...", move_num);
         let start = std::time::Instant::now();
-        
+
         let best_move = match engine.find_best_move(&game.board) {
             Ok(m) => m,
             Err(e) => {
@@ -54,25 +57,34 @@ fn main() {
                 break;
             }
         };
-        
+
         let elapsed = start.elapsed();
 
         // Get statistics
         let stats = engine.get_statistics();
-        
+
         // Display the move
         let from_str = best_move.from.to_string();
         let to_str = best_move.to.to_string();
         let unstack_str = if best_move.unstack { " (unstack)" } else { "" };
-        
+
         println!("  Best move: {} -> {}{}", from_str, to_str, unstack_str);
         println!("  Time: {:.3}s", elapsed.as_secs_f64());
         println!("  Statistics:");
-        println!("    - Total moves evaluated: {}", stats.total_moves_evaluated);
+        println!(
+            "    - Total moves evaluated: {}",
+            stats.total_moves_evaluated
+        );
         println!("    - Simulations run: {}", stats.simulations_run);
-        println!("    - GPU batches processed: {}", stats.gpu_batches_processed);
+        println!(
+            "    - GPU batches processed: {}",
+            stats.gpu_batches_processed
+        );
         println!("    - CPU simulations: {}", stats.cpu_simulations);
-        println!("    - Avg moves/simulation: {:.2}", stats.avg_moves_per_simulation());
+        println!(
+            "    - Avg moves/simulation: {:.2}",
+            stats.avg_moves_per_simulation()
+        );
 
         // Apply the move
         match game.apply_move(best_move) {
@@ -88,11 +100,20 @@ fn main() {
     let final_stats = engine.get_statistics();
     println!("═══════════════════════════════════════");
     println!("Final Statistics:");
-    println!("  Total moves evaluated: {}", final_stats.total_moves_evaluated);
+    println!(
+        "  Total moves evaluated: {}",
+        final_stats.total_moves_evaluated
+    );
     println!("  Total simulations run: {}", final_stats.simulations_run);
-    println!("  GPU batches processed: {}", final_stats.gpu_batches_processed);
+    println!(
+        "  GPU batches processed: {}",
+        final_stats.gpu_batches_processed
+    );
     println!("  CPU simulations: {}", final_stats.cpu_simulations);
-    println!("  Average moves per simulation: {:.2}", final_stats.avg_moves_per_simulation());
+    println!(
+        "  Average moves per simulation: {:.2}",
+        final_stats.avg_moves_per_simulation()
+    );
     println!("═══════════════════════════════════════");
 
     println!("\nExample completed!");
