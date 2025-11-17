@@ -5,7 +5,7 @@ export interface Config {
 }
 
 export interface Piece {
-  color: number;
+  color: boolean;
   bottom: string;
   top: string | null;
 }
@@ -36,9 +36,6 @@ export interface TileState {
 // Constants
 export const BOARD_SIZE = 9;
 export const LAST_BOARD_INDEX = (BOARD_SIZE * BOARD_SIZE) - 1;
-export const BOARD_ASPECT_RATIO = 3860 / 3163;
-export const PIECE_OFFSET_Y = 0.08;
-export const PIECE_TOP_OFFSET_FACTOR = 0.2;
 
 export const PIECE_CODE: Record<number, string> = {
   0b001: 'soldier',
@@ -48,9 +45,4 @@ export const PIECE_CODE: Record<number, string> = {
   0b101: 'guard',
   0b110: 'dragon',
   0b111: 'ballista',
-};
-
-export const COLOR_NAME: Record<number, string> = {
-  0: 'red',
-  1: 'white'
 };

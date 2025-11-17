@@ -107,7 +107,7 @@ export class GameState {
    */
   decodePiece(piece: number): Piece | null {
     if (piece === 0) return null;
-    const color = (piece >> 6) & 0b1;
+    const color = !!((piece >> 6) & 0b1);
     const payload = piece & 0b00111111;
 
     if (payload === 0b111000) {

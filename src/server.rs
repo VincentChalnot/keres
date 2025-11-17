@@ -23,9 +23,9 @@ async fn main() {
     // Initialize the engine with configuration from engine_demo.rs
     let config = EngineConfig {
         max_depth: 16,
-        simulations_per_move: 10000,
+        simulations_per_move: 100000,
         exploration_constant: 1.414,
-        gpu_batch_size: 2048,
+        gpu_batch_size: 4096,
         use_gpu_simulation: true,
     };
 

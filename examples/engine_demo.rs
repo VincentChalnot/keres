@@ -9,10 +9,10 @@ fn main() {
 
     // For this example, we'll use Easy difficulty with GPU acceleration
     let config = EngineConfig {
-        max_depth: 12,
-        simulations_per_move: 10000,
+        max_depth: 16,
+        simulations_per_move: 100000,
         exploration_constant: 1.414,
-        gpu_batch_size: 2048,
+        gpu_batch_size: 4096,
         use_gpu_simulation: true,
     };
 

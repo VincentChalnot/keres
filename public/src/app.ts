@@ -1,6 +1,6 @@
 import { GameState } from './models/GameState';
 import { GameAPI } from './network/GameAPI';
-import { ThreeJSBoardView } from './views/ThreeJSBoardView';
+import ThreeJSBoardView from './views/ThreeJSBoardView';
 import { GameController } from './controllers/GameController';
 
 /**

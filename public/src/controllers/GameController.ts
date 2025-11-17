@@ -244,7 +244,7 @@ export class GameController {
     
     if (pos !== null) {
       const piece = this.gameState.getPieceAt(pos);
-      const currentTurn = boardData[81];
+      const currentTurn = !!boardData[81];
       
       if (piece && piece.color === currentTurn && (!selectedPiece || selectedPiece.from !== pos)) {
         if (this.gameState.getHoveredPiece() !== pos) {
