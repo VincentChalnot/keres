@@ -1,13 +1,13 @@
 use arx_engine::board::{Board, BOARD_SIZE};
+use arx_engine::engine::{EngineConfig, MctsEngine};
 use arx_engine::game::{Game, Move};
-use arx_engine::engine::{MctsEngine, EngineConfig};
 use axum::{
+    body::Bytes,
+    extract::State,
     http::StatusCode,
     response::IntoResponse,
     routing::{get, post},
     Router,
-    body::Bytes,
-    extract::State,
 };
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
@@ -104,7 +104,10 @@ async fn play_move(payload: Bytes) -> Result<Vec<u8>, StatusCode> {
     Ok(new_binary_board.to_vec())
 }
 
-async fn engine_move(State(state): State<Arc<AppState>>, payload: Bytes) -> Result<Vec<u8>, StatusCode> {
+async fn engine_move(
+    State(state): State<Arc<AppState>>,
+    payload: Bytes,
+) -> Result<Vec<u8>, StatusCode> {
     let board_bytes = payload;
     if board_bytes.len() != BOARD_SIZE + 1 {
         return Err(StatusCode::BAD_REQUEST);
@@ -112,22 +115,26 @@ async fn engine_move(State(state): State<Arc<AppState>>, payload: Bytes) -> Resu
 
     let mut board_array = [0u8; BOARD_SIZE + 1];
     board_array.copy_from_slice(&board_bytes);
-    
+
     // Convert binary board to Board object
     let board = Board::from_binary(board_array).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Get the engine from state
-    let mut engine_guard = state.engine.lock().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
-    let engine = engine_guard.as_mut().ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
+    let mut engine_guard = state
+        .engine
+        .lock()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let engine = engine_guard
+        .as_mut()
+        .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
 
     // Find best move using the engine
     // The engine now returns a Move object directly
-    let mv = engine.find_best_move(&board)
-        .map_err(|e| {
-            eprintln!("Engine error: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+    let mv = engine.find_best_move(&board).map_err(|e| {
+        eprintln!("Engine error: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     // Encode the move for the client
     let move_encoding = mv.to_u16();
@@ -149,14 +156,14 @@ mod tests {
             to: Position::from_u8(25),
             unstack: true,
         };
-        
+
         let encoded = mv.to_u16();
-        
+
         // Decode as the TypeScript client would
         let from_decoded = (encoded & 0x7F) as u8;
         let to_decoded = ((encoded >> 7) & 0x7F) as u8;
         let unstack_decoded = ((encoded >> 14) & 0x1) != 0;
-        
+
         assert_eq!(from_decoded, 15);
         assert_eq!(to_decoded, 25);
         assert_eq!(unstack_decoded, true);

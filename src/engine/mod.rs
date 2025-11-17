@@ -50,7 +50,7 @@ use crate::board::Board;
 use crate::game::{Game, Move, PotentialMove};
 
 mod gpu_context;
-pub use gpu_context::{GpuContext, get_shared_context};
+pub use gpu_context::{get_shared_context, GpuContext};
 
 mod gpu_move_gen;
 pub use gpu_move_gen::MoveGenerationEngine;
@@ -60,14 +60,14 @@ pub use gpu_batch_sim::BatchSimulationEngine;
 
 /// Piece values for evaluation (based on chess piece values, scaled with Soldier=1)
 const PIECE_VALUES: [i32; 8] = [
-    0,  // Index 0: unused
-    1,  // Soldier
-    3,  // Jester (like Bishop)
-    5,  // Commander (like Rook)
-    3,  // Paladin (like Bishop-lite)
-    3,  // Guard (like Bishop-lite)
-    3,  // Dragon (like Knight)
-    5,  // Ballista (like Rook-lite)
+    0, // Index 0: unused
+    1, // Soldier
+    3, // Jester (like Bishop)
+    5, // Commander (like Rook)
+    3, // Paladin (like Bishop-lite)
+    3, // Guard (like Bishop-lite)
+    3, // Dragon (like Knight)
+    5, // Ballista (like Rook-lite)
 ];
 
 const KING_VALUE: i32 = 1000; // King is invaluable
@@ -187,7 +187,7 @@ impl MctsEngine {
     /// Create a new MCTS engine with custom configuration
     pub fn with_config(config: EngineConfig) -> Result<Self, String> {
         let move_gen = MoveGenerationEngine::new_sync()?;
-        
+
         // Try to create batch simulation engine if GPU simulation is enabled
         let batch_sim = if config.use_gpu_simulation {
             match BatchSimulationEngine::new_sync() {
@@ -204,7 +204,7 @@ impl MctsEngine {
         } else {
             None
         };
-        
+
         Ok(Self {
             config,
             move_gen,
@@ -299,7 +299,7 @@ impl MctsEngine {
         // Simple rollout: pick random move and continue
         let mut rng = rand::thread_rng();
         let random_potential_move = &potential_moves[rng.gen_range(0..potential_moves.len())];
-        
+
         // Decide whether to unstack based on force_unstack
         let unstack = random_potential_move.force_unstack;
         let mv = random_potential_move.to_move(unstack);
@@ -314,7 +314,7 @@ impl MctsEngine {
     pub fn find_best_move(&mut self, board: &Board) -> Result<Move, String> {
         // Reset search-specific stats
         let search_start_moves = self.stats.total_moves.load(Ordering::Relaxed);
-        
+
         // Generate all legal moves using Game API
         let game = Game::from_board(board.clone());
         let potential_moves = game.get_all_moves();
@@ -366,12 +366,12 @@ impl MctsEngine {
 
                 // Process simulations in batches
                 let batch_size = self.config.gpu_batch_size;
-                let num_batches = (self.config.simulations_per_move as usize + batch_size - 1) / batch_size;
+                let num_batches =
+                    (self.config.simulations_per_move as usize + batch_size - 1) / batch_size;
 
                 for batch_idx in 0..num_batches {
-                    let sims_in_batch = batch_size.min(
-                        self.config.simulations_per_move as usize - batch_idx * batch_size
-                    );
+                    let sims_in_batch = batch_size
+                        .min(self.config.simulations_per_move as usize - batch_idx * batch_size);
 
                     // Prepare batch: apply initial move and create boards for simulation
                     let mut batch_boards = Vec::with_capacity(sims_in_batch);
@@ -386,7 +386,7 @@ impl MctsEngine {
                     match batch_sim.process_batch(&batch_boards, &batch_moves) {
                         Ok(results) => {
                             self.stats.gpu_batches.fetch_add(1, Ordering::Relaxed);
-                            
+
                             for result in results {
                                 if result.valid {
                                     // Negate score for opponent's perspective
@@ -403,13 +403,15 @@ impl MctsEngine {
                                 Ok(b) => b,
                                 Err(_) => continue,
                             };
-                            
+
                             // Decode the move
                             let potential_move = PotentialMove::from_u16(mv);
                             let unstack = potential_move.force_unstack;
                             let move_obj = potential_move.to_move(unstack);
-                            
-                            self.stats.cpu_sims.fetch_add(sims_in_batch as u64, Ordering::Relaxed);
+
+                            self.stats
+                                .cpu_sims
+                                .fetch_add(sims_in_batch as u64, Ordering::Relaxed);
                             for _ in 0..sims_in_batch {
                                 if let Ok(new_board) = self.apply_move(&board_obj, &move_obj) {
                                     let score = -self.simulate(&new_board, 1);
@@ -422,8 +424,12 @@ impl MctsEngine {
                     }
                 }
 
-                self.stats.simulations.fetch_add(valid_simulations as u64, Ordering::Relaxed);
-                self.stats.total_moves.fetch_add(moves_evaluated, Ordering::Relaxed);
+                self.stats
+                    .simulations
+                    .fetch_add(valid_simulations as u64, Ordering::Relaxed);
+                self.stats
+                    .total_moves
+                    .fetch_add(moves_evaluated, Ordering::Relaxed);
 
                 (mv, total_score, valid_simulations)
             })
@@ -436,7 +442,9 @@ impl MctsEngine {
             .max_by(|a, b| {
                 let avg_a = a.1 as f32 / a.2 as f32;
                 let avg_b = b.1 as f32 / b.2 as f32;
-                avg_a.partial_cmp(&avg_b).unwrap_or(std::cmp::Ordering::Equal)
+                avg_a
+                    .partial_cmp(&avg_b)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
             .map(|(mv, _, _)| *mv)
             .ok_or("No valid moves found")?;
@@ -473,9 +481,15 @@ impl MctsEngine {
                     }
                 }
 
-                self.stats.simulations.fetch_add(simulations as u64, Ordering::Relaxed);
-                self.stats.cpu_sims.fetch_add(simulations as u64, Ordering::Relaxed);
-                self.stats.total_moves.fetch_add(simulations as u64, Ordering::Relaxed);
+                self.stats
+                    .simulations
+                    .fetch_add(simulations as u64, Ordering::Relaxed);
+                self.stats
+                    .cpu_sims
+                    .fetch_add(simulations as u64, Ordering::Relaxed);
+                self.stats
+                    .total_moves
+                    .fetch_add(simulations as u64, Ordering::Relaxed);
 
                 (potential_mv.to_u16(), total_score, simulations)
             })
@@ -488,7 +502,9 @@ impl MctsEngine {
             .max_by(|a, b| {
                 let avg_a = a.1 as f32 / a.2 as f32;
                 let avg_b = b.1 as f32 / b.2 as f32;
-                avg_a.partial_cmp(&avg_b).unwrap_or(std::cmp::Ordering::Equal)
+                avg_a
+                    .partial_cmp(&avg_b)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
             .map(|(mv, _, _)| *mv)
             .ok_or("No valid moves found")?;
@@ -517,7 +533,7 @@ impl MctsEngine {
         // Check if we need to initialize batch sim before moving config
         let use_gpu = config.use_gpu_simulation;
         self.config = config;
-        
+
         // Try to initialize batch sim if needed
         if use_gpu && self.batch_sim.is_none() {
             if let Ok(batch_sim) = BatchSimulationEngine::new_sync() {
@@ -550,7 +566,7 @@ mod tests {
             return;
         }
         let engine = engine.unwrap();
-        
+
         // Test empty board
         let mut board = Board::new();
         // Clear the board
@@ -572,7 +588,10 @@ mod tests {
         };
         board.set_piece(&pos, Some(piece));
         let eval = engine.evaluate_board(&board);
-        assert_eq!(eval, 1, "Board with one white soldier should evaluate to 1 for white");
+        assert_eq!(
+            eval, 1,
+            "Board with one white soldier should evaluate to 1 for white"
+        );
     }
 
     #[test]
@@ -602,12 +621,12 @@ mod tests {
             return;
         }
         let mut engine = engine.unwrap();
-        
+
         // Get initial stats
         let stats = engine.get_statistics();
         assert_eq!(stats.total_moves_evaluated, 0);
         assert_eq!(stats.simulations_run, 0);
-        
+
         // Reset stats
         engine.reset_statistics();
         let stats = engine.get_statistics();

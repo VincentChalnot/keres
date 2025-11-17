@@ -1,4 +1,4 @@
-use crate::{Color, Game, Piece, Position, BOARD_DIMENSION, cli_rendering::piece_to_char};
+use crate::{cli_rendering::piece_to_char, Color, Game, Piece, Position, BOARD_DIMENSION};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
     execute,
@@ -17,9 +17,17 @@ use std::io;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum GameState {
     SelectingPiece,
-    SelectingTarget { from: Position },
-    ConfirmUnstack { from: Position, to: Position, unstack: bool },
-    GameOver { winner: Color },
+    SelectingTarget {
+        from: Position,
+    },
+    ConfirmUnstack {
+        from: Position,
+        to: Position,
+        unstack: bool,
+    },
+    GameOver {
+        winner: Color,
+    },
 }
 
 pub struct App {
@@ -38,12 +46,16 @@ impl App {
     pub fn from_game(game: Game) -> Self {
         let game_state = if game.board.is_game_over() {
             // Determine winner: if white to move but game is over, black won (and vice versa)
-            let winner = if game.board.is_white_to_move() { Color::Black } else { Color::White };
+            let winner = if game.board.is_white_to_move() {
+                Color::Black
+            } else {
+                Color::White
+            };
             GameState::GameOver { winner }
         } else {
             GameState::SelectingPiece
         };
-        
+
         App {
             game,
             cursor_position: Position::new(0, 0),
@@ -57,7 +69,7 @@ impl App {
         if matches!(self.game_state, GameState::GameOver { .. }) {
             return;
         }
-        
+
         if let Some(new_pos) = self.cursor_position.get_new(dx, dy) {
             self.cursor_position = new_pos;
             self.update_highlights();
@@ -68,7 +80,11 @@ impl App {
     fn apply_move_and_update_state(&mut self, game_move: crate::Move) -> Result<(), String> {
         self.game.apply_move(game_move)?;
         if self.game.board.is_game_over() {
-            let winner = if self.game.board.is_white_to_move() { Color::Black } else { Color::White };
+            let winner = if self.game.board.is_white_to_move() {
+                Color::Black
+            } else {
+                Color::White
+            };
             self.game_state = GameState::GameOver { winner };
             self.highlighted_moves.clear();
         } else {
@@ -185,7 +201,7 @@ impl App {
 
     fn get_piece_display(&self, piece: &Piece) -> String {
         let mut output = String::new();
-        
+
         if let Some(ref top_piece) = piece.top {
             output.push_str(&piece_to_char(top_piece));
             output.push('+');
@@ -195,7 +211,7 @@ impl App {
             output.push_str(&piece_to_char(&piece.bottom));
             output.push_str(" ");
         }
-        
+
         output
     }
 }
@@ -270,33 +286,37 @@ fn ui(f: &mut Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),     // Title
-            Constraint::Min(20),       // Board
-            Constraint::Length(5),     // Instructions
+            Constraint::Length(3), // Title
+            Constraint::Min(20),   // Board
+            Constraint::Length(5), // Instructions
         ])
         .split(f.area());
 
     // Title
     let title = match app.game_state {
         GameState::SelectingPiece => {
-            format!("{} to move - Select a piece", 
-                if app.game.board.is_white_to_move() { "White" } else { "Black" })
+            format!(
+                "{} to move - Select a piece",
+                if app.game.board.is_white_to_move() {
+                    "White"
+                } else {
+                    "Black"
+                }
+            )
         }
-        GameState::SelectingTarget { .. } => {
-            "Select target position".to_string()
-        }
-        GameState::ConfirmUnstack { .. } => {
-            "Confirm Unstack/Stack".to_string()
-        }
+        GameState::SelectingTarget { .. } => "Select target position".to_string(),
+        GameState::ConfirmUnstack { .. } => "Confirm Unstack/Stack".to_string(),
         GameState::GameOver { winner } => {
-            format!("🎉 GAME OVER - {} WINS! 🎉", 
+            format!(
+                "🎉 GAME OVER - {} WINS! 🎉",
                 match winner {
                     Color::White => "WHITE",
-                    Color::Black => "BLACK"
-                })
+                    Color::Black => "BLACK",
+                }
+            )
         }
     };
-    
+
     let title_paragraph = Paragraph::new(title)
         .block(Block::default().borders(Borders::ALL).title("Arx Game"))
         .alignment(Alignment::Center);
@@ -315,14 +335,15 @@ fn ui(f: &mut Frame, app: &App) {
                     Span::styled("Q", Style::default().add_modifier(Modifier::BOLD)),
                     Span::raw(" to quit"),
                 ]),
-                Line::from("")
+                Line::from(""),
             ]
         }
         GameState::ConfirmUnstack { .. } => {
             vec![
-                Line::from(vec![
-                    Span::styled("Stack/Unstack Choice", Style::default().add_modifier(Modifier::BOLD)),
-                ]),
+                Line::from(vec![Span::styled(
+                    "Stack/Unstack Choice",
+                    Style::default().add_modifier(Modifier::BOLD),
+                )]),
                 Line::from(vec![
                     Span::raw("Press "),
                     Span::styled("Enter", Style::default().add_modifier(Modifier::BOLD)),
@@ -358,7 +379,7 @@ fn ui(f: &mut Frame, app: &App) {
             ]
         }
     };
-    
+
     let instructions_paragraph = Paragraph::new(instructions)
         .block(Block::default().borders(Borders::ALL).title("Controls"))
         .alignment(Alignment::Center);
@@ -367,7 +388,7 @@ fn ui(f: &mut Frame, app: &App) {
 
 fn render_board(f: &mut Frame, app: &App, area: Rect) {
     let board = app.game.board;
-    
+
     // Calculate the area for the actual board (leaving space for borders and labels)
     let board_area = Rect {
         x: area.x + 1,
@@ -375,97 +396,116 @@ fn render_board(f: &mut Frame, app: &App, area: Rect) {
         width: area.width - 2,
         height: area.height - 2,
     };
-    
+
     // Create the outer border
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .title("Board");
+    let block = Block::default().borders(Borders::ALL).title("Board");
     f.render_widget(block, area);
-    
+
     // Draw the board content manually using text with box drawing characters
     let mut board_lines = Vec::new();
-    
+
     // Header line with column labels
     let header = String::from("     A   B   C   D   E   F   G   H   I");
-    board_lines.push(Line::from(Span::styled(header, Style::default().add_modifier(Modifier::BOLD))));
-    
+    board_lines.push(Line::from(Span::styled(
+        header,
+        Style::default().add_modifier(Modifier::BOLD),
+    )));
+
     // Top border
     board_lines.push(Line::from("   ┏━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┓"));
-    
+
     // Board rows
     for y in 0..BOARD_DIMENSION {
         if y > 0 {
             // Middle border between rows
             board_lines.push(Line::from("   ┣━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━┫"));
         }
-        
+
         let row_num = 9 - y;
         let mut row_spans = vec![
-            Span::styled(format!(" {} ", row_num), Style::default().add_modifier(Modifier::BOLD)),
+            Span::styled(
+                format!(" {} ", row_num),
+                Style::default().add_modifier(Modifier::BOLD),
+            ),
             Span::raw("┃"),
         ];
-        
+
         for x in 0..BOARD_DIMENSION {
             let position = Position::new(x, y);
             let mut cell_content = "   ".to_string();
             let mut cell_style = Style::default();
-            
+
             // Check if this position has a piece
             if let Some(piece) = board.get_piece(&position) {
                 cell_content = format!("{}", app.get_piece_display(piece));
-                
+
                 // Color the piece based on its color
                 cell_style = match piece.color {
                     Color::White => Style::default().fg(RatatuiColor::White),
                     Color::Black => Style::default().fg(RatatuiColor::Red),
                 };
             }
-            
+
             // Highlight cursor position (only if game is not over)
-            if position == app.cursor_position && !matches!(app.game_state, GameState::GameOver { .. }) {
+            if position == app.cursor_position
+                && !matches!(app.game_state, GameState::GameOver { .. })
+            {
                 cell_style = cell_style.bg(RatatuiColor::Blue);
             }
             // Highlight possible moves (only if game is not over)
-            else if app.highlighted_moves.contains(&position) && !matches!(app.game_state, GameState::GameOver { .. }) {
+            else if app.highlighted_moves.contains(&position)
+                && !matches!(app.game_state, GameState::GameOver { .. })
+            {
                 cell_style = cell_style.bg(RatatuiColor::Green);
             }
-            
+
             row_spans.push(Span::styled(cell_content, cell_style));
             row_spans.push(Span::raw("┃"));
         }
-        
-        row_spans.push(Span::styled(format!(" {}", row_num), Style::default().add_modifier(Modifier::BOLD)));
+
+        row_spans.push(Span::styled(
+            format!(" {}", row_num),
+            Style::default().add_modifier(Modifier::BOLD),
+        ));
         board_lines.push(Line::from(row_spans));
     }
-    
+
     // Bottom border
     board_lines.push(Line::from("   ┗━━━┻━━━┻━━━┻━━━┻━━━┻━━━┻━━━┻━━━┻━━━┛"));
-    
+
     // Footer with column labels
     let footer = String::from("     A   B   C   D   E   F   G   H   I");
-    board_lines.push(Line::from(Span::styled(footer, Style::default().add_modifier(Modifier::BOLD))));
-    
+    board_lines.push(Line::from(Span::styled(
+        footer,
+        Style::default().add_modifier(Modifier::BOLD),
+    )));
+
     // Current player indicator or winner message
     let status_message = match app.game_state {
         GameState::GameOver { winner } => {
-            format!("            {} WINS THE GAME!", 
+            format!(
+                "            {} WINS THE GAME!",
                 match winner {
                     Color::White => "WHITE",
-                    Color::Black => "BLACK"
-                })
+                    Color::Black => "BLACK",
+                }
+            )
         }
         _ => {
-            let current_player = if app.game.board.is_white_to_move() { "WHITE" } else { "BLACK" };
+            let current_player = if app.game.board.is_white_to_move() {
+                "WHITE"
+            } else {
+                "BLACK"
+            };
             format!("              {} TO MOVE", current_player)
         }
     };
     board_lines.push(Line::from(Span::styled(
         status_message,
-        Style::default().add_modifier(Modifier::BOLD)
+        Style::default().add_modifier(Modifier::BOLD),
     )));
-    
-    let board_paragraph = Paragraph::new(board_lines)
-        .alignment(Alignment::Left);
-    
+
+    let board_paragraph = Paragraph::new(board_lines).alignment(Alignment::Left);
+
     f.render_widget(board_paragraph, board_area);
 }

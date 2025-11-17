@@ -92,7 +92,10 @@ impl GpuContext {
             })?;
 
         let adapter_info = adapter.get_info();
-        eprintln!("✓ Selected GPU: {} ({:?})", adapter_info.name, adapter_info.backend);
+        eprintln!(
+            "✓ Selected GPU: {} ({:?})",
+            adapter_info.name, adapter_info.backend
+        );
 
         let (device, queue) = adapter
             .request_device(
@@ -149,9 +152,11 @@ static SHARED_GPU_CONTEXT: OnceLock<Mutex<Option<GpuContext>>> = OnceLock::new()
 /// which is more efficient and prevents potential resource conflicts.
 pub fn get_shared_context() -> Result<GpuContext, String> {
     let mutex = SHARED_GPU_CONTEXT.get_or_init(|| Mutex::new(None));
-    
-    let mut guard = mutex.lock().map_err(|e| format!("Failed to lock GPU context: {}", e))?;
-    
+
+    let mut guard = mutex
+        .lock()
+        .map_err(|e| format!("Failed to lock GPU context: {}", e))?;
+
     if let Some(ref context) = *guard {
         Ok(context.clone())
     } else {
@@ -191,20 +196,20 @@ mod tests {
     #[test]
     fn test_shared_context() {
         reset_shared_context();
-        
+
         let ctx1 = get_shared_context();
         if let Err(e) = &ctx1 {
             println!("Skipping test: GPU not available - {}", e);
             return;
         }
-        
+
         let ctx2 = get_shared_context();
         assert!(ctx2.is_ok());
-        
+
         // Both contexts should point to the same device
         let ctx1 = ctx1.unwrap();
         let ctx2 = ctx2.unwrap();
-        
+
         // Compare adapter info to verify they're the same
         assert_eq!(ctx1.adapter_info().name, ctx2.adapter_info().name);
         assert_eq!(ctx1.adapter_info().device, ctx2.adapter_info().device);

@@ -1,6 +1,8 @@
-use arx_engine::{cli_rendering::display_stack, run_tui, Game, Position, BOARD_DIMENSION, BOARD_SIZE};
-use clap::{Parser, Subcommand, Args};
-use base64::{Engine as _, engine::general_purpose};
+use arx_engine::{
+    cli_rendering::display_stack, run_tui, Game, Position, BOARD_DIMENSION, BOARD_SIZE,
+};
+use base64::{engine::general_purpose, Engine as _};
+use clap::{Args, Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -65,7 +67,7 @@ fn main() {
                 Ok(g) => {
                     println!("Game hash: {}", get_hash(&g));
                     println!("(use this to resume the game later on with the --board option)");
-                },
+                }
                 Err(e) => {
                     eprintln!("Error: {}", e);
                 }
@@ -82,7 +84,7 @@ fn main() {
         }
     }
 
-    fn show_moves_for_position(game: &Game, position: &Position, display_empty_message: bool) {        
+    fn show_moves_for_position(game: &Game, position: &Position, display_empty_message: bool) {
         let moves = game.get_moves(position);
         if moves.is_empty() {
             if display_empty_message {
@@ -96,7 +98,11 @@ fn main() {
         } else {
             "?".to_string()
         };
-        println!("Available moves for {}@{}: ", piece_string, position.to_string());
+        println!(
+            "Available moves for {}@{}: ",
+            piece_string,
+            position.to_string()
+        );
         for m in moves.iter() {
             print!(" - {}", m.to.to_string());
             if m.unstackable {
@@ -123,7 +129,7 @@ fn main() {
             '1'..='9' => 8 - (position.chars().nth(1).unwrap() as usize - '1' as usize),
             _ => return Err("Invalid row. Use numbers 1-9.".to_string()),
         };
-        
+
         Ok(Position { x, y })
     }
 
@@ -136,7 +142,11 @@ fn main() {
                     Ok(bytes) => {
                         // Convert bytes back to [u8; 81]
                         if bytes.len() != BOARD_SIZE + 1 {
-                            return Err(format!("Invalid data length: expected {} bytes, got {}", BOARD_SIZE + 1, bytes.len()));
+                            return Err(format!(
+                                "Invalid data length: expected {} bytes, got {}",
+                                BOARD_SIZE + 1,
+                                bytes.len()
+                            ));
                         }
 
                         let mut board_data = [0; BOARD_SIZE + 1];
@@ -146,9 +156,7 @@ fn main() {
 
                         Game::from_binary(board_data)
                     }
-                    Err(e) => {
-                        Err(format!("Failed to decode base64 string: {}", e))
-                    }
+                    Err(e) => Err(format!("Failed to decode base64 string: {}", e)),
                 }
             }
         }

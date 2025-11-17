@@ -60,42 +60,53 @@ impl BatchSimulationEngine {
 
         // Load shader
         let shader_source = include_str!("shaders/batch_simulation.wgsl");
-        let shader = gpu_context.device().create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Batch Simulation Shader"),
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(shader_source)),
-        });
+        let shader = gpu_context
+            .device()
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("Batch Simulation Shader"),
+                source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(shader_source)),
+            });
 
         // Create bind group layout
-        let bind_group_layout = gpu_context.device().create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Batch Simulation Bind Group Layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::COMPUTE,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Storage { read_only: false },
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        });
+        let bind_group_layout =
+            gpu_context
+                .device()
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Batch Simulation Bind Group Layout"),
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: false },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }],
+                });
 
         // Create pipeline layout
-        let pipeline_layout = gpu_context.device().create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Batch Simulation Pipeline Layout"),
-            bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
-        });
+        let pipeline_layout =
+            gpu_context
+                .device()
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Batch Simulation Pipeline Layout"),
+                    bind_group_layouts: &[&bind_group_layout],
+                    push_constant_ranges: &[],
+                });
 
         // Create compute pipeline
-        let pipeline = gpu_context.device().create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("Batch Simulation Pipeline"),
-            layout: Some(&pipeline_layout),
-            module: &shader,
-            entry_point: Some("main"),
-            compilation_options: Default::default(),
-            cache: None,
-        });
+        let pipeline =
+            gpu_context
+                .device()
+                .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                    label: Some("Batch Simulation Pipeline"),
+                    layout: Some(&pipeline_layout),
+                    module: &shader,
+                    entry_point: Some("main"),
+                    compilation_options: Default::default(),
+                    cache: None,
+                });
 
         Ok(Self {
             gpu_context,
@@ -159,40 +170,48 @@ impl BatchSimulationEngine {
         }
 
         // Create buffer
-        let buffer = self
-            .gpu_context.device()
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Move Application Buffer"),
-                contents: bytemuck::cast_slice(&applications),
-                usage: wgpu::BufferUsages::STORAGE
-                    | wgpu::BufferUsages::COPY_DST
-                    | wgpu::BufferUsages::COPY_SRC,
-            });
+        let buffer =
+            self.gpu_context
+                .device()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Move Application Buffer"),
+                    contents: bytemuck::cast_slice(&applications),
+                    usage: wgpu::BufferUsages::STORAGE
+                        | wgpu::BufferUsages::COPY_DST
+                        | wgpu::BufferUsages::COPY_SRC,
+                });
 
         // Create staging buffer for reading back results
-        let staging_buffer = self.gpu_context.device().create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Staging Buffer"),
-            size: (std::mem::size_of::<GpuMoveApplication>() * batch_size) as u64,
-            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
+        let staging_buffer = self
+            .gpu_context
+            .device()
+            .create_buffer(&wgpu::BufferDescriptor {
+                label: Some("Staging Buffer"),
+                size: (std::mem::size_of::<GpuMoveApplication>() * batch_size) as u64,
+                usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
 
         // Create bind group
-        let bind_group = self.gpu_context.device().create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Batch Simulation Bind Group"),
-            layout: &self.bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: buffer.as_entire_binding(),
-            }],
-        });
+        let bind_group = self
+            .gpu_context
+            .device()
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Batch Simulation Bind Group"),
+                layout: &self.bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: buffer.as_entire_binding(),
+                }],
+            });
 
         // Create command encoder
-        let mut encoder = self
-            .gpu_context.device()
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Batch Simulation Encoder"),
-            });
+        let mut encoder =
+            self.gpu_context
+                .device()
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Batch Simulation Encoder"),
+                });
 
         // Dispatch compute shader
         {
@@ -202,7 +221,7 @@ impl BatchSimulationEngine {
             });
             compute_pass.set_pipeline(&self.pipeline);
             compute_pass.set_bind_group(0, &bind_group, &[]);
-            
+
             // Calculate workgroups needed (workgroup size is 64)
             let workgroups = ((batch_size + 63) / 64) as u32;
             compute_pass.dispatch_workgroups(workgroups, 1, 1);
