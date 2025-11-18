@@ -102,13 +102,24 @@ export class GameController {
     }
 
     /**
-     * Request engine move
+     * Request engine move (MCTS)
      */
     async requestEngineMove(): Promise<void> {
         const board = this.gameState.getBoard();
         if (!board) return;
 
         const move = await this.api.getEngineMove(board);
+        await this.playMove(move.from, move.to, move.unstack);
+    }
+
+    /**
+     * Request minimax engine move
+     */
+    async requestMinimaxMove(): Promise<void> {
+        const board = this.gameState.getBoard();
+        if (!board) return;
+
+        const move = await this.api.getMinimaxMove(board);
         await this.playMove(move.from, move.to, move.unstack);
     }
 

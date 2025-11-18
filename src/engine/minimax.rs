@@ -28,7 +28,7 @@
 //!     time_limit_ms: 3000,
 //!     ..Default::default()
 //! };
-//! let mut engine = MinimaxEngine::new(config);
+//! let mut engine = MinimaxEngine::with_config(config);
 //!
 //! // Find best move for a board position
 //! let game = Game::new();

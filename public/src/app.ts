@@ -23,6 +23,7 @@ class ArxGame {
     private loadGameBtn: HTMLButtonElement;
     private undoBtn: HTMLButtonElement;
     private askEngineBtn: HTMLButtonElement;
+    private askMinimaxBtn: HTMLButtonElement;
 
     constructor() {
         this.gameState = new GameState();
@@ -38,6 +39,7 @@ class ArxGame {
         this.loadGameBtn = document.getElementById('load-game-btn') as HTMLButtonElement;
         this.undoBtn = document.getElementById('undo-btn') as HTMLButtonElement;
         this.askEngineBtn = document.getElementById('ask-engine-btn') as HTMLButtonElement;
+        this.askMinimaxBtn = document.getElementById('ask-minimax-btn') as HTMLButtonElement;
     }
 
     async initialize(): Promise<void> {
@@ -75,6 +77,7 @@ class ArxGame {
         // Game controls
         this.switchSidesBtn.addEventListener('click', () => this.handleSwitchSides());
         this.askEngineBtn.addEventListener('click', () => this.handleAskEngine());
+        this.askMinimaxBtn.addEventListener('click', () => this.handleAskMinimax());
         this.undoBtn.addEventListener('click', () => this.handleUndo());
         this.loadGameBtn.addEventListener('click', () => this.handleLoadGame());
 
@@ -116,11 +119,27 @@ class ArxGame {
             this.updateStatus();
             this.updateMoveHistoryDisplay();
         } catch (error) {
-            console.error('Error getting engine move:', error);
-            this.statusDiv.innerText = `Error: ${(error as Error).message}. Engine may not be available.`;
+            console.error('Error getting MCTS engine move:', error);
+            this.statusDiv.innerText = `Error: ${(error as Error).message}. MCTS engine may not be available.`;
         } finally {
             this.askEngineBtn.disabled = false;
-            this.askEngineBtn.innerText = 'Ask Engine';
+            this.askEngineBtn.innerText = 'Ask MCTS Engine';
+        }
+    }
+
+    private async handleAskMinimax(): Promise<void> {
+        try {
+            this.askMinimaxBtn.disabled = true;
+            this.askMinimaxBtn.innerText = 'Thinking...';
+            await this.controller.requestMinimaxMove();
+            this.updateStatus();
+            this.updateMoveHistoryDisplay();
+        } catch (error) {
+            console.error('Error getting Minimax engine move:', error);
+            this.statusDiv.innerText = `Error: ${(error as Error).message}. Minimax engine may not be available.`;
+        } finally {
+            this.askMinimaxBtn.disabled = false;
+            this.askMinimaxBtn.innerText = 'Ask Minimax Engine';
         }
     }
 
