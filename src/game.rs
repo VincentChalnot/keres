@@ -80,6 +80,11 @@ impl Game {
     }
 
     pub fn apply_move(&mut self, mv: Move) -> Result<(), String> {
+        // Check if game is already over
+        if self.board.is_game_over() {
+            return Err("Game is over, no more moves allowed".to_string());
+        }
+        
         let new_board = self.apply_move_copy(mv)?;
         self.board = new_board;
         Ok(())
@@ -120,6 +125,7 @@ impl Game {
         let destination_piece_opt = new_board.get_piece(&mv.to).cloned();
 
         let mut final_piece = source_piece;
+        let mut was_capture = false;
 
         if destination_piece_opt.is_none() {
             // Empty square: just place the piece
@@ -129,6 +135,7 @@ impl Game {
 
             if destination_piece.color != source_piece.color {
                 // Enemy piece: capture it (replace with our piece)
+                was_capture = true;
                 new_board.set_piece(&mv.to, Some(final_piece));
             } else {
                 // Friendly piece: attempt to stack
@@ -146,7 +153,17 @@ impl Game {
             new_board.set_piece(&mv.to, Some(promoted));
         }
 
+        // Update moves_without_capture counter
+        if was_capture {
+            new_board.reset_moves_without_capture();
+        } else {
+            new_board.increment_moves_without_capture();
+        }
+
         new_board.set_white_to_move(!new_board.is_white_to_move()); // Switch turn
+
+        // Check for game over conditions
+        Self::check_game_over(&mut new_board);
 
         Ok(new_board)
     }
@@ -320,13 +337,140 @@ impl Game {
         false
     }
 
-    pub fn to_binary(&self) -> [u8; BOARD_SIZE + 1] {
+    pub fn to_binary(&self) -> [u8; BOARD_SIZE + 2] {
         self.board.to_binary()
     }
 
-    pub fn from_binary(binary: [u8; BOARD_SIZE + 1]) -> Result<Self, String> {
+    pub fn from_binary(binary: [u8; BOARD_SIZE + 2]) -> Result<Self, String> {
         let board = Board::from_binary(binary)?;
         Ok(Game::from_board(board))
+    }
+
+    /// Check if the game has ended and update the board state accordingly
+    /// This checks for:
+    /// 1. King capture (win condition)
+    /// 2. Draw conditions:
+    ///    - Both sides have only kings left
+    ///    - Color lock: Jester and/or guards all on the same color for both sides
+    ///    - Single dragon for both sides
+    ///    - 40 moves without capture
+    fn check_game_over(board: &mut Board) {
+        // Check for king captures
+        let mut white_king_exists = false;
+        let mut black_king_exists = false;
+        
+        // Count pieces for draw detection
+        let mut white_pieces = Vec::new();
+        let mut black_pieces = Vec::new();
+        
+        for y in 0..BOARD_DIMENSION {
+            for x in 0..BOARD_DIMENSION {
+                let pos = Position::new(x, y);
+                if let Some(piece) = board.get_piece(&pos) {
+                    if piece.is_king() {
+                        if piece.color == Color::White {
+                            white_king_exists = true;
+                        } else {
+                            black_king_exists = true;
+                        }
+                    }
+                    
+                    // Collect pieces for draw detection
+                    if piece.color == Color::White {
+                        white_pieces.push((piece.clone(), pos));
+                    } else {
+                        black_pieces.push((piece.clone(), pos));
+                    }
+                }
+            }
+        }
+        
+        // Check for king capture (win condition)
+        if !white_king_exists {
+            board.set_game_over(true, false, false); // Black wins
+            return;
+        }
+        if !black_king_exists {
+            board.set_game_over(true, true, false); // White wins
+            return;
+        }
+        
+        // Check for 40-move rule
+        if board.moves_without_capture() >= 40 {
+            board.set_game_over(true, false, true); // Draw
+            return;
+        }
+        
+        // Check for draw conditions (both sides must satisfy the condition)
+        let white_draw_eligible = Self::check_draw_condition_for_side(&white_pieces);
+        let black_draw_eligible = Self::check_draw_condition_for_side(&black_pieces);
+        
+        if white_draw_eligible && black_draw_eligible {
+            board.set_game_over(true, false, true); // Draw
+        }
+    }
+    
+    /// Check if a side satisfies draw conditions:
+    /// - Only king remaining
+    /// - Only jesters/guards on same color square (color lock)
+    /// - Single dragon (plus king)
+    fn check_draw_condition_for_side(pieces: &[(Piece, Position)]) -> bool {
+        let mut non_king_pieces = Vec::new();
+        
+        for (piece, pos) in pieces {
+            if !piece.is_king() {
+                non_king_pieces.push((piece.clone(), *pos));
+            }
+        }
+        
+        // No pieces apart from King
+        if non_king_pieces.is_empty() {
+            return true;
+        }
+        
+        // Single Dragon
+        if non_king_pieces.len() == 1 {
+            let (piece, _) = &non_king_pieces[0];
+            // Check if it's a single dragon (not stacked)
+            if piece.bottom == PieceType::Dragon && piece.top.is_none() {
+                return true;
+            }
+        }
+        
+        // Check for color lock: all jesters and/or guards on same color square
+        let mut all_jesters_or_guards = true;
+        let mut first_square_color: Option<bool> = None; // true for white square, false for black square
+        
+        for (piece, pos) in &non_king_pieces {
+            // Check if piece is a jester or guard (consider both bottom and top)
+            let is_jester_or_guard = 
+                piece.bottom == PieceType::Jester || piece.bottom == PieceType::Guard ||
+                piece.top == Some(PieceType::Jester) || piece.top == Some(PieceType::Guard);
+            
+            if !is_jester_or_guard {
+                all_jesters_or_guards = false;
+                break;
+            }
+            
+            // Calculate square color (white if (x + y) is even, black if odd)
+            let square_is_white = (pos.x + pos.y) % 2 == 0;
+            
+            match first_square_color {
+                None => first_square_color = Some(square_is_white),
+                Some(color) => {
+                    if color != square_is_white {
+                        all_jesters_or_guards = false;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if all_jesters_or_guards && first_square_color.is_some() {
+            return true;
+        }
+        
+        false
     }
 
     /// Check if a piece needs to be promoted when it reaches the opposite side

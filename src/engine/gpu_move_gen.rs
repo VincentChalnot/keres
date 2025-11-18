@@ -132,7 +132,7 @@ impl MoveGenerationEngine {
 
     /// Generate all legal moves for a given board state
     /// Returns a list of move encodings (u16 format)
-    pub fn generate_moves(&self, board_binary: &[u8; 82]) -> Result<Vec<u16>, String> {
+    pub fn generate_moves(&self, board_binary: &[u8; 83]) -> Result<Vec<u16>, String> {
         // Convert board binary to GPU format
         let mut gpu_board = GpuBoardState {
             squares: [0; BOARD_SIZE],
@@ -293,9 +293,10 @@ mod tests {
         }
         let engine = engine.unwrap();
 
-        // Create initial board state (simplified - all zeros except turn indicator)
-        let mut board = [0u8; 82];
-        board[81] = 1; // White to move
+        // Create initial board state (simplified - all zeros except flags and counter)
+        let mut board = [0u8; 83];
+        board[81] = 0b10000000; // White to move (bit 8)
+        board[82] = 0; // moves_without_capture counter
 
         // Set up a simple test position: white soldier at position 72 (bottom row, column 0)
         // Soldier = 0b001, White = 0b1000000, so White Soldier = 0b1000001 = 65

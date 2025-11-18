@@ -354,7 +354,7 @@ impl MctsEngine {
     /// GPU-accelerated move evaluation with batch processing
     fn find_best_move_gpu(
         &self,
-        board: &[u8; 82],
+        board: &[u8; 83],
         moves: &[u16],
         batch_sim: &BatchSimulationEngine,
         _search_start_moves: u64,

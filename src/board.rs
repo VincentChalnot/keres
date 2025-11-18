@@ -241,6 +241,10 @@ impl Piece {
 pub struct Board {
     data: [Option<Piece>; BOARD_SIZE], // each cell is an optional piece
     white_to_move: bool,               // true if it's white's turn to move
+    game_over: bool,                   // true if the game has ended
+    white_wins: bool,                  // true if white won (only meaningful if game_over)
+    draw: bool,                        // true if the game ended in a draw (only meaningful if game_over)
+    moves_without_capture: u8,         // counter for moves without capture (for 40-move draw rule)
 }
 
 impl Board {
@@ -301,6 +305,10 @@ impl Board {
         Board {
             data,
             white_to_move: true,
+            game_over: false,
+            white_wins: false,
+            draw: false,
+            moves_without_capture: 0,
         }
     }
 
@@ -321,20 +329,33 @@ impl Board {
     }
 
     pub fn is_game_over(&self) -> bool {
-        // Scan the board for both kings
-        let mut king_found = false;
-        for piece_opt in self.data.iter() {
-            if let Some(piece) = piece_opt {
-                if piece.is_king() {
-                    if king_found {
-                        return false; // Both kings found, game is not over
-                    }
-                    king_found = true;
-                }
-            }
-        }
-        // If either king is missing, the game is over
-        true
+        self.game_over
+    }
+
+    pub fn is_draw(&self) -> bool {
+        self.draw
+    }
+
+    pub fn white_wins(&self) -> bool {
+        self.white_wins
+    }
+
+    pub fn moves_without_capture(&self) -> u8 {
+        self.moves_without_capture
+    }
+
+    pub fn set_game_over(&mut self, game_over: bool, white_wins: bool, draw: bool) {
+        self.game_over = game_over;
+        self.white_wins = white_wins;
+        self.draw = draw;
+    }
+
+    pub fn increment_moves_without_capture(&mut self) {
+        self.moves_without_capture = self.moves_without_capture.saturating_add(1);
+    }
+
+    pub fn reset_moves_without_capture(&mut self) {
+        self.moves_without_capture = 0;
     }
 
     pub fn get_piece(&self, position: &Position) -> Option<&Piece> {
@@ -406,33 +427,68 @@ impl Board {
         Ok(())
     }
 
-    pub fn to_binary(&self) -> [u8; BOARD_SIZE + 1] {
-        let mut binary = [0; BOARD_SIZE + 1];
+    pub fn to_binary(&self) -> [u8; BOARD_SIZE + 2] {
+        let mut binary = [0; BOARD_SIZE + 2];
         for (i, piece_opt) in self.data.iter().enumerate() {
             if let Some(piece) = piece_opt {
                 binary[i] = piece.to_u8();
             }
         }
-        // Add a trailing byte to indicate the turn (1 for white, 0 for black)
-        binary[BOARD_SIZE] = if self.white_to_move { 1 } else { 0 };
+        // Pack all boolean flags into the last byte:
+        // bit 8: white_to_move
+        // bit 7: game_over
+        // bit 6: white_wins
+        // bit 5: draw
+        // bits 4-1: unused
+        let mut flags = 0u8;
+        if self.white_to_move {
+            flags |= 0b10000000; // bit 8
+        }
+        if self.game_over {
+            flags |= 0b01000000; // bit 7
+        }
+        if self.white_wins {
+            flags |= 0b00100000; // bit 6
+        }
+        if self.draw {
+            flags |= 0b00010000; // bit 5
+        }
+        binary[BOARD_SIZE] = flags;
+        
+        // Add the moves_without_capture counter as the last byte
+        binary[BOARD_SIZE + 1] = self.moves_without_capture;
 
         binary
     }
 
-    pub fn from_binary(binary: [u8; BOARD_SIZE + 1]) -> Result<Self, String> {
+    pub fn from_binary(binary: [u8; BOARD_SIZE + 2]) -> Result<Self, String> {
         let mut data = [None; BOARD_SIZE];
 
         for (i, &byte) in binary.iter().enumerate() {
-            if i == BOARD_SIZE {
-                // The last byte indicates whose turn it is
-                continue; // Skip the last byte for piece data
+            if i >= BOARD_SIZE {
+                // The last two bytes are for flags and counter
+                break;
             }
             data[i] = Piece::from_u8(byte);
         }
 
+        // Unpack flags from byte at BOARD_SIZE
+        let flags = binary[BOARD_SIZE];
+        let white_to_move = (flags & 0b10000000) != 0;
+        let game_over = (flags & 0b01000000) != 0;
+        let white_wins = (flags & 0b00100000) != 0;
+        let draw = (flags & 0b00010000) != 0;
+        
+        // Get moves_without_capture counter from last byte
+        let moves_without_capture = binary[BOARD_SIZE + 1];
+
         Ok(Board {
             data,
-            white_to_move: binary[BOARD_SIZE] == 1,
+            white_to_move,
+            game_over,
+            white_wins,
+            draw,
+            moves_without_capture,
         })
     }
 }
