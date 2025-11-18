@@ -36,8 +36,10 @@
 //! ```
 
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use rand::Rng;
+use rayon::prelude::*;
 
 use crate::board::{Board, Color, Position, PieceType};
 use crate::game::{Game, Move, PotentialMove};
@@ -83,14 +85,14 @@ pub struct MinimaxConfig {
 impl Default for MinimaxConfig {
     fn default() -> Self {
         Self {
-            max_depth: 4,
+            max_depth: 6,  // Increased from 4 to 6 for better play
             use_quiescence: true,
             use_transposition_table: true,
             time_limit_ms: 3000,
-            material_weight: 0.40,
-            territorial_weight: 0.25,
-            mobility_weight: 0.20,
-            king_safety_weight: 0.15,
+            material_weight: 0.85,  // Increased from 0.40 to make material dominant
+            territorial_weight: 0.08,  // Reduced from 0.25
+            mobility_weight: 0.05,  // Reduced from 0.20
+            king_safety_weight: 0.02,  // Reduced from 0.15
             stack_bonus: 0.30,
         }
     }
@@ -246,29 +248,97 @@ impl MinimaxEngine {
                 break;
             }
             
-            let mut alpha = -INFINITY;
-            let beta = INFINITY;
-            
-            for potential_move in &ordered_moves {
-                if self.time_exceeded() {
-                    break;
+            // For the last iteration (max depth), use parallel evaluation at root
+            if depth == self.config.max_depth && ordered_moves.len() > 1 {
+                // Parallel evaluation of root moves
+                let config = self.config.clone();
+                let board_clone = board.clone();
+                let start_time = self.search_start.unwrap();
+                
+                // Shared statistics accumulator
+                let shared_stats = Arc::new(Mutex::new(MinimaxStatistics::default()));
+                
+                let move_scores: Vec<(PotentialMove, i32)> = ordered_moves
+                    .par_iter()
+                    .filter_map(|potential_move| {
+                        // Check time limit
+                        if start_time.elapsed() > Duration::from_millis(config.time_limit_ms) {
+                            return None;
+                        }
+                        
+                        let unstack = potential_move.force_unstack;
+                        let mv = potential_move.to_move(unstack);
+                        
+                        // Create a new engine instance for this thread
+                        let mut thread_engine = MinimaxEngine {
+                            config: config.clone(),
+                            transposition_table: HashMap::new(),
+                            zobrist_keys: ZobristKeys::new(),
+                            stats: MinimaxStatistics::default(),
+                            search_start: Some(start_time),
+                        };
+                        
+                        if let Ok(new_board) = thread_engine.apply_move(&board_clone, &mv) {
+                            let score = -thread_engine.minimax(&new_board, depth - 1, -INFINITY, INFINITY, false);
+                            
+                            // Accumulate statistics
+                            if let Ok(mut stats) = shared_stats.lock() {
+                                stats.positions_evaluated += thread_engine.stats.positions_evaluated;
+                                stats.tt_hits += thread_engine.stats.tt_hits;
+                                stats.ab_cutoffs += thread_engine.stats.ab_cutoffs;
+                                stats.quiescence_nodes += thread_engine.stats.quiescence_nodes;
+                            }
+                            
+                            Some((potential_move.clone(), score))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                
+                // Find the best move from parallel evaluation
+                if let Some((best_parallel_move, best_parallel_score)) = move_scores
+                    .into_iter()
+                    .max_by_key(|(_, score)| *score)
+                {
+                    best_move = best_parallel_move;
+                    best_score = best_parallel_score;
                 }
                 
-                let unstack = potential_move.force_unstack;
-                let mv = potential_move.to_move(unstack);
+                // Merge statistics
+                {
+                    let stats = shared_stats.lock().unwrap();
+                    self.stats.positions_evaluated += stats.positions_evaluated;
+                    self.stats.tt_hits += stats.tt_hits;
+                    self.stats.ab_cutoffs += stats.ab_cutoffs;
+                    self.stats.quiescence_nodes += stats.quiescence_nodes;
+                }
+            } else {
+                // Sequential evaluation for earlier depths
+                let mut alpha = -INFINITY;
+                let beta = INFINITY;
                 
-                if let Ok(new_board) = self.apply_move(board, &mv) {
-                    let score = -self.minimax(&new_board, depth - 1, -beta, -alpha, false);
-                    
-                    if score > best_score {
-                        best_score = score;
-                        best_move = potential_move.clone();
+                for potential_move in &ordered_moves {
+                    if self.time_exceeded() {
+                        break;
                     }
                     
-                    alpha = alpha.max(score);
-                    if alpha >= beta {
-                        self.stats.ab_cutoffs += 1;
-                        break;
+                    let unstack = potential_move.force_unstack;
+                    let mv = potential_move.to_move(unstack);
+                    
+                    if let Ok(new_board) = self.apply_move(board, &mv) {
+                        let score = -self.minimax(&new_board, depth - 1, -beta, -alpha, false);
+                        
+                        if score > best_score {
+                            best_score = score;
+                            best_move = potential_move.clone();
+                        }
+                        
+                        alpha = alpha.max(score);
+                        if alpha >= beta {
+                            self.stats.ab_cutoffs += 1;
+                            break;
+                        }
                     }
                 }
             }
@@ -325,6 +395,20 @@ impl MinimaxEngine {
         
         // Terminal conditions
         let game = Game::from_board(board.clone());
+        
+        // Check if game is over (king captured)
+        if board.is_game_over() {
+            // Return a very large score from the perspective of the winner
+            // If it's White's turn and game is over, Black won (Black captured White's king)
+            // If it's Black's turn and game is over, White won (White captured Black's king)
+            let winner_score = KING_VALUE;
+            return if board.is_white_to_move() {
+                -winner_score  // Black won
+            } else {
+                -winner_score  // White won (but from Black's perspective)
+            };
+        }
+        
         let legal_moves = game.get_all_moves();
         
         if legal_moves.is_empty() || depth == 0 {
@@ -465,12 +549,28 @@ impl MinimaxEngine {
             if let Some(moving_piece) = board.get_piece(from_pos) {
                 if target_piece.color != moving_piece.color {
                     // MVV-LVA: Most Valuable Victim - Least Valuable Attacker
-                    let target_value = self.piece_value(target_piece.bottom);
-                    let attacker_value = self.piece_value(moving_piece.bottom);
+                    // Calculate full value including stacked pieces
+                    let mut target_value = self.piece_value(target_piece.bottom);
+                    if let Some(top_type) = target_piece.top {
+                        let top_value = self.piece_value(top_type);
+                        let stack_total = target_value + top_value;
+                        let bonus = (stack_total as f32 * self.config.stack_bonus) as i32;
+                        target_value = stack_total + bonus;
+                    }
+                    
+                    let mut attacker_value = self.piece_value(moving_piece.bottom);
+                    if let Some(top_type) = moving_piece.top {
+                        let top_value = self.piece_value(top_type);
+                        let stack_total = attacker_value + top_value;
+                        let bonus = (stack_total as f32 * self.config.stack_bonus) as i32;
+                        attacker_value = stack_total + bonus;
+                    }
+                    
                     score += target_value * 10 - attacker_value;
                     
-                    // Bonus for capturing commander
-                    if target_piece.bottom == PieceType::Commander {
+                    // Bonus for capturing commander (including when stacked)
+                    if target_piece.bottom == PieceType::Commander || 
+                       target_piece.top == Some(PieceType::Commander) {
                         score += 500;
                     }
                     
@@ -899,7 +999,7 @@ mod tests {
     #[test]
     fn test_minimax_creation() {
         let engine = MinimaxEngine::new();
-        assert_eq!(engine.config().max_depth, 4);
+        assert_eq!(engine.config().max_depth, 6);
     }
 
     #[test]
@@ -1113,5 +1213,109 @@ mod tests {
         let stats_after = engine.get_statistics();
         assert!(stats_after.positions_evaluated > 0, "Should have evaluated positions");
         assert!(stats_after.search_time_ms > 0, "Should have tracked time");
+    }
+
+    #[test]
+    fn test_capture_dragon_commander_stack() {
+        // This test is based on the issue report where the engine should capture
+        // a Dragon+Commander stack with a Paladin
+        use base64::{engine::general_purpose, Engine as _};
+        
+        // Load the board from the provided base64 hash
+        let board_str = "BwAEBTgFBABeAAADAAAAAAAAAQABAQAxAAAAAAABAAYBEQAAAAAAAAAAAAAAAAAAAABBAAAAQUFBQUFBAEEAAABCAAAAAABDR0ZERXhFRAAAAA==";
+        let bytes = general_purpose::STANDARD.decode(board_str).unwrap();
+        
+        let mut board_data = [0; 82];
+        for (i, &byte) in bytes.iter().enumerate() {
+            board_data[i] = byte;
+        }
+        
+        let board = Board::from_binary(board_data).unwrap();
+        
+        // Verify the position: Black to move
+        assert!(!board.is_white_to_move(), "Should be Black's turn");
+        
+        // Verify pieces at key squares
+        let g9 = Position::new(6, 0);  // Black Paladin
+        let i9 = Position::new(8, 0);  // White Dragon+Commander
+        
+        let paladin = board.get_piece(&g9).expect("Should have piece at G9");
+        assert_eq!(paladin.color, Color::Black);
+        assert_eq!(paladin.bottom, PieceType::Paladin);
+        
+        let target = board.get_piece(&i9).expect("Should have piece at I9");
+        assert_eq!(target.color, Color::White);
+        assert_eq!(target.bottom, PieceType::Dragon);
+        assert_eq!(target.top, Some(PieceType::Commander));
+        
+        // Engine should find the capture move
+        let mut engine = MinimaxEngine::with_config(MinimaxConfig {
+            max_depth: 6,
+            time_limit_ms: 5000,
+            ..Default::default()
+        });
+        
+        let best_move = engine.find_best_move(&board).expect("Should find a move");
+        
+        // The best move should be G9->I9, capturing the Dragon+Commander
+        assert_eq!(best_move.from, g9, 
+            "Best move should start from G9 (Black Paladin), but got {} -> {}", 
+            best_move.from.to_string(), best_move.to.to_string());
+        assert_eq!(best_move.to, i9, 
+            "Best move should capture at I9 (White Dragon+Commander), but got {} -> {}", 
+            best_move.from.to_string(), best_move.to.to_string());
+    }
+
+    #[test]
+    fn test_avoid_exposing_king() {
+        // Test that the engine never moves a guard that protects the king
+        // when doing so would allow immediate king capture
+        use base64::{engine::general_purpose, Engine as _};
+        
+        let board_str = "BwAEADgFXgAAAAADAAAAAAAAAAAAAAAFAAAAAAkBAAABAAAAAAAAAAAAAAAAAAAAAEJBAAAAQUFBAABBAEEAAAAAAAAAAAAAR0ZERXhFRAAAAA==";
+        let bytes = general_purpose::STANDARD.decode(board_str).unwrap();
+        
+        let mut board_data = [0; 82];
+        for (i, &byte) in bytes.iter().enumerate() {
+            board_data[i] = byte;
+        }
+        
+        let board = Board::from_binary(board_data).unwrap();
+        
+        // Verify the position: Black to move
+        assert!(!board.is_white_to_move(), "Should be Black's turn");
+        
+        // Key positions
+        let f9 = Position::new(5, 0);  // Black Guard protecting the king
+        let e9 = Position::new(4, 0);  // Black King
+        let g9 = Position::new(6, 0);  // White Dragon+Commander that can capture king
+        
+        // Verify pieces
+        let guard = board.get_piece(&f9).expect("Should have piece at F9");
+        assert_eq!(guard.color, Color::Black);
+        assert_eq!(guard.bottom, PieceType::Guard);
+        
+        let king = board.get_piece(&e9).expect("Should have piece at E9");
+        assert_eq!(king.color, Color::Black);
+        assert_eq!(king.bottom, PieceType::King);
+        
+        let threat = board.get_piece(&g9).expect("Should have piece at G9");
+        assert_eq!(threat.color, Color::White);
+        
+        // Test engine multiple times (as suggested in the requirement)
+        for i in 1..=3 {
+            let mut engine = MinimaxEngine::with_config(MinimaxConfig {
+                max_depth: 6,
+                time_limit_ms: 5000,
+                ..Default::default()
+            });
+            
+            let best_move = engine.find_best_move(&board).expect("Should find a move");
+            
+            // The engine must NEVER move the F9 Guard
+            assert_ne!(best_move.from, f9,
+                "Test iteration {}: Engine moved F9 Guard ({} -> {}), exposing the king to immediate capture!",
+                i, best_move.from.to_string(), best_move.to.to_string());
+        }
     }
 }
