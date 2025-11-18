@@ -2,6 +2,7 @@ services:
   frontend:
     image: node:24-slim
     working_dir: /app
+    #user: "${UID:-1000}:${GID:-1000}"
     ports:
       - "8080:8080"
     volumes:

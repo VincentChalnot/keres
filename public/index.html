@@ -1,75 +1,78 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Arx Game</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
-  <style>
-    html {
-      background-color: #000000;
-    }
-    #board-canvas {
-      display: block;
-      width: 100%;
-      height: auto;
-      cursor: pointer;
-      touch-action: none;
-    }
-    .move-history {
-      min-width: 250px;
-      flex-shrink: 0;
-    }
-    .move-history textarea {
-      font-family: monospace;
-      width: 100%;
-      height: 400px;
-      resize: vertical;
-    }
-  </style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Arx Game</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <style>
+        html {
+            background-color: #000000;
+        }
+
+        #board-canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            cursor: pointer;
+            touch-action: none;
+        }
+
+        .move-history {
+            min-width: 250px;
+            flex-shrink: 0;
+        }
+
+        .move-history textarea {
+            font-family: monospace;
+            width: 100%;
+            height: 400px;
+            resize: vertical;
+        }
+    </style>
 </head>
 <body>
-  <section class="section">
+<section class="section">
     <div class="container">
-      <h1 class="title">Arx</h1>
-      <div class="game-container">
-        <div class="main-container">
-          <div id="board-container"></div>
-          <div id="status">Loading...</div>
-          <div class="buttons mt-4">
-            <a href="/" class="button is-warning">Reset board</a>
-            <button class="button is-primary" id="switch-sides-btn">Switch Sides</button>
-            <button class="button is-info" id="ask-engine-btn">Ask Engine</button>
-          </div>
+        <h1 class="title">Arx</h1>
+        <div class="game-container">
+            <div class="main-container">
+                <div id="board-container"></div>
+                <div id="status">Loading...</div>
+                <div class="buttons mt-4">
+                    <a href="/" class="button is-warning">Reset board</a>
+                    <button class="button is-primary" id="switch-sides-btn">Switch Sides</button>
+                    <button class="button is-info" id="ask-engine-btn">Ask Engine</button>
+                </div>
+            </div>
+            <div class="move-history">
+                <label class="label" for="move-history">Move History</label>
+                <textarea class="textarea" id="move-history" placeholder=""></textarea>
+                <div class="buttons mt-2">
+                    <button class="button is-info" id="load-game-btn">Load</button>
+                    <button class="button is-warning" id="undo-btn">Undo</button>
+                </div>
+            </div>
         </div>
-        <div class="move-history">
-          <label class="label" for="move-history">Move History</label>
-          <textarea class="textarea" id="move-history" placeholder=""></textarea>
-          <div class="buttons mt-2">
-            <button class="button is-info" id="load-game-btn">Load</button>
-            <button class="button is-warning" id="undo-btn">Undo</button>
-          </div>
-        </div>
-      </div>
     </div>
-  </section>
+</section>
 
-  <div class="modal" id="unstack-modal">
+<div class="modal" id="unstack-modal">
     <div class="modal-background"></div>
     <div class="modal-card">
-      <header class="modal-card-head">
-        <p class="modal-card-title">Choose your move</p>
-      </header>
-      <section class="modal-card-body">
-        <p>You are moving a stacked piece. Do you want to move the full stack or only the top piece?</p>
-      </section>
-      <footer class="modal-card-foot">
-        <button class="button" id="move-stack">Move Full Stack</button>
-        <button class="button" id="move-unstack">Move Top Piece</button>
-      </footer>
+        <header class="modal-card-head">
+            <p class="modal-card-title">Choose your move</p>
+        </header>
+        <section class="modal-card-body">
+            <p>You are moving a stacked piece. Do you want to move the full stack or only the top piece?</p>
+        </section>
+        <footer class="modal-card-foot">
+            <button class="button" id="move-stack">Move Full Stack</button>
+            <button class="button" id="move-unstack">Move Top Piece</button>
+        </footer>
     </div>
-  </div>
+</div>
 
-  <script type="module" src="/src/app.ts"></script>
+<script type="module" src="/src/app.ts"></script>
 </body>
 </html>

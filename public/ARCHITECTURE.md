@@ -19,12 +19,14 @@ src/
 ## Design Principles
 
 ### 1. **Separation of Concerns**
+
 - **Model**: Game state management (board data, move history, piece decoding)
 - **View**: Rendering (completely swappable via IBoardView interface)
 - **Controller**: Game logic (move validation, user interaction)
 - **Network**: Backend communication (API calls)
 
 ### 2. **Interface-Based View System**
+
 The rendering engine is abstracted behind the `IBoardView` interface, making it easy to swap implementations:
 
 ```typescript
@@ -43,6 +45,7 @@ Current implementation: `ThreeJSBoardView` (2D sprites with Three.js)
 Future implementation: 3D board with 3D pieces
 
 ### 3. **Dependency Injection**
+
 The controller accepts any view implementation that conforms to `IBoardView`:
 
 ```typescript
@@ -57,7 +60,9 @@ To switch to a 3D renderer, simply create a new implementation and inject it.
 ### Models (`models/`)
 
 #### `GameState.ts`
+
 Manages the game state:
+
 - Board data (Uint8Array)
 - Move history and game history
 - Selected pieces and moves
@@ -65,17 +70,22 @@ Manages the game state:
 - Piece decoding logic
 
 #### `types.ts`
+
 TypeScript interfaces and constants:
+
 - Core game types (Config, Piece, SelectedPiece, etc.)
 - Game constants (BOARD_SIZE, PIECE_CODE, COLOR_NAME)
 
 ### Views (`views/`)
 
 #### `IBoardView.ts`
+
 Interface that all rendering implementations must follow.
 
 #### `ThreeJSBoardView.ts`
+
 Current implementation using Three.js with sprite-based rendering:
+
 - Orthographic camera
 - Board sprite (wooden texture)
 - Piece sprites (with stacking support)
@@ -87,7 +97,9 @@ Current implementation using Three.js with sprite-based rendering:
 ### Controllers (`controllers/`)
 
 #### `GameController.ts`
+
 Main game logic coordinator:
+
 - Handles tile clicks and hover
 - Manages move validation
 - Coordinates between model, view, and network
@@ -96,7 +108,9 @@ Main game logic coordinator:
 ### Network (`network/`)
 
 #### `GameAPI.ts`
+
 Backend communication:
+
 - `getNewGame()`: Start new game
 - `getPossibleMoves()`: Get legal moves
 - `playMove()`: Execute a move
@@ -106,7 +120,9 @@ Backend communication:
 ### Utils (`utils/`)
 
 #### `boardUtils.ts`
+
 Utility functions:
+
 - `posToAlgebraic()`: Convert position to algebraic notation
 - `algebraicToPos()`: Convert algebraic to position
 - `encodeBoardToHash()`: Encode board for URL
@@ -140,6 +156,7 @@ Utility functions:
 To create a new rendering engine (e.g., 3D board):
 
 1. **Create new view class**:
+
 ```typescript
 export class ThreeJS3DBoardView implements IBoardView {
   // Implement all IBoardView methods
@@ -151,6 +168,7 @@ export class ThreeJS3DBoardView implements IBoardView {
 ```
 
 2. **Update main app.ts**:
+
 ```typescript
 // Replace this:
 this.view = new ThreeJSBoardView(this.gameState);
