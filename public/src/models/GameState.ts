@@ -1,14 +1,15 @@
-import {Board} from './types';
+import {Board, PotentialMove} from './types';
 
 /**
  * Game state model
  */
 export class GameState {
     private board: Board | null = null;
-    private selectedPiece: { from: number; to: number[] } | null = null;
-    private selectedMove: { from: number; to: number } | null = null;
+    private potentialMoves: PotentialMove[] = [];
+    private selectedPosition: number | null = null;
+    private clickedDestination: number | null = null;
     private boardFlipped = false;
-    private hoveredPiece: number | null = null;
+    private hoveredPosition: number | null = null;
     private moveHistory: string[] = [];
     private gameHistory: Board[] = [];
 
@@ -20,20 +21,50 @@ export class GameState {
         this.board = board;
     }
 
-    getSelectedPiece(): { from: number; to: number[] } | null {
-        return this.selectedPiece;
+    getPotentialMoves(): PotentialMove[] {
+        return this.potentialMoves;
     }
 
-    setSelectedPiece(piece: { from: number; to: number[] } | null): void {
-        this.selectedPiece = piece;
+    setPotentialMoves(moves: PotentialMove[]): void {
+        this.potentialMoves = moves;
     }
 
-    getSelectedMove(): { from: number; to: number } | null {
-        return this.selectedMove;
+    getPotentialMovesForPosition(pos: number): PotentialMove[] {
+        const moves: PotentialMove[] = [];
+        for (const move of this.potentialMoves) {
+            if (move.from === pos) {
+                moves.push(move);
+            }
+        }
+        return moves;
     }
 
-    setSelectedMove(move: { from: number; to: number } | null): void {
-        this.selectedMove = move;
+    getPotentialMove(fromPos: number, toPos: number): PotentialMove | null {
+        for (const move of this.potentialMoves) {
+            if (move.from === fromPos && move.to === toPos) {
+                return move;
+            }
+        }
+        return null;
+    }
+
+    getSelectedPosition(): number | null {
+        return this.selectedPosition;
+    }
+
+    setSelectedPosition(position: number | null): void {
+        if (position === null) {
+            this.clickedDestination = null;
+        }
+        this.selectedPosition = position;
+    }
+
+    getClickedDestination(): number | null {
+        return this.clickedDestination;
+    }
+
+    setClickedDestination(position: number | null): void {
+        this.clickedDestination = position;
     }
 
     isBoardFlipped(): boolean {
@@ -48,12 +79,12 @@ export class GameState {
         this.boardFlipped = flipped;
     }
 
-    getHoveredPiece(): number | null {
-        return this.hoveredPiece;
+    getHoveredPosition(): number | null {
+        return this.hoveredPosition;
     }
 
-    setHoveredPiece(piece: number | null): void {
-        this.hoveredPiece = piece;
+    setHoveredPosition(position: number | null): void {
+        this.hoveredPosition = position;
     }
 
     getMoveHistory(): string[] {

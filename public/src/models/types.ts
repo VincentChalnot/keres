@@ -36,7 +36,7 @@ export interface Move {
 export interface TileState {
     position: number;
     highlighted: boolean;
-    highlightColor?: 'selected' | 'possible' | 'hovered';
+    highlightColor?: 'selected' | 'potential' | 'hovered';
 }
 
 // Constants
