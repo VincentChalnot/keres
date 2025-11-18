@@ -358,6 +358,10 @@ impl Board {
         self.moves_without_capture = 0;
     }
 
+    pub fn set_moves_without_capture(&mut self, count: u8) {
+        self.moves_without_capture = count;
+    }
+
     pub fn get_piece(&self, position: &Position) -> Option<&Piece> {
         self.data[position.to_absolute()].as_ref()
     }
