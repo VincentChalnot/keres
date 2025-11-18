@@ -149,7 +149,7 @@ fn main() {
                             ));
                         }
 
-                        let mut board_data = [0; BOARD_SIZE + 1];
+                        let mut board_data = [0; BOARD_SIZE + 2];
                         for (i, &byte) in bytes.iter().enumerate() {
                             board_data[i] = byte;
                         }

@@ -42,7 +42,7 @@ unsafe impl Zeroable for GpuMoveApplication {}
 pub struct BatchSimulationResult {
     pub score: i32,
     pub valid: bool,
-    pub board: [u8; 82],
+    pub board: [u8; 83],
 }
 
 /// GPU-accelerated batch simulation engine
@@ -116,34 +116,46 @@ impl BatchSimulationEngine {
     }
 
     /// Convert board binary to GPU format
-    fn board_to_gpu(&self, board_binary: &[u8; 82]) -> GpuBoardState {
+    fn board_to_gpu(&self, board_binary: &[u8; 83]) -> GpuBoardState {
         let mut gpu_board = GpuBoardState {
             squares: [0; BOARD_SIZE],
-            white_to_move: board_binary[81] as u32,
+            white_to_move: 0,
             _padding: [0; 3],
         };
 
         for i in 0..BOARD_SIZE {
             gpu_board.squares[i] = board_binary[i] as u32;
         }
+        
+        // Extract white_to_move from the flags byte (bit 8)
+        let flags = board_binary[81];
+        gpu_board.white_to_move = if (flags & 0b10000000) != 0 { 1 } else { 0 };
+        
+        // Note: board_binary[82] is the moves_without_capture counter, not used in GPU simulation
 
         gpu_board
     }
 
     /// Convert GPU board back to binary format
-    fn gpu_to_board(&self, gpu_board: &GpuBoardState) -> [u8; 82] {
-        let mut board = [0u8; 82];
+    fn gpu_to_board(&self, gpu_board: &GpuBoardState) -> [u8; 83] {
+        let mut board = [0u8; 83];
         for i in 0..BOARD_SIZE {
             board[i] = gpu_board.squares[i] as u8;
         }
-        board[81] = gpu_board.white_to_move as u8;
+        // Pack white_to_move into bit 8 of the flags byte
+        let mut flags = 0u8;
+        if gpu_board.white_to_move != 0 {
+            flags |= 0b10000000;
+        }
+        board[81] = flags;
+        // board[82] (moves_without_capture) remains 0 as it's not tracked in GPU simulation
         board
     }
 
     /// Process a batch of move applications and evaluations on GPU
     pub fn process_batch(
         &self,
-        boards: &[[u8; 82]],
+        boards: &[[u8; 83]],
         moves: &[u16],
     ) -> Result<Vec<BatchSimulationResult>, String> {
         if boards.len() != moves.len() {
@@ -300,9 +312,10 @@ mod tests {
         let engine = engine.unwrap();
 
         // Create a simple test board with a white soldier
-        let mut board = [0u8; 82];
+        let mut board = [0u8; 83];
         board[40] = 0b1000001; // White Soldier at center
-        board[81] = 1; // White to move
+        board[81] = 0b10000000; // White to move (bit 8)
+        board[82] = 0; // moves_without_capture counter
 
         // Test with empty batch
         let result = engine.process_batch(&[], &[]);

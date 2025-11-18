@@ -86,10 +86,10 @@ async fn new_game() -> impl IntoResponse {
 
 async fn post_moves(payload: Bytes) -> Result<Vec<u8>, StatusCode> {
     let board_bytes = payload;
-    if board_bytes.len() != BOARD_SIZE + 1 {
+    if board_bytes.len() != BOARD_SIZE + 2 {
         return Err(StatusCode::BAD_REQUEST);
     }
-    let mut board_array = [0u8; BOARD_SIZE + 1];
+    let mut board_array = [0u8; BOARD_SIZE + 2];
     board_array.copy_from_slice(&board_bytes);
     let board = Board::from_binary(board_array).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let game = Game::from_board(board);
@@ -103,12 +103,12 @@ async fn post_moves(payload: Bytes) -> Result<Vec<u8>, StatusCode> {
 
 async fn play_move(payload: Bytes) -> Result<Vec<u8>, StatusCode> {
     let payload = payload;
-    if payload.len() < BOARD_SIZE + 3 {
+    if payload.len() < BOARD_SIZE + 4 {
         return Err(StatusCode::BAD_REQUEST);
     }
-    let board_bytes = &payload[..BOARD_SIZE + 1];
-    let move_bytes = &payload[BOARD_SIZE + 1..BOARD_SIZE + 3];
-    let mut board_array = [0u8; BOARD_SIZE + 1];
+    let board_bytes = &payload[..BOARD_SIZE + 2];
+    let move_bytes = &payload[BOARD_SIZE + 2..BOARD_SIZE + 4];
+    let mut board_array = [0u8; BOARD_SIZE + 2];
     board_array.copy_from_slice(board_bytes);
     let board = Board::from_binary(board_array).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let mut game = Game::from_board(board);
@@ -123,11 +123,11 @@ async fn engine_move(
     payload: Bytes,
 ) -> Result<Vec<u8>, StatusCode> {
     let board_bytes = payload;
-    if board_bytes.len() != BOARD_SIZE + 1 {
+    if board_bytes.len() != BOARD_SIZE + 2 {
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    let mut board_array = [0u8; BOARD_SIZE + 1];
+    let mut board_array = [0u8; BOARD_SIZE + 2];
     board_array.copy_from_slice(&board_bytes);
 
     // Convert binary board to Board object
@@ -161,11 +161,11 @@ async fn minimax_move(
     payload: Bytes,
 ) -> Result<Vec<u8>, StatusCode> {
     let board_bytes = payload;
-    if board_bytes.len() != BOARD_SIZE + 1 {
+    if board_bytes.len() != BOARD_SIZE + 2 {
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    let mut board_array = [0u8; BOARD_SIZE + 1];
+    let mut board_array = [0u8; BOARD_SIZE + 2];
     board_array.copy_from_slice(&board_bytes);
 
     // Convert binary board to Board object
