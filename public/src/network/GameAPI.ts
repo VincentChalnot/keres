@@ -58,11 +58,37 @@ export class GameAPI {
     }
 
     /**
-     * Get engine move for current board state
+     * Get engine move for current board state (MCTS engine)
      */
     async getEngineMove(board: Board): Promise<Move> {
         const binary = encodeBoardToBinary(board);
         const response = await fetch(`${this.config.backendUrl}/engine-move`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/octet-stream'},
+            body: binary as BodyInit,
+        });
+
+        if (!response.ok) {
+            throw new Error(`Server returned ${response.status}`);
+        }
+
+        const moveBuffer = await response.arrayBuffer();
+        const moveArray = new Uint16Array(moveBuffer);
+        const engineMoveU16 = moveArray[0];
+
+        const from = engineMoveU16 & 0x7F;
+        const to = (engineMoveU16 >> 7) & 0x7F;
+        const unstack = ((engineMoveU16 >> 14) & 0x1) === 1;
+
+        return {from, to, unstack};
+    }
+
+    /**
+     * Get minimax engine move for current board state
+     */
+    async getMinimaxMove(board: Board): Promise<Move> {
+        const binary = encodeBoardToBinary(board);
+        const response = await fetch(`${this.config.backendUrl}/minimax-move`, {
             method: 'POST',
             headers: {'Content-Type': 'application/octet-stream'},
             body: binary as BodyInit,
