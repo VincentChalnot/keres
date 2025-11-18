@@ -58,6 +58,13 @@ export default class ThreeJSBoardView implements IBoardView {
     private clickHandler: ((tileIndex: number) => void) | null = null;
     private hoverHandler: ((tileIndex: number | null) => void) | null = null;
 
+    // Texture cache to avoid repeated network requests
+    private textureCache: Map<string, THREE.Texture> = new Map();
+    
+    // Track current board state to enable differential updates
+    private currentBoardData: Uint8Array | null = null;
+    private currentFlipped: boolean = false;
+
     constructor(gameState: GameState) {
         this.gameState = gameState;
     }
@@ -237,14 +244,97 @@ export default class ThreeJSBoardView implements IBoardView {
     async render(boardData: Uint8Array, flipped: boolean): Promise<void> {
         try {
             await this.updateBoard();
-            await this.createPieceSprites(boardData, flipped);
+            await this.updatePieceSprites(boardData, flipped);
             this.renderScene();
         } catch (err) {
             console.error('Error in render:', err);
         }
     }
 
-    private async createPieceSprites(boardData: Uint8Array, flipped: boolean): Promise<void> {
+    private async updatePieceSprites(boardData: Uint8Array, flipped: boolean): Promise<void> {
+        // Check if board orientation changed
+        const orientationChanged = this.currentFlipped !== flipped;
+        
+        // If this is the first render or orientation changed, recreate all sprites
+        if (!this.currentBoardData || orientationChanged) {
+            await this.recreateAllPieceSprites(boardData, flipped);
+            this.currentBoardData = new Uint8Array(boardData);
+            this.currentFlipped = flipped;
+            return;
+        }
+
+        // Perform differential update
+        const changes: number[] = [];
+        for (let i = 0; i <= LAST_BOARD_INDEX; i++) {
+            if (boardData[i] !== this.currentBoardData[i]) {
+                changes.push(i);
+            }
+        }
+
+        // Update only changed positions
+        for (const index of changes) {
+            await this.updatePieceSpriteAtIndex(index, boardData[index], flipped);
+        }
+
+        // Update cached board state
+        this.currentBoardData = new Uint8Array(boardData);
+    }
+
+    private async updatePieceSpriteAtIndex(index: number, pieceVal: number, flipped: boolean): Promise<void> {
+        // Remove existing sprites at this position
+        this.removePieceSpritesAtIndex(index);
+
+        // Add new sprites if there's a piece
+        const piece = decodePiece(pieceVal);
+        if (!piece) return;
+
+        const tile = this.getTile(index);
+        const pieceSize = tile.width * PIECE_SCALE_FACTOR;
+
+        // Load bottom piece
+        const bottomTexture = await this.loadPieceSprite(piece.bottom, piece.color, flipped);
+        const bottomMaterial = new THREE.SpriteMaterial({map: bottomTexture});
+        const bottomSprite = new THREE.Sprite(bottomMaterial);
+        bottomSprite.scale.set(pieceSize, pieceSize, 1);
+        bottomSprite.position.set(tile.x, tile.y + PIECE_OFFSET_Y, 1);
+        bottomSprite.userData.tileIndex = index;
+        bottomSprite.userData.isTopPiece = false;
+        this.scene.add(bottomSprite);
+        this.pieceSprites.push(bottomSprite);
+
+        // Load top piece if stacked
+        if (!piece.top) return;
+
+        const topTexture = await this.loadPieceSprite(piece.top, piece.color, flipped);
+        const topMaterial = new THREE.SpriteMaterial({map: topTexture});
+        const topSprite = new THREE.Sprite(topMaterial);
+        topSprite.scale.set(pieceSize, pieceSize, 1);
+        topSprite.position.set(tile.x, tile.y + PIECE_OFFSET_Y + pieceSize * PIECE_TOP_OFFSET_FACTOR, 2);
+        topSprite.userData.tileIndex = index;
+        topSprite.userData.isTopPiece = true;
+        this.scene.add(topSprite);
+        this.pieceSprites.push(topSprite);
+    }
+
+    private removePieceSpritesAtIndex(index: number): void {
+        // Find and remove all sprites at this tile index
+        const spritesToRemove = this.pieceSprites.filter(
+            sprite => sprite.userData.tileIndex === index
+        );
+
+        for (const sprite of spritesToRemove) {
+            this.scene.remove(sprite);
+            sprite.geometry.dispose();
+            sprite.material.dispose();
+        }
+
+        // Update pieceSprites array
+        this.pieceSprites = this.pieceSprites.filter(
+            sprite => sprite.userData.tileIndex !== index
+        );
+    }
+
+    private async recreateAllPieceSprites(boardData: Uint8Array, flipped: boolean): Promise<void> {
         // Clear existing pieces
         this.pieceSprites.forEach(sprite => {
             this.scene.remove(sprite);
@@ -268,10 +358,12 @@ export default class ThreeJSBoardView implements IBoardView {
                 const bottomSprite = new THREE.Sprite(bottomMaterial);
                 bottomSprite.scale.set(pieceSize, pieceSize, 1);
                 bottomSprite.position.set(tile.x, tile.y + PIECE_OFFSET_Y, 1);
+                bottomSprite.userData.tileIndex = i;
+                bottomSprite.userData.isTopPiece = false;
                 this.scene.add(bottomSprite);
                 this.pieceSprites.push(bottomSprite);
 
-                // Load bottom piece if stacked
+                // Load top piece if stacked
                 if (!piece.top) continue;
 
                 const topTexture = await this.loadPieceSprite(piece.top, piece.color, flipped);
@@ -279,6 +371,8 @@ export default class ThreeJSBoardView implements IBoardView {
                 const topSprite = new THREE.Sprite(topMaterial);
                 topSprite.scale.set(pieceSize, pieceSize, 1);
                 topSprite.position.set(tile.x, tile.y + PIECE_OFFSET_Y + pieceSize * PIECE_TOP_OFFSET_FACTOR, 2);
+                topSprite.userData.tileIndex = i;
+                topSprite.userData.isTopPiece = true;
                 this.scene.add(topSprite);
                 this.pieceSprites.push(topSprite);
             } catch (err) {
@@ -302,9 +396,19 @@ export default class ThreeJSBoardView implements IBoardView {
     }
 
     private loadTexture(path: string): Promise<THREE.Texture> {
+        // Return cached texture if available
+        const cached = this.textureCache.get(path);
+        if (cached) {
+            return Promise.resolve(cached);
+        }
+
         return new Promise((resolve, reject) => {
             const loader = new THREE.TextureLoader();
-            loader.load(path, resolve, undefined, (err) => {
+            loader.load(path, (texture) => {
+                // Cache the loaded texture
+                this.textureCache.set(path, texture);
+                resolve(texture);
+            }, undefined, (err) => {
                 console.error(`Error loading texture: ${path}`, err);
                 reject(err);
             });
@@ -384,6 +488,12 @@ export default class ThreeJSBoardView implements IBoardView {
             this.boardSprite.geometry.dispose();
             this.boardSprite.material.dispose();
         }
+
+        // Clean up texture cache
+        this.textureCache.forEach(texture => {
+            texture.dispose();
+        });
+        this.textureCache.clear();
 
         this.renderer.dispose();
     }
