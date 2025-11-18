@@ -18,6 +18,7 @@ export class GameController {
     private gameState: GameState;
     private api: GameAPI;
     private view: IBoardView;
+    private updatingHashProgrammatically = false;
 
     constructor(gameState: GameState, api: GameAPI, view: IBoardView) {
         this.gameState = gameState;
@@ -27,6 +28,9 @@ export class GameController {
         // Set up view event handlers
         this.view.onTileClick((pos) => this.handleTileClick(pos));
         this.view.onTileHover((pos) => this.handleTileHover(pos));
+
+        // Set up hash change listener for browser history navigation
+        window.addEventListener('hashchange', () => this.handleHashChange());
     }
 
     /**
@@ -86,8 +90,10 @@ export class GameController {
         const newBoard = await this.api.playMove(board, {from, to, unstack});
         this.gameState.setBoard(newBoard);
 
-        // Update URL hash
+        // Update URL hash (set flag to prevent hashchange handler from triggering)
+        this.updatingHashProgrammatically = true;
         window.location.hash = encodeBoardToHash(encodeBoardToBinary(newBoard));
+        this.updatingHashProgrammatically = false;
 
         // Record move in algebraic notation
         const moveNotation = posToAlgebraic(from) + '-' + posToAlgebraic(to);
@@ -135,7 +141,11 @@ export class GameController {
 
         this.gameState.setBoard(previousState);
         this.gameState.popMove();
+        
+        // Update URL hash (set flag to prevent hashchange handler from triggering)
+        this.updatingHashProgrammatically = true;
         window.location.hash = encodeBoardToHash(encodeBoardToBinary(previousState));
+        this.updatingHashProgrammatically = false;
 
         this.gameState.setSelectedPosition(null);
         await this.updatePotentialMoves();
@@ -291,6 +301,46 @@ export class GameController {
         const boardBinary = encodeBoardToBinary(board);
         await this.view.render(boardBinary, flipped);
         this.updateOverlays();
+    }
+
+    /**
+     * Handle hash change event (browser back/forward navigation)
+     */
+    private async handleHashChange(): Promise<void> {
+        // Ignore hash changes that we triggered programmatically
+        if (this.updatingHashProgrammatically) {
+            return;
+        }
+
+        // Load board state from the new hash
+        if (window.location.hash) {
+            const boardBinary = decodeBoardFromHash(window.location.hash);
+            if (boardBinary) {
+                const board = decodeBoardFromBinary(boardBinary);
+                this.gameState.setBoard(board);
+                
+                // Clear move history since we're loading a specific board state
+                // without knowing the move sequence that led to it
+                this.gameState.clearMoveHistory();
+                this.gameState.clearGameHistory();
+                
+                // Clear selection and update the view
+                this.gameState.setSelectedPosition(null);
+                await this.updatePotentialMoves();
+                await this.renderBoard();
+                
+                // Dispatch event to notify UI to update status and move history display
+                window.dispatchEvent(new CustomEvent('boardStateChanged'));
+            }
+        } else {
+            // No hash - start a new game
+            await this.startNewGame();
+            await this.updatePotentialMoves();
+            await this.renderBoard();
+            
+            // Dispatch event to notify UI to update
+            window.dispatchEvent(new CustomEvent('boardStateChanged'));
+        }
     }
 
     /**

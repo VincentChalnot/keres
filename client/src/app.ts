@@ -85,6 +85,12 @@ class ArxGame {
         window.addEventListener('showUnstackModal', () => {
             this.unstackModal.classList.add('is-active');
         });
+
+        // Custom event for board state changes (e.g., from browser history navigation)
+        window.addEventListener('boardStateChanged', () => {
+            this.updateStatus();
+            this.updateMoveHistoryDisplay();
+        });
     }
 
     private async handleMoveStack(fullStack: boolean = false): Promise<void> {
