@@ -58,6 +58,9 @@ pub use gpu_move_gen::MoveGenerationEngine;
 mod gpu_batch_sim;
 pub use gpu_batch_sim::BatchSimulationEngine;
 
+mod minimax;
+pub use minimax::{MinimaxEngine, MinimaxConfig, MinimaxStatistics};
+
 /// Piece values for evaluation (based on chess piece values, scaled with Soldier=1)
 const PIECE_VALUES: [i32; 8] = [
     0, // Index 0: unused

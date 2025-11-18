@@ -1,5 +1,5 @@
 use arx_engine::board::{Board, BOARD_SIZE};
-use arx_engine::engine::{EngineConfig, MctsEngine};
+use arx_engine::engine::{EngineConfig, MctsEngine, MinimaxEngine, MinimaxConfig};
 use arx_engine::game::{Game, Move};
 use axum::{
     body::Bytes,
@@ -15,13 +15,14 @@ use tower_http::cors::{Any, CorsLayer};
 
 // Shared engine state
 struct AppState {
-    engine: Mutex<Option<MctsEngine>>,
+    mcts_engine: Mutex<Option<MctsEngine>>,
+    minimax_engine: Mutex<MinimaxEngine>,
 }
 
 #[tokio::main]
 async fn main() {
-    // Initialize the engine with configuration from engine_demo.rs
-    let config = EngineConfig {
+    // Initialize the MCTS engine with configuration from engine_demo.rs
+    let mcts_config = EngineConfig {
         max_depth: 16,
         simulations_per_move: 100000,
         exploration_constant: 1.414,
@@ -29,20 +30,32 @@ async fn main() {
         use_gpu_simulation: true,
     };
 
-    let engine = match MctsEngine::with_config(config) {
+    let mcts_engine = match MctsEngine::with_config(mcts_config) {
         Ok(e) => {
-            println!("✓ Engine initialized successfully");
+            println!("✓ MCTS Engine initialized successfully");
             Some(e)
         }
         Err(e) => {
-            eprintln!("⚠ Failed to initialize engine: {}", e);
-            eprintln!("  Engine move endpoint will return errors");
+            eprintln!("⚠ Failed to initialize MCTS engine: {}", e);
+            eprintln!("  MCTS engine move endpoint will return errors");
             None
         }
     };
 
+    // Initialize the Minimax engine
+    let minimax_config = MinimaxConfig {
+        max_depth: 4,
+        use_quiescence: true,
+        use_transposition_table: true,
+        time_limit_ms: 3000,
+        ..Default::default()
+    };
+    let minimax_engine = MinimaxEngine::with_config(minimax_config);
+    println!("✓ Minimax Engine initialized successfully");
+
     let state = Arc::new(AppState {
-        engine: Mutex::new(engine),
+        mcts_engine: Mutex::new(mcts_engine),
+        minimax_engine: Mutex::new(minimax_engine),
     });
 
     let cors = CorsLayer::new()
@@ -55,6 +68,7 @@ async fn main() {
         .route("/moves", post(post_moves))
         .route("/play", post(play_move))
         .route("/engine-move", post(engine_move))
+        .route("/minimax-move", post(minimax_move))
         .with_state(state)
         .layer(cors);
 
@@ -119,9 +133,9 @@ async fn engine_move(
     // Convert binary board to Board object
     let board = Board::from_binary(board_array).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // Get the engine from state
+    // Get the MCTS engine from state
     let mut engine_guard = state
-        .engine
+        .mcts_engine
         .lock()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -129,10 +143,43 @@ async fn engine_move(
         .as_mut()
         .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
 
-    // Find best move using the engine
-    // The engine now returns a Move object directly
+    // Find best move using the MCTS engine
     let mv = engine.find_best_move(&board).map_err(|e| {
-        eprintln!("Engine error: {}", e);
+        eprintln!("MCTS Engine error: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Encode the move for the client
+    let move_encoding = mv.to_u16();
+
+    // Return the move as 2-byte little-endian u16
+    Ok(move_encoding.to_le_bytes().to_vec())
+}
+
+async fn minimax_move(
+    State(state): State<Arc<AppState>>,
+    payload: Bytes,
+) -> Result<Vec<u8>, StatusCode> {
+    let board_bytes = payload;
+    if board_bytes.len() != BOARD_SIZE + 1 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let mut board_array = [0u8; BOARD_SIZE + 1];
+    board_array.copy_from_slice(&board_bytes);
+
+    // Convert binary board to Board object
+    let board = Board::from_binary(board_array).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Get the Minimax engine from state
+    let mut engine_guard = state
+        .minimax_engine
+        .lock()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Find best move using the Minimax engine
+    let mv = engine_guard.find_best_move(&board).map_err(|e| {
+        eprintln!("Minimax Engine error: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
