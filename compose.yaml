@@ -6,7 +6,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./public:/app
+      - ./client:/app
     command: sh -c "npm install && npm run dev"
     depends_on:
       - backend
