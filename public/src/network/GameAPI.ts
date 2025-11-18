@@ -20,9 +20,9 @@ export class GameAPI {
     }
 
     /**
-     * Get possible moves for current board state
+     * Get potential moves for current board state
      */
-    async getPossibleMoves(board: Board): Promise<PotentialMove[]> {
+    async getPotentialMoves(board: Board): Promise<PotentialMove[]> {
         const binary = encodeBoardToBinary(board);
         const response = await fetch(`${this.config.backendUrl}/moves`, {
             method: 'POST',
@@ -31,7 +31,7 @@ export class GameAPI {
         });
         const buffer = await response.arrayBuffer();
         const movesU16 = new Uint16Array(buffer);
-        
+
         return Array.from(movesU16).map(decodePotentialMove);
     }
 
@@ -42,7 +42,7 @@ export class GameAPI {
         const boardBinary = encodeBoardToBinary(board);
         const moveU16 = encodeMove(move);
         const moveBuffer = new Uint16Array([moveU16]).buffer;
-        
+
         const payload = new Uint8Array(boardBinary.length + 2);
         payload.set(boardBinary, 0);
         payload.set(new Uint8Array(moveBuffer), boardBinary.length);

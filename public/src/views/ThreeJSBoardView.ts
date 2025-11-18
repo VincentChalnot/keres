@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import {IBoardView, TileHighlight} from './IBoardView';
-import {BOARD_SIZE, LAST_BOARD_INDEX, Piece} from '../models/types';
+import {BOARD_SIZE, LAST_BOARD_INDEX} from '../models/types';
 import {GameState} from '../models/GameState';
-import {posToAlgebraic, decodePiece} from "../utils/boardUtils";
+import {decodePiece} from "../utils/boardUtils";
 
 interface TileOverlay {
     geometry: THREE.PlaneGeometry;
@@ -54,7 +54,6 @@ export default class ThreeJSBoardView implements IBoardView {
     private mouse!: THREE.Vector2;
     private container!: HTMLElement;
     private gameState: GameState;
-    private debug: boolean = true;
 
     private clickHandler: ((tileIndex: number) => void) | null = null;
     private hoverHandler: ((tileIndex: number | null) => void) | null = null;
@@ -221,7 +220,7 @@ export default class ThreeJSBoardView implements IBoardView {
                     overlay.material.color.setHex(0x7fa0dd);
                     overlay.material.opacity = 0.6;
                     break;
-                case 'possible':
+                case 'potential':
                     overlay.material.color.setHex(0x55d157);
                     overlay.material.opacity = 0.5;
                     break;
@@ -254,14 +253,10 @@ export default class ThreeJSBoardView implements IBoardView {
         });
         this.pieceSprites = [];
 
-        let pieces: (Piece | null)[] = [];
-
         for (let i = 0; i <= LAST_BOARD_INDEX; i++) {
             try {
                 const pieceVal = boardData[i];
                 const piece = decodePiece(pieceVal);
-                pieces[i] = piece;
-
                 if (!piece) continue;
 
                 const tile = this.getTile(i);
@@ -290,15 +285,11 @@ export default class ThreeJSBoardView implements IBoardView {
                 console.error(`Error creating piece sprite at index ${i}:`, err);
             }
         }
-
-        if (this.debug) {
-            this.debugBoard(pieces);
-        }
     }
 
     private async loadPieceSprite(pieceName: string, color: boolean, reversed: boolean): Promise<THREE.Texture> {
         try {
-            const colorName = color ? 'red' : 'white';
+            const colorName = color ? 'white' : 'red';
             const reversedSuffix = color === reversed ? '-reversed' : '';
             const path = `images/${pieceName}-${colorName}${reversedSuffix}.png`;
             const texture = await this.loadTexture(path);
@@ -327,18 +318,8 @@ export default class ThreeJSBoardView implements IBoardView {
     private handleClick(event: MouseEvent): void {
         if (!this.clickHandler) return;
 
-        const rect = this.canvas.getBoundingClientRect();
-        this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-        this.raycaster.setFromCamera(this.mouse, this.camera);
-        const intersects = this.raycaster.intersectObjects(this.overlaySprites);
-
-        if (intersects.length > 0) {
-            const tileOverlay = intersects[0].object as any;
-            const tileIndex = tileOverlay.userData.tileIndex;
-            const flipped = this.gameState.isBoardFlipped();
-            const pos = flipped ? (LAST_BOARD_INDEX - tileIndex) : tileIndex;
+        const pos = this.getPosFromMouseEvent(event);
+        if (pos) {
             this.clickHandler(pos);
         }
     }
@@ -346,6 +327,15 @@ export default class ThreeJSBoardView implements IBoardView {
     private handleMouseMove(event: MouseEvent): void {
         if (!this.hoverHandler) return;
 
+        const pos = this.getPosFromMouseEvent(event);
+        if (pos) {
+            this.hoverHandler(pos);
+        } else {
+            this.hoverHandler(null);
+        }
+    }
+
+    private getPosFromMouseEvent(event: MouseEvent): number | null {
         const rect = this.canvas.getBoundingClientRect();
         this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -353,15 +343,14 @@ export default class ThreeJSBoardView implements IBoardView {
         this.raycaster.setFromCamera(this.mouse, this.camera);
         const intersects = this.raycaster.intersectObjects(this.overlaySprites);
 
-        if (intersects.length > 0) {
-            const tileOverlay = intersects[0].object as any;
-            const tileIndex = tileOverlay.userData.tileIndex;
-            const flipped = this.gameState.isBoardFlipped();
-            const pos = flipped ? (LAST_BOARD_INDEX - tileIndex) : tileIndex;
-            this.hoverHandler(pos);
-        } else {
-            this.hoverHandler(null);
+        if (intersects.length === 0) {
+            return null;
         }
+
+        const tileOverlay = intersects[0].object as any;
+        const tileIndex = tileOverlay.userData.tileIndex;
+        const flipped = this.gameState.isBoardFlipped();
+        return flipped ? (LAST_BOARD_INDEX - tileIndex) : tileIndex;
     }
 
     private handleMouseLeave(): void {
@@ -397,53 +386,5 @@ export default class ThreeJSBoardView implements IBoardView {
         }
 
         this.renderer.dispose();
-    }
-
-    private debugBoard(pieces: (Piece | null)[]) {
-        // Print column headers
-        const colHeaders = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
-        const cellWidth = 5; // Fixed width for each column
-        let header = '  |';
-        for (const col of colHeaders) {
-            header += col.padStart(cellWidth - 2, ' ') + ' |';
-        }
-
-        let debugString = 'Board State:\n' + header + '\n';
-
-        for (let row = BOARD_SIZE - 1; row >= 0; row--) {
-            let line = `${row + 1}`.padStart(2, ' ') + '|';
-            for (let col = BOARD_SIZE - 1; col >= 0; col--) {
-                const idx = row * BOARD_SIZE + col;
-                const piece = pieces[LAST_BOARD_INDEX - idx];
-                let cell = '';
-                if (piece) {
-                    const colorCode = piece.color ? 'w' : 'b';
-                    const bottomCode = piece.bottom.charAt(0).toUpperCase();
-                    cell = `${colorCode}${bottomCode}`;
-                    if (piece.top) {
-                        cell += `+${piece.top.charAt(0).toUpperCase()}`;
-                    }
-                }
-                // Pad cell to fixed width
-                line += cell.padStart(cellWidth - 1, ' ') + '|';
-            }
-            debugString += line + '\n';
-        }
-
-        // Note: Possible moves display removed - moves are now managed by controller
-        
-        console.log(debugString);
-
-        let debugArray: { [key: string]: Piece } = {};
-        for (const index in pieces) {
-            const piece = pieces[index];
-            // convert index to coordinates notation 'A1', 'B2', etc.
-            if (!piece) {
-                continue;
-            }
-            const coord = posToAlgebraic(parseInt(index));
-            debugArray[coord] = piece;
-        }
-        console.log(debugArray);
     }
 }

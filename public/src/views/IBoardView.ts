@@ -14,7 +14,7 @@ export interface IBoardView {
     render(boardData: Uint8Array, flipped: boolean): Promise<void>;
 
     /**
-     * Update tile overlays (selected, hovered, possible moves)
+     * Update tile overlays (selected, hovered, potential moves)
      */
     updateOverlays(highlights: TileHighlight[]): void;
 
@@ -41,7 +41,7 @@ export interface IBoardView {
 
 export interface TileHighlight {
     position: number;
-    type: 'selected' | 'possible' | 'hovered';
+    type: 'selected' | 'potential' | 'hovered';
 }
 
 /**

@@ -1,8 +1,15 @@
 import {GameState} from '../models/GameState';
 import {GameAPI} from '../network/GameAPI';
 import {IBoardView, TileHighlight} from '../views/IBoardView';
-import {posToAlgebraic, algebraicToPos, encodeBoardToHash, decodeBoardFromHash, decodeBoardFromBinary, encodeBoardToBinary} from '../utils/boardUtils';
-import {PotentialMove, Board} from '../models/types';
+import {
+    posToAlgebraic,
+    algebraicToPos,
+    encodeBoardToHash,
+    decodeBoardFromHash,
+    decodeBoardFromBinary,
+    encodeBoardToBinary
+} from '../utils/boardUtils';
+import {Board} from '../models/types';
 
 /**
  * Main game controller - handles game logic and coordinates between model, view, and network
@@ -11,7 +18,6 @@ export class GameController {
     private gameState: GameState;
     private api: GameAPI;
     private view: IBoardView;
-    private possibleMoves: PotentialMove[] = [];
 
     constructor(gameState: GameState, api: GameAPI, view: IBoardView) {
         this.gameState = gameState;
@@ -41,7 +47,7 @@ export class GameController {
             await this.startNewGame();
         }
 
-        await this.updatePossibleMoves();
+        await this.updatePotentialMoves();
         await this.renderBoard();
     }
 
@@ -56,38 +62,13 @@ export class GameController {
     }
 
     /**
-     * Update possible moves from server
+     * Update potential moves from server
      */
-    async updatePossibleMoves(): Promise<void> {
+    async updatePotentialMoves(): Promise<void> {
         const board = this.gameState.getBoard();
         if (!board) return;
 
-        this.possibleMoves = await this.api.getPossibleMoves(board);
-    }
-
-    /**
-     * Get moves for a specific piece
-     */
-    getMovesForPiece(pos: number): number[] {
-        const moves: number[] = [];
-        for (const move of this.possibleMoves) {
-            if (move.from === pos) {
-                moves.push(move.to);
-            }
-        }
-        return moves;
-    }
-
-    /**
-     * Get potential move details
-     */
-    getPotentialMove(fromPos: number, toPos: number): PotentialMove | null {
-        for (const move of this.possibleMoves) {
-            if (move.from === fromPos && move.to === toPos) {
-                return move;
-            }
-        }
-        return null;
+        this.gameState.setPotentialMoves(await this.api.getPotentialMoves(board));
     }
 
     /**
@@ -113,11 +94,10 @@ export class GameController {
         this.gameState.addMove(moveNotation);
 
         // Reset selection
-        this.gameState.setSelectedPiece(null);
-        this.gameState.setSelectedMove(null);
+        this.gameState.setSelectedPosition(null);
 
         // Update game state
-        await this.updatePossibleMoves();
+        await this.updatePotentialMoves();
         await this.renderBoard();
     }
 
@@ -146,9 +126,8 @@ export class GameController {
         this.gameState.popMove();
         window.location.hash = encodeBoardToHash(encodeBoardToBinary(previousState));
 
-        this.gameState.setSelectedPiece(null);
-        this.gameState.setSelectedMove(null);
-        await this.updatePossibleMoves();
+        this.gameState.setSelectedPosition(null);
+        await this.updatePotentialMoves();
         await this.renderBoard();
     }
 
@@ -157,8 +136,7 @@ export class GameController {
      */
     async flipBoard(): Promise<void> {
         this.gameState.flipBoard();
-        this.gameState.setSelectedPiece(null);
-        this.gameState.setSelectedMove(null);
+        this.gameState.setSelectedPosition(null);
         await this.renderBoard();
     }
 
@@ -181,12 +159,6 @@ export class GameController {
                 throw new Error(`Invalid position in move: ${moveNotation}`);
             }
 
-            await this.updatePossibleMoves();
-            const moves = this.getMovesForPiece(fromPos);
-            if (!moves.includes(toPos)) {
-                throw new Error(`Illegal move: ${moveNotation}`);
-            }
-
             await this.playMove(fromPos, toPos, false);
         }
 
@@ -200,32 +172,49 @@ export class GameController {
         const board = this.gameState.getBoard();
         if (!board) return;
 
-        const selectedPiece = this.gameState.getSelectedPiece();
+        const selectedPosition = this.gameState.getSelectedPosition();
 
-        if (selectedPiece) {
-            if (selectedPiece.to.includes(pos)) {
-                // This is a move
-                this.gameState.setSelectedMove({from: selectedPiece.from, to: pos});
-                const potentialMove = this.getPotentialMove(selectedPiece.from, pos);
+        // No selected position: select piece if potential
+        if (!selectedPosition) {
+            const moves = this.gameState.getPotentialMovesForPosition(pos);
+            if (moves.length > 0) { // Only select if there are potential moves
+                this.gameState.setSelectedPosition(pos);
+                this.updateOverlays();
+            }
+            return;
+        }
 
-                if (potentialMove && potentialMove.unstackable) {
-                    // Trigger unstack modal (handled by UI layer)
-                    const event = new CustomEvent('showUnstackModal', {detail: {from: selectedPiece.from, to: pos}});
-                    window.dispatchEvent(event);
-                } else {
-                    this.playMove(selectedPiece.from, pos, false);
-                }
+        // Deselect if clicking the same piece
+        if (selectedPosition === pos) {
+            this.gameState.setSelectedPosition(null);
+            this.updateOverlays();
+            return;
+        }
+
+        // Look for a move from selectedPosition to pos
+        const moves = this.gameState.getPotentialMovesForPosition(selectedPosition);
+        for (const move of moves) {
+            if (move.to !== pos) continue;
+            // This is a move
+            if (move.unstackable && !move.force_unstack) {
+                // Trigger unstack modal (handled by UI layer)
+                this.gameState.setClickedDestination(pos);
+                window.dispatchEvent(new CustomEvent('showUnstackModal'));
             } else {
-                // Clicked somewhere else, deselect
-                this.gameState.setSelectedPiece(null);
-                this.updateOverlays();
+                this.playMove(selectedPosition, pos, move.force_unstack);
             }
+            return;
+        }
+
+        // If we reach here, clicked on a different piece - change selection if potential
+        const newMoves = this.gameState.getPotentialMovesForPosition(pos);
+        if (newMoves.length > 0) {
+            this.gameState.setSelectedPosition(pos);
+            this.updateOverlays();
         } else {
-            const moves = this.getMovesForPiece(pos);
-            if (moves.length > 0) {
-                this.gameState.setSelectedPiece({from: pos, to: moves});
-                this.updateOverlays();
-            }
+            // Invalid selection - clear selection
+            this.gameState.setSelectedPosition(null);
+            this.updateOverlays();
         }
     }
 
@@ -233,31 +222,21 @@ export class GameController {
      * Handle tile hover
      */
     private handleTileHover(pos: number | null): void {
+        if (pos === null) {
+            this.gameState.setHoveredPosition(null);
+            this.updateOverlays();
+            return;
+        }
+
         const board = this.gameState.getBoard();
         if (!board) return;
 
-        const selectedPiece = this.gameState.getSelectedPiece();
+        const selectedPosition = this.gameState.getSelectedPosition();
 
-        if (pos !== null) {
-            const piece = board.getPieceAt(pos);
-            const currentTurn = board.whiteToMove;
-
-            if (piece && piece.color === currentTurn && (!selectedPiece || selectedPiece.from !== pos)) {
-                if (this.gameState.getHoveredPiece() !== pos) {
-                    this.gameState.setHoveredPiece(pos);
-                    this.updateOverlays();
-                }
-            } else {
-                if (this.gameState.getHoveredPiece() !== null) {
-                    this.gameState.setHoveredPiece(null);
-                    this.updateOverlays();
-                }
-            }
-        } else {
-            if (this.gameState.getHoveredPiece() !== null) {
-                this.gameState.setHoveredPiece(null);
-                this.updateOverlays();
-            }
+        // Show potential moves for hovered piece if no piece is selected
+        if (!selectedPosition) {
+            this.gameState.setHoveredPosition(pos);
+            this.updateOverlays();
         }
     }
 
@@ -266,24 +245,24 @@ export class GameController {
      */
     private updateOverlays(): void {
         const highlights: TileHighlight[] = [];
-        const selectedPiece = this.gameState.getSelectedPiece();
-        const hoveredPiece = this.gameState.getHoveredPiece();
+        const selectedPosition = this.gameState.getSelectedPosition();
 
         // Selected piece
-        if (selectedPiece) {
-            highlights.push({position: selectedPiece.from, type: 'selected'});
+        if (selectedPosition) {
+            highlights.push({position: selectedPosition, type: 'selected'});
 
-            // Possible moves
-            for (const to of selectedPiece.to) {
-                highlights.push({position: to, type: 'possible'});
+            // Potential moves
+            for (const move of this.gameState.getPotentialMovesForPosition(selectedPosition)) {
+                highlights.push({position: move.to, type: 'potential'});
             }
+            this.view.updateOverlays(highlights);
+            return;
         }
 
-        // Hovered piece moves
-        if (hoveredPiece !== null && (!selectedPiece || selectedPiece.from !== hoveredPiece)) {
-            const hoveredMoves = this.getMovesForPiece(hoveredPiece);
-            for (const to of hoveredMoves) {
-                highlights.push({position: to, type: 'hovered'});
+        const hoveredPosition = this.gameState.getHoveredPosition();
+        if (hoveredPosition) {
+            for (const move of this.gameState.getPotentialMovesForPosition(hoveredPosition)) {
+                highlights.push({position: move.to, type: 'hovered'});
             }
         }
 
@@ -318,18 +297,10 @@ export class GameController {
     }
 
     /**
-     * Get selected move (for unstack modal)
-     */
-    getSelectedMove(): { from: number; to: number } | null {
-        return this.gameState.getSelectedMove();
-    }
-
-    /**
      * Clear selected move
      */
     clearSelectedMove(): void {
-        this.gameState.setSelectedMove(null);
-        this.gameState.setSelectedPiece(null);
+        this.gameState.setSelectedPosition(null);
         this.updateOverlays();
     }
 }

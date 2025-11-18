@@ -84,24 +84,19 @@ class ArxGame {
         });
     }
 
-    private async handleMoveStack(): Promise<void> {
+    private async handleMoveStack(fullStack: boolean = false): Promise<void> {
         this.unstackModal.classList.remove('is-active');
-        const selectedMove = this.controller.getSelectedMove();
-        if (selectedMove) {
-            await this.controller.playMove(selectedMove.from, selectedMove.to, false);
+        const selectedPosition = this.gameState.getSelectedPosition();
+        const clickedDestination = this.gameState.getClickedDestination();
+        if (selectedPosition && clickedDestination) {
+            await this.controller.playMove(selectedPosition, clickedDestination, fullStack);
             this.updateStatus();
             this.updateMoveHistoryDisplay();
         }
     }
 
     private async handleMoveUnstack(): Promise<void> {
-        this.unstackModal.classList.remove('is-active');
-        const selectedMove = this.controller.getSelectedMove();
-        if (selectedMove) {
-            await this.controller.playMove(selectedMove.from, selectedMove.to, true);
-            this.updateStatus();
-            this.updateMoveHistoryDisplay();
-        }
+        await this.handleMoveStack(true);
     }
 
     private handleModalClose(): void {
