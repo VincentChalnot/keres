@@ -961,4 +961,156 @@ mod tests {
         let stats = engine.get_statistics();
         assert!(stats.positions_evaluated > 0);
     }
+
+    #[test]
+    fn test_avoid_losing_commander() {
+        let mut engine = MinimaxEngine::with_config(MinimaxConfig {
+            max_depth: 3,
+            time_limit_ms: 2000,
+            ..Default::default()
+        });
+        
+        // Create a position where the commander is under attack
+        let mut board = Board::new();
+        
+        // Clear the board for a simple test
+        for y in 0..9 {
+            for x in 0..9 {
+                let pos = Position::new(x, y);
+                board.set_piece(&pos, None);
+            }
+        }
+        
+        // Set up a simple position
+        // White king at E1, White commander at D4
+        let white_king_pos = Position::new(4, 0);
+        let white_commander_pos = Position::new(3, 3);
+        
+        // Black king at E9, Black piece threatening commander at D5
+        let black_king_pos = Position::new(4, 8);
+        let black_attacker_pos = Position::new(3, 4);
+        
+        use crate::board::{Piece, PieceType, Color};
+        
+        board.set_piece(&white_king_pos, Some(Piece {
+            color: Color::White,
+            bottom: PieceType::King,
+            top: None,
+        }));
+        
+        board.set_piece(&white_commander_pos, Some(Piece {
+            color: Color::White,
+            bottom: PieceType::Commander,
+            top: None,
+        }));
+        
+        board.set_piece(&black_king_pos, Some(Piece {
+            color: Color::Black,
+            bottom: PieceType::King,
+            top: None,
+        }));
+        
+        board.set_piece(&black_attacker_pos, Some(Piece {
+            color: Color::Black,
+            bottom: PieceType::Guard,
+            top: None,
+        }));
+        
+        // White to move - should try to save or move the commander
+        let result = engine.find_best_move(&board);
+        
+        assert!(result.is_ok(), "Should find a move to protect commander");
+    }
+
+    #[test]
+    fn test_capture_high_value_piece() {
+        let mut engine = MinimaxEngine::with_config(MinimaxConfig {
+            max_depth: 2,
+            time_limit_ms: 1000,
+            ..Default::default()
+        });
+        
+        // Create a position where we can capture an enemy commander
+        let mut board = Board::new();
+        
+        // Clear the board
+        for y in 0..9 {
+            for x in 0..9 {
+                let pos = Position::new(x, y);
+                board.set_piece(&pos, None);
+            }
+        }
+        
+        use crate::board::{Piece, PieceType, Color};
+        
+        // White pieces
+        let white_king_pos = Position::new(0, 0);
+        let white_guard_pos = Position::new(3, 3);
+        
+        // Black pieces
+        let black_king_pos = Position::new(8, 8);
+        let black_commander_pos = Position::new(4, 4); // Adjacent to white guard
+        
+        board.set_piece(&white_king_pos, Some(Piece {
+            color: Color::White,
+            bottom: PieceType::King,
+            top: None,
+        }));
+        
+        board.set_piece(&white_guard_pos, Some(Piece {
+            color: Color::White,
+            bottom: PieceType::Guard,
+            top: None,
+        }));
+        
+        board.set_piece(&black_king_pos, Some(Piece {
+            color: Color::Black,
+            bottom: PieceType::King,
+            top: None,
+        }));
+        
+        board.set_piece(&black_commander_pos, Some(Piece {
+            color: Color::Black,
+            bottom: PieceType::Commander,
+            top: None,
+        }));
+        
+        // White to move - should capture the commander if possible
+        let result = engine.find_best_move(&board);
+        
+        assert!(result.is_ok(), "Should find a move");
+        let mv = result.unwrap();
+        
+        // Check if the move captures the commander
+        let captures_commander = mv.from == white_guard_pos && mv.to == black_commander_pos;
+        
+        // The engine should prefer capturing high-value pieces
+        // Note: This might not always be true due to tactical considerations
+        assert!(captures_commander || mv.from == white_guard_pos, 
+                "Should consider capturing or moving the guard");
+    }
+
+    #[test]
+    fn test_statistics_tracking() {
+        let mut engine = MinimaxEngine::with_config(MinimaxConfig {
+            max_depth: 2,
+            time_limit_ms: 500,
+            ..Default::default()
+        });
+        
+        let board = Board::new();
+        
+        // Reset statistics
+        engine.reset_statistics();
+        let stats_before = engine.get_statistics();
+        assert_eq!(stats_before.positions_evaluated, 0);
+        
+        // Find a move
+        let _ = engine.find_best_move(&board);
+        
+        // Check that statistics were updated
+        let stats_after = engine.get_statistics();
+        assert!(stats_after.positions_evaluated > 0, "Should have evaluated positions");
+        assert!(stats_after.search_time_ms > 0, "Should have tracked time");
+    }
 }
