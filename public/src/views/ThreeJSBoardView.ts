@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {IBoardView, TileHighlight} from './IBoardView';
 import {BOARD_SIZE, LAST_BOARD_INDEX, Piece} from '../models/types';
 import {GameState} from '../models/GameState';
-import {posToAlgebraic} from "../utils/boardUtils";
+import {posToAlgebraic, decodePiece} from "../utils/boardUtils";
 
 interface TileOverlay {
     geometry: THREE.PlaneGeometry;
@@ -259,7 +259,7 @@ export default class ThreeJSBoardView implements IBoardView {
         for (let i = 0; i <= LAST_BOARD_INDEX; i++) {
             try {
                 const pieceVal = boardData[i];
-                const piece = this.gameState.decodePiece(pieceVal);
+                const piece = decodePiece(pieceVal);
                 pieces[i] = piece;
 
                 if (!piece) continue;
@@ -430,15 +430,8 @@ export default class ThreeJSBoardView implements IBoardView {
             debugString += line + '\n';
         }
 
-        // List possible moves
-        debugString += '\nPossible Moves:\n';
-        for (const move of this.gameState.getPossibleMoves()) {
-            const from = posToAlgebraic(move & 0x7F);
-            const to = posToAlgebraic((move >> 7) & 0x7F);
-            const unstackable = (move >> 14) & 0x1;
-            debugString += `${from}-${to}\n`;
-        }
-
+        // Note: Possible moves display removed - moves are now managed by controller
+        
         console.log(debugString);
 
         let debugArray: { [key: string]: Piece } = {};

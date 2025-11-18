@@ -1,8 +1,8 @@
 import {GameState} from '../models/GameState';
 import {GameAPI} from '../network/GameAPI';
 import {IBoardView, TileHighlight} from '../views/IBoardView';
-import {posToAlgebraic, algebraicToPos, encodeBoardToHash, decodeBoardFromHash} from '../utils/boardUtils';
-import {PotentialMove} from '../models/types';
+import {posToAlgebraic, algebraicToPos, encodeBoardToHash, decodeBoardFromHash, decodeBoardFromBinary, encodeBoardToBinary} from '../utils/boardUtils';
+import {PotentialMove, Board} from '../models/types';
 
 /**
  * Main game controller - handles game logic and coordinates between model, view, and network
@@ -11,6 +11,7 @@ export class GameController {
     private gameState: GameState;
     private api: GameAPI;
     private view: IBoardView;
+    private possibleMoves: PotentialMove[] = [];
 
     constructor(gameState: GameState, api: GameAPI, view: IBoardView) {
         this.gameState = gameState;
@@ -27,9 +28,10 @@ export class GameController {
      */
     async initialize(): Promise<void> {
         if (window.location.hash) {
-            const boardData = decodeBoardFromHash(window.location.hash);
-            if (boardData) {
-                this.gameState.setBoardData(boardData);
+            const boardBinary = decodeBoardFromHash(window.location.hash);
+            if (boardBinary) {
+                const board = decodeBoardFromBinary(boardBinary);
+                this.gameState.setBoard(board);
                 this.gameState.clearMoveHistory();
                 this.gameState.clearGameHistory();
             } else {
@@ -47,8 +49,8 @@ export class GameController {
      * Start a new game
      */
     async startNewGame(): Promise<void> {
-        const boardData = await this.api.getNewGame();
-        this.gameState.setBoardData(boardData);
+        const board = await this.api.getNewGame();
+        this.gameState.setBoard(board);
         this.gameState.clearMoveHistory();
         this.gameState.clearGameHistory();
     }
@@ -57,11 +59,10 @@ export class GameController {
      * Update possible moves from server
      */
     async updatePossibleMoves(): Promise<void> {
-        const boardData = this.gameState.getBoardData();
-        if (!boardData) return;
+        const board = this.gameState.getBoard();
+        if (!board) return;
 
-        const moves = await this.api.getPossibleMoves(boardData);
-        this.gameState.setPossibleMoves(moves);
+        this.possibleMoves = await this.api.getPossibleMoves(board);
     }
 
     /**
@@ -69,11 +70,9 @@ export class GameController {
      */
     getMovesForPiece(pos: number): number[] {
         const moves: number[] = [];
-        for (const move of this.gameState.getPossibleMoves()) {
-            const from = move & 0x7F;
-            const to = (move >> 7) & 0x7F;
-            if (from === pos) {
-                moves.push(to);
+        for (const move of this.possibleMoves) {
+            if (move.from === pos) {
+                moves.push(move.to);
             }
         }
         return moves;
@@ -83,13 +82,9 @@ export class GameController {
      * Get potential move details
      */
     getPotentialMove(fromPos: number, toPos: number): PotentialMove | null {
-        for (const move of this.gameState.getPossibleMoves()) {
-            const from = move & 0x7F;
-            const to = (move >> 7) & 0x7F;
-            if (from === fromPos && to === toPos) {
-                const unstackable = (move >> 14) & 0x1;
-                const force_unstack = (move >> 15) & 0x1;
-                return {from, to, unstackable: unstackable === 1, force_unstack: force_unstack === 1};
+        for (const move of this.possibleMoves) {
+            if (move.from === fromPos && move.to === toPos) {
+                return move;
             }
         }
         return null;
@@ -99,18 +94,19 @@ export class GameController {
      * Play a move
      */
     async playMove(from: number, to: number, unstack = false): Promise<void> {
-        const boardData = this.gameState.getBoardData();
-        if (!boardData) return;
+        const board = this.gameState.getBoard();
+        if (!board) return;
 
-        // Save current state to history
-        this.gameState.pushGameState(new Uint8Array(boardData));
+        // Save current state to history (clone the board)
+        const boardCopy = new Board([...board.cells], board.whiteToMove);
+        this.gameState.pushGameState(boardCopy);
 
         // Play move on server
-        const newBoardData = await this.api.playMove(boardData, from, to, unstack);
-        this.gameState.setBoardData(newBoardData);
+        const newBoard = await this.api.playMove(board, {from, to, unstack});
+        this.gameState.setBoard(newBoard);
 
         // Update URL hash
-        window.location.hash = encodeBoardToHash(newBoardData);
+        window.location.hash = encodeBoardToHash(encodeBoardToBinary(newBoard));
 
         // Record move in algebraic notation
         const moveNotation = posToAlgebraic(from) + '-' + posToAlgebraic(to);
@@ -129,11 +125,11 @@ export class GameController {
      * Request engine move
      */
     async requestEngineMove(): Promise<void> {
-        const boardData = this.gameState.getBoardData();
-        if (!boardData) return;
+        const board = this.gameState.getBoard();
+        if (!board) return;
 
-        const {from, to, unstack} = await this.api.getEngineMove(boardData);
-        await this.playMove(from, to, unstack);
+        const move = await this.api.getEngineMove(board);
+        await this.playMove(move.from, move.to, move.unstack);
     }
 
     /**
@@ -146,9 +142,9 @@ export class GameController {
             return;
         }
 
-        this.gameState.setBoardData(previousState);
+        this.gameState.setBoard(previousState);
         this.gameState.popMove();
-        window.location.hash = encodeBoardToHash(previousState);
+        window.location.hash = encodeBoardToHash(encodeBoardToBinary(previousState));
 
         this.gameState.setSelectedPiece(null);
         this.gameState.setSelectedMove(null);
@@ -201,8 +197,8 @@ export class GameController {
      * Handle tile click
      */
     private handleTileClick(pos: number): void {
-        const boardData = this.gameState.getBoardData();
-        if (!boardData) return;
+        const board = this.gameState.getBoard();
+        if (!board) return;
 
         const selectedPiece = this.gameState.getSelectedPiece();
 
@@ -237,14 +233,14 @@ export class GameController {
      * Handle tile hover
      */
     private handleTileHover(pos: number | null): void {
-        const boardData = this.gameState.getBoardData();
-        if (!boardData) return;
+        const board = this.gameState.getBoard();
+        if (!board) return;
 
         const selectedPiece = this.gameState.getSelectedPiece();
 
         if (pos !== null) {
-            const piece = this.gameState.getPieceAt(pos);
-            const currentTurn = !!boardData[81];
+            const piece = board.getPieceAt(pos);
+            const currentTurn = board.whiteToMove;
 
             if (piece && piece.color === currentTurn && (!selectedPiece || selectedPiece.from !== pos)) {
                 if (this.gameState.getHoveredPiece() !== pos) {
@@ -298,11 +294,12 @@ export class GameController {
      * Render the board
      */
     private async renderBoard(): Promise<void> {
-        const boardData = this.gameState.getBoardData();
-        if (!boardData) return;
+        const board = this.gameState.getBoard();
+        if (!board) return;
 
         const flipped = this.gameState.isBoardFlipped();
-        await this.view.render(boardData, flipped);
+        const boardBinary = encodeBoardToBinary(board);
+        await this.view.render(boardBinary, flipped);
         this.updateOverlays();
     }
 

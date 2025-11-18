@@ -1,32 +1,23 @@
-import {Piece, PIECE_CODE} from './types';
+import {Board} from './types';
 
 /**
  * Game state model
  */
 export class GameState {
-    private boardData: Uint8Array | null = null;
-    private possibleMoves: number[] = [];
+    private board: Board | null = null;
     private selectedPiece: { from: number; to: number[] } | null = null;
     private selectedMove: { from: number; to: number } | null = null;
     private boardFlipped = false;
     private hoveredPiece: number | null = null;
     private moveHistory: string[] = [];
-    private gameHistory: Uint8Array[] = [];
+    private gameHistory: Board[] = [];
 
-    getBoardData(): Uint8Array | null {
-        return this.boardData;
+    getBoard(): Board | null {
+        return this.board;
     }
 
-    setBoardData(data: Uint8Array): void {
-        this.boardData = data;
-    }
-
-    getPossibleMoves(): number[] {
-        return this.possibleMoves;
-    }
-
-    setPossibleMoves(moves: number[]): void {
-        this.possibleMoves = moves;
+    setBoard(board: Board): void {
+        this.board = board;
     }
 
     getSelectedPiece(): { from: number; to: number[] } | null {
@@ -81,15 +72,15 @@ export class GameState {
         this.moveHistory = [];
     }
 
-    getGameHistory(): Uint8Array[] {
+    getGameHistory(): Board[] {
         return this.gameHistory;
     }
 
-    pushGameState(state: Uint8Array): void {
+    pushGameState(state: Board): void {
         this.gameHistory.push(state);
     }
 
-    popGameState(): Uint8Array | undefined {
+    popGameState(): Board | undefined {
         return this.gameHistory.pop();
     }
 
@@ -98,42 +89,7 @@ export class GameState {
     }
 
     getCurrentTurn(): 'White' | 'Red' {
-        if (!this.boardData) return 'White';
-        return this.boardData[81] === 1 ? 'White' : 'Red';
-    }
-
-    /**
-     * Decode a piece from board data
-     */
-    decodePiece(piece: number): Piece | null {
-        if (piece === 0) return null;
-        const color = !!((piece >> 6) & 0b1);
-        const payload = piece & 0b00111111;
-
-        if (payload === 0b111000) {
-            return {color, bottom: 'king', top: null};
-        }
-
-        const topCode = (payload >> 3) & 0b111;
-        const bottomCode = payload & 0b111;
-
-        if (topCode === 0) {
-            if (PIECE_CODE[bottomCode]) {
-                return {color, bottom: PIECE_CODE[bottomCode], top: null};
-            }
-        } else {
-            if (PIECE_CODE[topCode] && PIECE_CODE[bottomCode]) {
-                return {color, bottom: PIECE_CODE[bottomCode], top: PIECE_CODE[topCode]};
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Get piece at position
-     */
-    getPieceAt(position: number): Piece | null {
-        if (!this.boardData || position < 0 || position >= 81) return null;
-        return this.decodePiece(this.boardData[position]);
+        if (!this.board) return 'White';
+        return this.board.getCurrentTurn();
     }
 }

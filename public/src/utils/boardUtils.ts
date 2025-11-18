@@ -1,8 +1,8 @@
 /**
- * Utility functions for board coordinate conversions
+ * Utility functions for board coordinate conversions and binary encoding/decoding
  */
 
-import {BOARD_SIZE} from "../models/types";
+import {BOARD_SIZE, Piece, PIECE_CODE, Board, PotentialMove, Move} from "../models/types";
 
 /**
  * Convert position index (0-80) to algebraic notation (A1-I9)
@@ -52,4 +52,122 @@ export function decodeBoardFromHash(hash: string): Uint8Array | null {
         console.error("Failed to decode board from hash", e);
         return null;
     }
+}
+
+/**
+ * Decode a piece from its byte representation
+ */
+export function decodePiece(byte: number): Piece | null {
+    if (byte === 0) return null;
+    
+    const color = !!((byte >> 6) & 0b1);
+    const payload = byte & 0b00111111;
+
+    // Check for King: payload = 0b111000
+    if (payload === 0b111000) {
+        return {color, bottom: 'king', top: null};
+    }
+
+    const topCode = (payload >> 3) & 0b111;
+    const bottomCode = payload & 0b111;
+
+    if (topCode === 0) {
+        // Single piece
+        if (PIECE_CODE[bottomCode]) {
+            return {color, bottom: PIECE_CODE[bottomCode], top: null};
+        }
+    } else {
+        // Stacked piece
+        if (PIECE_CODE[topCode] && PIECE_CODE[bottomCode]) {
+            return {color, bottom: PIECE_CODE[bottomCode], top: PIECE_CODE[topCode]};
+        }
+    }
+    
+    return null;
+}
+
+/**
+ * Encode a piece to its byte representation
+ */
+export function encodePiece(piece: Piece): number {
+    const colorBit = piece.color ? 0b1000000 : 0b0000000;
+
+    if (piece.bottom === 'king') {
+        return colorBit | 0b0111000;
+    }
+
+    // Find the code for the bottom piece
+    const bottomCode = Object.entries(PIECE_CODE).find(([_, name]) => name === piece.bottom)?.[0];
+    if (!bottomCode) {
+        throw new Error(`Invalid bottom piece: ${piece.bottom}`);
+    }
+    const bottomBits = parseInt(bottomCode);
+
+    if (piece.top === null) {
+        // Single piece
+        return colorBit | bottomBits;
+    } else {
+        // Stacked piece
+        const topCode = Object.entries(PIECE_CODE).find(([_, name]) => name === piece.top)?.[0];
+        if (!topCode) {
+            throw new Error(`Invalid top piece: ${piece.top}`);
+        }
+        const topBits = parseInt(topCode);
+        return colorBit | (topBits << 3) | bottomBits;
+    }
+}
+
+/**
+ * Decode Board from binary representation (Uint8Array of 82 bytes)
+ */
+export function decodeBoardFromBinary(binary: Uint8Array): Board {
+    if (binary.length !== 82) {
+        throw new Error('Binary board data must be 82 bytes');
+    }
+
+    const cells: (Piece | null)[] = [];
+    for (let i = 0; i < 81; i++) {
+        cells.push(decodePiece(binary[i]));
+    }
+
+    const whiteToMove = binary[81] === 1;
+    return new Board(cells, whiteToMove);
+}
+
+/**
+ * Encode Board to binary representation (Uint8Array of 82 bytes)
+ */
+export function encodeBoardToBinary(board: Board): Uint8Array {
+    const binary = new Uint8Array(82);
+    
+    for (let i = 0; i < 81; i++) {
+        const piece = board.cells[i];
+        binary[i] = piece ? encodePiece(piece) : 0;
+    }
+    
+    binary[81] = board.whiteToMove ? 1 : 0;
+    return binary;
+}
+
+/**
+ * Decode PotentialMove from u16 representation
+ */
+export function decodePotentialMove(moveU16: number): PotentialMove {
+    const from = moveU16 & 0x7F;
+    const to = (moveU16 >> 7) & 0x7F;
+    const unstackable = ((moveU16 >> 14) & 0x1) === 1;
+    const force_unstack = ((moveU16 >> 15) & 0x1) === 1;
+    
+    return {from, to, unstackable, force_unstack};
+}
+
+/**
+ * Encode Move to u16 representation
+ */
+export function encodeMove(move: Move): number {
+    let moveBits = (move.from & 0x7F) | ((move.to & 0x7F) << 7);
+    if (move.unstack) {
+        moveBits |= (1 << 14);
+    }
+    return moveBits;
 }
