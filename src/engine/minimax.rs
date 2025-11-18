@@ -101,6 +101,7 @@ impl Default for MinimaxConfig {
 struct TranspositionEntry {
     depth: u32,
     score: i32,
+    #[allow(dead_code)] // Reserved for future use in move ordering
     best_move: Option<u16>,
     node_type: NodeType,
 }
