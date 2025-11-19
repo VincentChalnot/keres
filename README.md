@@ -71,28 +71,58 @@ cargo run --release -- import "<base64_data>"
 cargo run --release -- show-moves E2
 ```
 
-## MCTS Engine
+## AI Engines
 
-The project includes a GPU-accelerated Monte Carlo Tree Search engine for computer play:
+The project includes two different AI engines for computer play:
+
+### Minimax Engine
+
+A classical minimax search with alpha-beta pruning, featuring:
+- Multiple pre-configured variants (Aggressive, Defensive, Balanced, Tactical, Positional)
+- Piece-square tables for positional evaluation
+- Transposition tables with Zobrist hashing
+- Quiescence search for tactical stability
+- Configurable search depth and evaluation weights
 
 ```sh
-# Run the engine demo
-cargo run --example engine_demo
+# Test different engine variants
+cargo run --example quick_variant_test
 ```
 
-For more details on using the engine, see the [Engine Documentation](src/engine/README.md).
+### MCTS Engine
 
-The engine features:
+A GPU-accelerated Monte Carlo Tree Search engine:
 - WebGPU compute shader for parallel move generation
 - Configurable search depth and simulation count
 - Piece value-based evaluation
 - Adjustable difficulty levels
 - Independent implementation (doesn't depend on board.rs/game.rs)
 
+```sh
+# Run the MCTS engine demo
+cargo run --example engine_demo
+```
+
+### Engine Tournament System
+
+Compare different engine variants and configurations:
+
+```sh
+# Run quick variant test
+cargo run --example quick_variant_test
+
+# Run full tournament
+cargo run --example engine_tournament
+```
+
+For details on the tournament system, see [Tournament Documentation](./TOURNAMENT.md).
+For engine implementation details, see [Engine Documentation](src/engine/README.md).
+
 ## Documentation
 - [Game Rules](./rules.md): Full rules and piece movements
 - [Piece Encoding](.github/instructions/piece_encoding.instructions.md): Details on board and piece encoding
-- [MCTS Engine](src/engine/README.md): GPU-accelerated engine for computer play
+- [Engine Documentation](src/engine/README.md): AI engine implementation details
+- [Tournament System](./TOURNAMENT.md): Running matches between engine variants
 
 ## License
 This project is licensed under the MIT License.
