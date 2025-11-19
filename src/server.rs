@@ -1,5 +1,5 @@
 use arx_engine::board::{Board, BOARD_SIZE};
-use arx_engine::engine::{EngineConfig, MctsEngine, MinimaxEngine, MinimaxConfig};
+use arx_engine::engine::{EngineConfig, MctsEngine, MinimaxConfig, MinimaxEngine};
 use arx_engine::game::{Game, Move};
 use axum::{
     body::Bytes,
@@ -44,10 +44,10 @@ async fn main() {
 
     // Initialize the Minimax engine
     let minimax_config = MinimaxConfig {
-        max_depth: 4,
+        max_depth: 6,
         use_quiescence: true,
-        use_transposition_table: true,
-        time_limit_ms: 3000,
+        use_transposition_table: false,
+        time_limit_ms: 4000,
         ..Default::default()
     };
     let minimax_engine = MinimaxEngine::with_config(minimax_config);

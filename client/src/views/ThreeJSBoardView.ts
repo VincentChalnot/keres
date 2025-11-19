@@ -25,13 +25,17 @@ const OVERLAY_SCALE_FACTOR = 1;
 
 class Tile {
     index: number;
+    col: number;
+    row: number;
     x: number;
     y: number;
     width: number;
     height: number;
 
-    constructor(index: number, x: number, y: number, width: number, height: number) {
+    constructor(index: number, col: number, row: number, x: number, y: number, width: number, height: number) {
         this.index = index;
+        this.col = col;
+        this.row = row;
         this.x = x;
         this.y = y;
         this.width = width;
@@ -60,7 +64,7 @@ export default class ThreeJSBoardView implements IBoardView {
 
     // Texture cache to avoid repeated network requests
     private textureCache: Map<string, THREE.Texture> = new Map();
-    
+
     // Track current board state to enable differential updates
     private currentBoardData: Uint8Array | null = null;
     private currentFlipped: boolean = false;
@@ -204,7 +208,7 @@ export default class ThreeJSBoardView implements IBoardView {
         const x = -BOARD_ASPECT_RATIO / 2 + tileWidth * (col + 0.5) + BOARD_MARGIN_SIDES * BOARD_ASPECT_RATIO;
         const y = 1 / 2 - tileHeight * (row + 0.5) - BOARD_MARGIN_TOP;
 
-        return new Tile(index, x, y, tileWidth, tileHeight);
+        return new Tile(index, col, row, x, y, tileWidth, tileHeight);
     }
 
     updateOverlays(highlights: TileHighlight[]): void {
@@ -254,7 +258,7 @@ export default class ThreeJSBoardView implements IBoardView {
     private async updatePieceSprites(boardData: Uint8Array, flipped: boolean): Promise<void> {
         // Check if board orientation changed
         const orientationChanged = this.currentFlipped !== flipped;
-        
+
         // If this is the first render or orientation changed, recreate all sprites
         if (!this.currentBoardData || orientationChanged) {
             await this.recreateAllPieceSprites(boardData, flipped);
@@ -296,7 +300,7 @@ export default class ThreeJSBoardView implements IBoardView {
         const bottomMaterial = new THREE.SpriteMaterial({map: bottomTexture});
         const bottomSprite = new THREE.Sprite(bottomMaterial);
         bottomSprite.scale.set(pieceSize, pieceSize, 1);
-        bottomSprite.position.set(tile.x, tile.y + PIECE_OFFSET_Y, 1);
+        bottomSprite.position.set(tile.x, tile.y + PIECE_OFFSET_Y, 1 - (0.1 * tile.row));
         bottomSprite.userData.tileIndex = index;
         bottomSprite.userData.isTopPiece = false;
         this.scene.add(bottomSprite);
@@ -309,7 +313,7 @@ export default class ThreeJSBoardView implements IBoardView {
         const topMaterial = new THREE.SpriteMaterial({map: topTexture});
         const topSprite = new THREE.Sprite(topMaterial);
         topSprite.scale.set(pieceSize, pieceSize, 1);
-        topSprite.position.set(tile.x, tile.y + PIECE_OFFSET_Y + pieceSize * PIECE_TOP_OFFSET_FACTOR, 2);
+        topSprite.position.set(tile.x, tile.y + PIECE_OFFSET_Y + pieceSize * PIECE_TOP_OFFSET_FACTOR, 2 - (0.1 * tile.row));
         topSprite.userData.tileIndex = index;
         topSprite.userData.isTopPiece = true;
         this.scene.add(topSprite);
