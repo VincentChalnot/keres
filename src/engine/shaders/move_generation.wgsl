@@ -225,8 +225,8 @@ fn generate_king_moves(pos: vec2<i32>, idx: u32, color: u32) {
         vec2<i32>(1, 0), vec2<i32>(0, 1), vec2<i32>(-1, 0), vec2<i32>(0, -1),
         vec2<i32>(1, 1), vec2<i32>(1, -1), vec2<i32>(-1, 1), vec2<i32>(-1, -1)
     );
-    // King cannot have a top piece, so is_top=false, has_top=false
-    generate_directional_moves(pos, idx, color, false, false, &directions, 8u, 1);
+    // King cannot be stacked so we do this trick with is_top and has_top, same as in Rust
+    generate_directional_moves(pos, idx, color, false, true, &directions, 8u, 1);
 }
 
 // Generate moves for a piece type

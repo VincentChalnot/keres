@@ -1,5 +1,5 @@
 use arx_engine::{
-    engine::{MoveGenerationEngine, MctsEngine, SearchParams},
+    engine::{MctsEngine, MoveGenerationEngine, SearchParams},
     Board, Game, Position, BOARD_SIZE,
 };
 use base64::{engine::general_purpose, Engine as _};
@@ -88,13 +88,16 @@ fn compare_moves(board_str: &str) -> Result<(), String> {
     println!("  White to move: {}", board.is_white_to_move());
     println!("  Game over: {}", board.is_game_over());
     if board.is_game_over() {
-        println!("  Result: {}", if board.is_draw() {
-            "Draw"
-        } else if board.white_wins() {
-            "White wins"
-        } else {
-            "Black wins"
-        });
+        println!(
+            "  Result: {}",
+            if board.is_draw() {
+                "Draw"
+            } else if board.white_wins() {
+                "White wins"
+            } else {
+                "Black wins"
+            }
+        );
     }
     println!("  Moves without capture: {}", board.moves_without_capture());
     println!();
@@ -107,7 +110,7 @@ fn compare_moves(board_str: &str) -> Result<(), String> {
     // Get GPU-generated moves
     let move_gen = MoveGenerationEngine::new_sync()
         .map_err(|e| format!("Failed to create GPU move generation engine: {}", e))?;
-    
+
     let board_binary = board.to_binary();
     let gpu_moves_u16 = move_gen.generate_moves(&board_binary)?;
     println!("GPU shader generated {} moves", gpu_moves_u16.len());
@@ -138,9 +141,12 @@ fn compare_moves(board_str: &str) -> Result<(), String> {
         println!("✓ SUCCESS: Both implementations generate the same moves!");
     } else {
         println!("✗ MISMATCH DETECTED:");
-        
+
         if !in_rust_not_gpu.is_empty() {
-            println!("\n  Moves in Rust but NOT in GPU ({}):", in_rust_not_gpu.len());
+            println!(
+                "\n  Moves in Rust but NOT in GPU ({}):",
+                in_rust_not_gpu.len()
+            );
             for &&(from, to, force_unstack) in &in_rust_not_gpu {
                 let from_pos = Position::from_u8(from);
                 let to_pos = Position::from_u8(to);
@@ -148,13 +154,20 @@ fn compare_moves(board_str: &str) -> Result<(), String> {
                     "    {} -> {} {}",
                     from_pos.to_string(),
                     to_pos.to_string(),
-                    if force_unstack { "(forced unstack)" } else { "" }
+                    if force_unstack {
+                        "(forced unstack)"
+                    } else {
+                        ""
+                    }
                 );
             }
         }
 
         if !in_gpu_not_rust.is_empty() {
-            println!("\n  Moves in GPU but NOT in Rust ({}):", in_gpu_not_rust.len());
+            println!(
+                "\n  Moves in GPU but NOT in Rust ({}):",
+                in_gpu_not_rust.len()
+            );
             for &&(from, to, force_unstack) in &in_gpu_not_rust {
                 let from_pos = Position::from_u8(from);
                 let to_pos = Position::from_u8(to);
@@ -162,7 +175,11 @@ fn compare_moves(board_str: &str) -> Result<(), String> {
                     "    {} -> {} {}",
                     from_pos.to_string(),
                     to_pos.to_string(),
-                    if force_unstack { "(forced unstack)" } else { "" }
+                    if force_unstack {
+                        "(forced unstack)"
+                    } else {
+                        ""
+                    }
                 );
             }
         }
@@ -177,7 +194,13 @@ fn compare_moves(board_str: &str) -> Result<(), String> {
                 "  {} -> {} {}",
                 m.from.to_string(),
                 m.to.to_string(),
-                if m.force_unstack { "(forced unstack)" } else if m.unstackable { "(unstackable)" } else { "" }
+                if m.force_unstack {
+                    "(forced unstack)"
+                } else if m.unstackable {
+                    "(unstackable)"
+                } else {
+                    ""
+                }
             );
         }
 
@@ -187,7 +210,13 @@ fn compare_moves(board_str: &str) -> Result<(), String> {
                 "  {} -> {} {}",
                 Position::from_u8(m.from.to_u8()).to_string(),
                 Position::from_u8(m.to.to_u8()).to_string(),
-                if m.force_unstack { "(forced unstack)" } else if m.unstackable { "(unstackable)" } else { "" }
+                if m.force_unstack {
+                    "(forced unstack)"
+                } else if m.unstackable {
+                    "(unstackable)"
+                } else {
+                    ""
+                }
             );
         }
     }
@@ -207,13 +236,13 @@ fn evaluate_board(board_str: &str, depth: u32) -> Result<(), String> {
     println!();
 
     // Create MCTS engine
-    let mut engine = MctsEngine::new()
-        .map_err(|e| format!("Failed to create MCTS engine: {}", e))?;
+    let mut engine =
+        MctsEngine::new().map_err(|e| format!("Failed to create MCTS engine: {}", e))?;
 
     // Set search parameters
     let params = SearchParams {
         max_depth: depth,
-        simulations_per_move: 100,  // Default reasonable number
+        simulations_per_move: 100, // Default reasonable number
         exploration_constant: 1.414,
     };
 
@@ -239,12 +268,15 @@ fn evaluate_board(board_str: &str, depth: u32) -> Result<(), String> {
 
     // Display results
     println!("=== Evaluation Results (sorted by score) ===");
-    println!("(Scores are from White's perspective: positive=good for White, negative=good for Black)\n");
+    println!(
+        "(Scores are from White's perspective: positive=good for White, negative=good for Black)\n"
+    );
     for sm in sorted_moves {
         println!(
-            "{} -> {}: score = {:6} (from {} simulations)",
+            "{}-{}{}: score = {:6} (from {} simulations)",
             sm.mv.from.to_string(),
             sm.mv.to.to_string(),
+            sm.mv.unstack.then(|| "-").unwrap_or(""),
             sm.score,
             sm.simulations
         );
@@ -260,30 +292,32 @@ pub fn decode_board_for_test(board_str: &str) -> Result<Board, String> {
 }
 
 #[cfg(test)]
-pub fn evaluate_board_for_test(board_str: &str) -> Result<Vec<(Position, Position, i32, bool)>, String> {
+pub fn evaluate_board_for_test(
+    board_str: &str,
+) -> Result<Vec<(Position, Position, i32, bool)>, String> {
     let board = decode_board(board_str)?;
-    
-    let mut engine = MctsEngine::new()
-        .map_err(|e| format!("Failed to create MCTS engine: {}", e))?;
-    
+
+    let mut engine =
+        MctsEngine::new().map_err(|e| format!("Failed to create MCTS engine: {}", e))?;
+
     let params = SearchParams {
         max_depth: 1,
-        simulations_per_move: 10,  // Small number for testing
+        simulations_per_move: 10, // Small number for testing
         exploration_constant: 1.414,
     };
-    
+
     let scored_moves = engine.evaluate_moves(&board, &params)?;
-    
+
     let mut results = Vec::new();
     for sm in scored_moves {
         results.push((
             sm.mv.from.clone(),
             sm.mv.to.clone(),
             sm.score,
-            true,  // All moves from evaluate_moves are valid
+            true, // All moves from evaluate_moves are valid
         ));
     }
-    
+
     Ok(results)
 }
 
@@ -296,34 +330,34 @@ mod tests {
         // Test board from issue: Black Dragon+Soldier in G7, White Soldier in H6
         // Black to move, capturing H6 should show positive score
         let board_str = "BwYEBTglAAAHAAADAAAAAgAAAQEBAQEBMQEBAAAAAAAAAEEAAAAAAAAAAAAAAAAAAAAAAAAAQUFBQUFBAEFBAABCAAAAQwAAR0ZERXhFREZHAAU=";
-        
+
         let board = decode_board_for_test(board_str);
         if let Err(e) = &board {
             println!("Skipping test: Failed to decode board - {}", e);
             return;
         }
         let board = board.unwrap();
-        
+
         // Verify the setup
         assert!(!board.is_white_to_move(), "Should be Black's turn");
-        
+
         let g7 = Position::new(6, 2); // G7
         let h6 = Position::new(7, 3); // H6
-        
+
         let piece_g7 = board.get_piece(&g7);
         assert!(piece_g7.is_some(), "Should have piece at G7");
         let piece_g7 = piece_g7.unwrap();
         assert_eq!(piece_g7.color, arx_engine::board::Color::Black);
         assert_eq!(piece_g7.bottom, arx_engine::board::PieceType::Soldier);
         assert_eq!(piece_g7.top, Some(arx_engine::board::PieceType::Dragon));
-        
+
         let piece_h6 = board.get_piece(&h6);
         assert!(piece_h6.is_some(), "Should have piece at H6");
         let piece_h6 = piece_h6.unwrap();
         assert_eq!(piece_h6.color, arx_engine::board::Color::White);
         assert_eq!(piece_h6.bottom, arx_engine::board::PieceType::Soldier);
         assert!(piece_h6.top.is_none(), "H6 should be a single soldier");
-        
+
         // Try to evaluate with GPU
         let results = evaluate_board_for_test(board_str);
         if let Err(e) = &results {
@@ -331,32 +365,36 @@ mod tests {
             return;
         }
         let results = results.unwrap();
-        
+
         // Find the G7->H6 move
         let capture_move = results.iter().find(|(from, to, _, valid)| {
             *valid && from.x == 6 && from.y == 2 && to.x == 7 && to.y == 3
         });
-        
+
         assert!(capture_move.is_some(), "Should find G7->H6 move");
         let (_, _, score, _) = capture_move.unwrap();
-        
+
         // Paranoid approach: scores are always from White's perspective
         // Black capturing a White soldier means Black gains material
         // This should result in a MORE NEGATIVE score (worse for White)
         // So we expect the capture to have a lower (more negative) score than non-capturing moves
-        assert!(*score < 0, "Black capturing White soldier should have negative score (good for Black), got {}", score);
-        
+        assert!(
+            *score < 0,
+            "Black capturing White soldier should have negative score (good for Black), got {}",
+            score
+        );
+
         // Compare with a non-capture move to verify the capture is valued
         // Find a non-capture move for comparison
         let non_capture = results.iter().find(|(from, to, _, valid)| {
             *valid && from.x == 6 && from.y == 2 && (to.x != 7 || to.y != 3)
         });
-        
+
         if let Some((_, _, non_capture_score, _)) = non_capture {
             // The capture should be more favorable for Black (more negative) than non-capture
-            assert!(*score < *non_capture_score, 
-                "Capture move (score={}) should be more negative than non-capture (score={}) for Black", 
-                score, non_capture_score);
+            assert!(*score < *non_capture_score,
+                    "Capture move (score={}) should be more negative than non-capture (score={}) for Black",
+                    score, non_capture_score);
         }
     }
 }

@@ -61,6 +61,15 @@ impl Move {
             from: Position::from_u8((v & 0x007F) as u8),
         }
     }
+
+    pub fn to_string(&self) -> String {
+        format!(
+            "{}-{}{}",
+            self.from.to_string(),
+            self.to.to_string(),
+            if self.unstack { "-" } else { "" },
+        )
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -84,7 +93,7 @@ impl Game {
         if self.board.is_game_over() {
             return Err("Game is over, no more moves allowed".to_string());
         }
-        
+
         let new_board = self.apply_move_copy(mv)?;
         self.board = new_board;
         Ok(())
@@ -358,11 +367,11 @@ impl Game {
         // Check for king captures
         let mut white_king_exists = false;
         let mut black_king_exists = false;
-        
+
         // Count pieces for draw detection
         let mut white_pieces = Vec::new();
         let mut black_pieces = Vec::new();
-        
+
         for y in 0..BOARD_DIMENSION {
             for x in 0..BOARD_DIMENSION {
                 let pos = Position::new(x, y);
@@ -374,7 +383,7 @@ impl Game {
                             black_king_exists = true;
                         }
                     }
-                    
+
                     // Collect pieces for draw detection
                     if piece.color == Color::White {
                         white_pieces.push((piece.clone(), pos));
@@ -384,7 +393,7 @@ impl Game {
                 }
             }
         }
-        
+
         // Check for king capture (win condition)
         if !white_king_exists {
             board.set_game_over(true, false, false); // Black wins
@@ -394,40 +403,40 @@ impl Game {
             board.set_game_over(true, true, false); // White wins
             return;
         }
-        
+
         // Check for 40-move rule
         if board.moves_without_capture() >= 40 {
             board.set_game_over(true, false, true); // Draw
             return;
         }
-        
+
         // Check for draw conditions (both sides must satisfy the condition)
         let white_draw_eligible = Self::check_draw_condition_for_side(&white_pieces);
         let black_draw_eligible = Self::check_draw_condition_for_side(&black_pieces);
-        
+
         if white_draw_eligible && black_draw_eligible {
             board.set_game_over(true, false, true); // Draw
         }
     }
-    
+
     /// Check if a side satisfies draw conditions:
     /// - Only king remaining
     /// - Only jesters/guards on same color square (color lock)
     /// - Single dragon (plus king)
     fn check_draw_condition_for_side(pieces: &[(Piece, Position)]) -> bool {
         let mut non_king_pieces = Vec::new();
-        
+
         for (piece, pos) in pieces {
             if !piece.is_king() {
                 non_king_pieces.push((piece.clone(), *pos));
             }
         }
-        
+
         // No pieces apart from King
         if non_king_pieces.is_empty() {
             return true;
         }
-        
+
         // Single Dragon
         if non_king_pieces.len() == 1 {
             let (piece, _) = &non_king_pieces[0];
@@ -436,25 +445,26 @@ impl Game {
                 return true;
             }
         }
-        
+
         // Check for color lock: all jesters and/or guards on same color square
         let mut all_jesters_or_guards = true;
         let mut first_square_color: Option<bool> = None; // true for white square, false for black square
-        
+
         for (piece, pos) in &non_king_pieces {
             // Check if piece is a jester or guard (consider both bottom and top)
-            let is_jester_or_guard = 
-                piece.bottom == PieceType::Jester || piece.bottom == PieceType::Guard ||
-                piece.top == Some(PieceType::Jester) || piece.top == Some(PieceType::Guard);
-            
+            let is_jester_or_guard = piece.bottom == PieceType::Jester
+                || piece.bottom == PieceType::Guard
+                || piece.top == Some(PieceType::Jester)
+                || piece.top == Some(PieceType::Guard);
+
             if !is_jester_or_guard {
                 all_jesters_or_guards = false;
                 break;
             }
-            
+
             // Calculate square color (white if (x + y) is even, black if odd)
             let square_is_white = (pos.x + pos.y) % 2 == 0;
-            
+
             match first_square_color {
                 None => first_square_color = Some(square_is_white),
                 Some(color) => {
@@ -465,11 +475,11 @@ impl Game {
                 }
             }
         }
-        
+
         if all_jesters_or_guards && first_square_color.is_some() {
             return true;
         }
-        
+
         false
     }
 
@@ -1160,7 +1170,7 @@ mod tests {
     #[test]
     fn test_king_capture_white_wins() {
         let mut game = Game::new();
-        
+
         // Clear the board
         for y in 0..9 {
             for x in 0..9 {
@@ -1168,24 +1178,33 @@ mod tests {
                 game.board.set_piece(&pos, None);
             }
         }
-        
+
         // Place white king and a white soldier
-        game.board.set_piece(&Position::new(4, 4), Some(Piece::new(Color::White, PieceType::King, None)));
-        game.board.set_piece(&Position::new(3, 1), Some(Piece::new(Color::White, PieceType::Soldier, None)));
-        
+        game.board.set_piece(
+            &Position::new(4, 4),
+            Some(Piece::new(Color::White, PieceType::King, None)),
+        );
+        game.board.set_piece(
+            &Position::new(3, 1),
+            Some(Piece::new(Color::White, PieceType::Soldier, None)),
+        );
+
         // Place black king at position where white soldier can capture it
-        game.board.set_piece(&Position::new(4, 0), Some(Piece::new(Color::Black, PieceType::King, None)));
-        
+        game.board.set_piece(
+            &Position::new(4, 0),
+            Some(Piece::new(Color::Black, PieceType::King, None)),
+        );
+
         // White soldier captures black king
         let mv = Move {
             from: Position::new(3, 1),
             to: Position::new(4, 0),
             unstack: false,
         };
-        
+
         let result = game.apply_move_copy(mv);
         assert!(result.is_ok(), "Move should be valid");
-        
+
         let new_board = result.unwrap();
         assert!(new_board.is_game_over(), "Game should be over");
         assert!(new_board.white_wins(), "White should win");
@@ -1195,7 +1214,7 @@ mod tests {
     #[test]
     fn test_king_capture_black_wins() {
         let mut game = Game::new();
-        
+
         // Clear the board
         for y in 0..9 {
             for x in 0..9 {
@@ -1203,27 +1222,36 @@ mod tests {
                 game.board.set_piece(&pos, None);
             }
         }
-        
+
         // Place black king and a black soldier
-        game.board.set_piece(&Position::new(4, 4), Some(Piece::new(Color::Black, PieceType::King, None)));
-        game.board.set_piece(&Position::new(3, 7), Some(Piece::new(Color::Black, PieceType::Soldier, None)));
-        
+        game.board.set_piece(
+            &Position::new(4, 4),
+            Some(Piece::new(Color::Black, PieceType::King, None)),
+        );
+        game.board.set_piece(
+            &Position::new(3, 7),
+            Some(Piece::new(Color::Black, PieceType::Soldier, None)),
+        );
+
         // Place white king at position where black soldier can capture it
-        game.board.set_piece(&Position::new(4, 8), Some(Piece::new(Color::White, PieceType::King, None)));
-        
+        game.board.set_piece(
+            &Position::new(4, 8),
+            Some(Piece::new(Color::White, PieceType::King, None)),
+        );
+
         // Set black to move
         game.board.set_white_to_move(false);
-        
+
         // Black soldier captures white king
         let mv = Move {
             from: Position::new(3, 7),
             to: Position::new(4, 8),
             unstack: false,
         };
-        
+
         let result = game.apply_move_copy(mv);
         assert!(result.is_ok(), "Move should be valid");
-        
+
         let new_board = result.unwrap();
         assert!(new_board.is_game_over(), "Game should be over");
         assert!(!new_board.white_wins(), "White should not win");
@@ -1233,7 +1261,7 @@ mod tests {
     #[test]
     fn test_draw_only_kings_remaining() {
         let mut game = Game::new();
-        
+
         // Clear the board
         for y in 0..9 {
             for x in 0..9 {
@@ -1241,31 +1269,46 @@ mod tests {
                 game.board.set_piece(&pos, None);
             }
         }
-        
+
         // Place only kings
-        game.board.set_piece(&Position::new(4, 4), Some(Piece::new(Color::White, PieceType::King, None)));
-        game.board.set_piece(&Position::new(4, 5), Some(Piece::new(Color::Black, PieceType::King, None)));
-        
+        game.board.set_piece(
+            &Position::new(4, 4),
+            Some(Piece::new(Color::White, PieceType::King, None)),
+        );
+        game.board.set_piece(
+            &Position::new(4, 5),
+            Some(Piece::new(Color::Black, PieceType::King, None)),
+        );
+
         // Place a black soldier that will be captured (in middle of board, not promotion zone)
-        game.board.set_piece(&Position::new(3, 3), Some(Piece::new(Color::Black, PieceType::Soldier, None)));
-        
+        game.board.set_piece(
+            &Position::new(3, 3),
+            Some(Piece::new(Color::Black, PieceType::Soldier, None)),
+        );
+
         // Place a white soldier to capture the black soldier
-        game.board.set_piece(&Position::new(4, 2), Some(Piece::new(Color::White, PieceType::Soldier, None)));
-        
+        game.board.set_piece(
+            &Position::new(4, 2),
+            Some(Piece::new(Color::White, PieceType::Soldier, None)),
+        );
+
         // White soldier captures black soldier, leaving only kings and the white soldier
         let mv = Move {
             from: Position::new(4, 2),
             to: Position::new(3, 3),
             unstack: false,
         };
-        
+
         let result = game.apply_move_copy(mv);
         assert!(result.is_ok(), "Move should be valid");
-        
+
         let board_after_first_move = result.unwrap();
         // Game not over yet - there's still a white soldier
-        assert!(!board_after_first_move.is_game_over(), "Game should not be over yet");
-        
+        assert!(
+            !board_after_first_move.is_game_over(),
+            "Game should not be over yet"
+        );
+
         // Now have black king capture the white soldier
         let game2 = Game::from_board(board_after_first_move);
         let mv2 = Move {
@@ -1273,10 +1316,10 @@ mod tests {
             to: Position::new(3, 3),
             unstack: false,
         };
-        
+
         let result2 = game2.apply_move_copy(mv2);
         assert!(result2.is_ok(), "Move should be valid");
-        
+
         let new_board = result2.unwrap();
         assert!(new_board.is_game_over(), "Game should be over");
         assert!(new_board.is_draw(), "Should be a draw");
@@ -1285,7 +1328,7 @@ mod tests {
     #[test]
     fn test_draw_single_dragon() {
         let mut game = Game::new();
-        
+
         // Clear the board
         for y in 0..9 {
             for x in 0..9 {
@@ -1293,38 +1336,56 @@ mod tests {
                 game.board.set_piece(&pos, None);
             }
         }
-        
+
         // Place kings and single dragons
-        game.board.set_piece(&Position::new(4, 0), Some(Piece::new(Color::White, PieceType::King, None)));
-        game.board.set_piece(&Position::new(3, 0), Some(Piece::new(Color::White, PieceType::Dragon, None)));
-        
-        game.board.set_piece(&Position::new(4, 8), Some(Piece::new(Color::Black, PieceType::King, None)));
-        game.board.set_piece(&Position::new(5, 8), Some(Piece::new(Color::Black, PieceType::Dragon, None)));
-        
+        game.board.set_piece(
+            &Position::new(4, 0),
+            Some(Piece::new(Color::White, PieceType::King, None)),
+        );
+        game.board.set_piece(
+            &Position::new(3, 0),
+            Some(Piece::new(Color::White, PieceType::Dragon, None)),
+        );
+
+        game.board.set_piece(
+            &Position::new(4, 8),
+            Some(Piece::new(Color::Black, PieceType::King, None)),
+        );
+        game.board.set_piece(
+            &Position::new(5, 8),
+            Some(Piece::new(Color::Black, PieceType::Dragon, None)),
+        );
+
         // Place a white soldier to be captured
-        game.board.set_piece(&Position::new(4, 4), Some(Piece::new(Color::White, PieceType::Soldier, None)));
-        
+        game.board.set_piece(
+            &Position::new(4, 4),
+            Some(Piece::new(Color::White, PieceType::Soldier, None)),
+        );
+
         game.board.set_white_to_move(false);
-        
+
         // Black dragon captures soldier
         let mv = Move {
             from: Position::new(5, 8),
             to: Position::new(4, 4),
             unstack: false,
         };
-        
+
         let result = game.apply_move_copy(mv);
         assert!(result.is_ok(), "Move should be valid");
-        
+
         let new_board = result.unwrap();
-        assert!(new_board.is_game_over(), "Game should be over (single dragon rule)");
+        assert!(
+            new_board.is_game_over(),
+            "Game should be over (single dragon rule)"
+        );
         assert!(new_board.is_draw(), "Should be a draw");
     }
 
     #[test]
     fn test_draw_40_move_rule() {
         let mut game = Game::new();
-        
+
         // Clear the board
         for y in 0..9 {
             for x in 0..9 {
@@ -1332,30 +1393,45 @@ mod tests {
                 game.board.set_piece(&pos, None);
             }
         }
-        
+
         // Place kings
-        game.board.set_piece(&Position::new(0, 0), Some(Piece::new(Color::White, PieceType::King, None)));
-        game.board.set_piece(&Position::new(8, 8), Some(Piece::new(Color::Black, PieceType::King, None)));
-        
+        game.board.set_piece(
+            &Position::new(0, 0),
+            Some(Piece::new(Color::White, PieceType::King, None)),
+        );
+        game.board.set_piece(
+            &Position::new(8, 8),
+            Some(Piece::new(Color::Black, PieceType::King, None)),
+        );
+
         // Place some pieces
-        game.board.set_piece(&Position::new(4, 4), Some(Piece::new(Color::White, PieceType::Soldier, None)));
-        game.board.set_piece(&Position::new(5, 5), Some(Piece::new(Color::Black, PieceType::Soldier, None)));
-        
+        game.board.set_piece(
+            &Position::new(4, 4),
+            Some(Piece::new(Color::White, PieceType::Soldier, None)),
+        );
+        game.board.set_piece(
+            &Position::new(5, 5),
+            Some(Piece::new(Color::Black, PieceType::Soldier, None)),
+        );
+
         // Simulate 39 moves without capture
         game.board.set_moves_without_capture(39);
-        
+
         // Make a non-capturing move (40th move)
         let mv = Move {
             from: Position::new(4, 4),
             to: Position::new(5, 3),
             unstack: false,
         };
-        
+
         let result = game.apply_move_copy(mv);
         assert!(result.is_ok(), "Move should be valid");
-        
+
         let new_board = result.unwrap();
-        assert!(new_board.is_game_over(), "Game should be over after 40 moves without capture");
+        assert!(
+            new_board.is_game_over(),
+            "Game should be over after 40 moves without capture"
+        );
         assert!(new_board.is_draw(), "Should be a draw");
         assert_eq!(new_board.moves_without_capture(), 40);
     }
@@ -1363,7 +1439,7 @@ mod tests {
     #[test]
     fn test_capture_resets_move_counter() {
         let mut game = Game::new();
-        
+
         // Clear the board
         for y in 0..9 {
             for x in 0..9 {
@@ -1371,63 +1447,82 @@ mod tests {
                 game.board.set_piece(&pos, None);
             }
         }
-        
+
         // Place kings
-        game.board.set_piece(&Position::new(0, 0), Some(Piece::new(Color::White, PieceType::King, None)));
-        game.board.set_piece(&Position::new(8, 8), Some(Piece::new(Color::Black, PieceType::King, None)));
-        
+        game.board.set_piece(
+            &Position::new(0, 0),
+            Some(Piece::new(Color::White, PieceType::King, None)),
+        );
+        game.board.set_piece(
+            &Position::new(8, 8),
+            Some(Piece::new(Color::Black, PieceType::King, None)),
+        );
+
         // Place pieces
-        game.board.set_piece(&Position::new(4, 5), Some(Piece::new(Color::White, PieceType::Soldier, None)));
-        game.board.set_piece(&Position::new(5, 4), Some(Piece::new(Color::Black, PieceType::Soldier, None)));
-        
+        game.board.set_piece(
+            &Position::new(4, 5),
+            Some(Piece::new(Color::White, PieceType::Soldier, None)),
+        );
+        game.board.set_piece(
+            &Position::new(5, 4),
+            Some(Piece::new(Color::Black, PieceType::Soldier, None)),
+        );
+
         // Set counter to some value
         game.board.set_moves_without_capture(15);
-        
+
         // Make a capturing move
         let mv = Move {
             from: Position::new(4, 5),
             to: Position::new(5, 4),
             unstack: false,
         };
-        
+
         let result = game.apply_move_copy(mv);
         assert!(result.is_ok(), "Move should be valid");
-        
+
         let new_board = result.unwrap();
-        assert_eq!(new_board.moves_without_capture(), 0, "Counter should be reset after capture");
+        assert_eq!(
+            new_board.moves_without_capture(),
+            0,
+            "Counter should be reset after capture"
+        );
     }
 
     #[test]
     fn test_cannot_move_when_game_over() {
         let mut game = Game::new();
-        
+
         // Set up a game over state
         game.board.set_game_over(true, true, false);
-        
+
         // Try to make a move
         let mv = Move {
             from: Position::new(0, 6),
             to: Position::new(1, 5),
             unstack: false,
         };
-        
+
         let result = game.apply_move(mv);
-        assert!(result.is_err(), "Should not be able to move when game is over");
+        assert!(
+            result.is_err(),
+            "Should not be able to move when game is over"
+        );
         assert!(result.unwrap_err().contains("Game is over"));
     }
 
     #[test]
     fn test_binary_encoding_with_game_state() {
         let mut game = Game::new();
-        
+
         // Set game state
         game.board.set_game_over(true, false, true);
         game.board.set_moves_without_capture(25);
-        
+
         // Encode and decode
         let binary = game.to_binary();
         let decoded_game = Game::from_binary(binary).unwrap();
-        
+
         assert_eq!(decoded_game.board.is_game_over(), true);
         assert_eq!(decoded_game.board.white_wins(), false);
         assert_eq!(decoded_game.board.is_draw(), true);
@@ -1437,7 +1532,7 @@ mod tests {
     #[test]
     fn test_color_lock_draw() {
         let mut game = Game::new();
-        
+
         // Clear the board
         for y in 0..9 {
             for x in 0..9 {
@@ -1445,39 +1540,60 @@ mod tests {
                 game.board.set_piece(&pos, None);
             }
         }
-        
+
         // Place kings
-        game.board.set_piece(&Position::new(4, 4), Some(Piece::new(Color::White, PieceType::King, None)));
-        game.board.set_piece(&Position::new(4, 5), Some(Piece::new(Color::Black, PieceType::King, None)));
-        
+        game.board.set_piece(
+            &Position::new(4, 4),
+            Some(Piece::new(Color::White, PieceType::King, None)),
+        );
+        game.board.set_piece(
+            &Position::new(4, 5),
+            Some(Piece::new(Color::Black, PieceType::King, None)),
+        );
+
         // Place white jesters on white squares (color lock)
         // White squares: (x + y) % 2 == 0
-        game.board.set_piece(&Position::new(0, 0), Some(Piece::new(Color::White, PieceType::Jester, None)));
-        game.board.set_piece(&Position::new(2, 0), Some(Piece::new(Color::White, PieceType::Jester, None)));
-        
+        game.board.set_piece(
+            &Position::new(0, 0),
+            Some(Piece::new(Color::White, PieceType::Jester, None)),
+        );
+        game.board.set_piece(
+            &Position::new(2, 0),
+            Some(Piece::new(Color::White, PieceType::Jester, None)),
+        );
+
         // Place black guards on black squares (color lock)
         // Black squares: (x + y) % 2 == 1
-        game.board.set_piece(&Position::new(0, 1), Some(Piece::new(Color::Black, PieceType::Guard, None)));
-        game.board.set_piece(&Position::new(2, 1), Some(Piece::new(Color::Black, PieceType::Guard, None)));
-        
+        game.board.set_piece(
+            &Position::new(0, 1),
+            Some(Piece::new(Color::Black, PieceType::Guard, None)),
+        );
+        game.board.set_piece(
+            &Position::new(2, 1),
+            Some(Piece::new(Color::Black, PieceType::Guard, None)),
+        );
+
         // Place a white soldier on a black square to be captured
         // Black square: (1 + 2) = 3 (odd)
-        game.board.set_piece(&Position::new(1, 2), Some(Piece::new(Color::White, PieceType::Soldier, None)));
-        
+        game.board.set_piece(
+            &Position::new(1, 2),
+            Some(Piece::new(Color::White, PieceType::Soldier, None)),
+        );
+
         game.board.set_white_to_move(false);
-        
+
         // Black guard captures white soldier, staying on a black square and triggering color lock check
         let mv = Move {
             from: Position::new(0, 1),
             to: Position::new(1, 2),
             unstack: false,
         };
-        
+
         let result = game.apply_move_copy(mv);
-        
+
         let result = game.apply_move_copy(mv);
         assert!(result.is_ok(), "Move should be valid");
-        
+
         let new_board = result.unwrap();
         assert!(new_board.is_game_over(), "Game should be over (color lock)");
         assert!(new_board.is_draw(), "Should be a draw");

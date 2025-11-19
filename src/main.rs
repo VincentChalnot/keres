@@ -1,3 +1,4 @@
+use arx_engine::cli_rendering::get_board_hash;
 use arx_engine::{
     cli_rendering::display_stack, run_tui, Game, Position, BOARD_DIMENSION, BOARD_SIZE,
 };
@@ -65,7 +66,7 @@ fn main() {
         _ => {
             match run_tui(Some(game)) {
                 Ok(g) => {
-                    println!("Game hash: {}", get_hash(&g));
+                    println!("Game hash: {}", get_board_hash(&g.board));
                     println!("(use this to resume the game later on with the --board option)");
                 }
                 Err(e) => {
@@ -160,11 +161,5 @@ fn main() {
                 }
             }
         }
-    }
-
-    fn get_hash(game: &Game) -> String {
-        let all_bytes = game.to_binary();
-        let byte_vec = all_bytes.to_vec();
-        general_purpose::STANDARD.encode(&byte_vec)
     }
 }
