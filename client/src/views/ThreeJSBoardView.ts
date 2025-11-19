@@ -427,7 +427,7 @@ export default class ThreeJSBoardView implements IBoardView {
         if (!this.clickHandler) return;
 
         const pos = this.getPosFromMouseEvent(event);
-        if (pos) {
+        if (pos != null) {
             this.clickHandler(pos);
         }
     }
@@ -436,7 +436,7 @@ export default class ThreeJSBoardView implements IBoardView {
         if (!this.hoverHandler) return;
 
         const pos = this.getPosFromMouseEvent(event);
-        if (pos) {
+        if (pos != null) {
             this.hoverHandler(pos);
         } else {
             this.hoverHandler(null);
