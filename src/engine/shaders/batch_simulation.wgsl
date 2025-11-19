@@ -178,8 +178,9 @@ fn apply_move(board: ptr<function, BoardState>, move_encoding: u32) -> bool {
 }
 
 // Evaluate a board position
+// Uses "paranoid" approach: always returns score from White's perspective
+// Positive = good for White, Negative = good for Black
 fn evaluate_board(board: ptr<function, BoardState>) -> i32 {
-    let white_to_move = (*board).white_to_move;
     var white_value: i32 = 0;
     var black_value: i32 = 0;
     var white_king_exists = false;
@@ -232,28 +233,14 @@ fn evaluate_board(board: ptr<function, BoardState>) -> i32 {
     
     // Check for king capture (game over)
     if !white_king_exists {
-        // Black wins - return extreme value from current player's perspective
-        if white_to_move == 1u {
-            return -100000; // Very bad for white
-        } else {
-            return 100000; // Very good for black
-        }
+        return -100000; // Black wins
     }
     if !black_king_exists {
-        // White wins
-        if white_to_move == 1u {
-            return 100000; // Very good for white
-        } else {
-            return -100000; // Very bad for black
-        }
+        return 100000; // White wins
     }
     
-    // Return value from perspective of current player
-    if white_to_move == 1u {
-        return white_value - black_value;
-    } else {
-        return black_value - white_value;
-    }
+    // Return value from White's perspective (paranoid approach)
+    return white_value - black_value;
 }
 
 @compute @workgroup_size(64, 1, 1)
@@ -274,10 +261,9 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     
     if valid {
         // Evaluate the resulting position
-        // Note: The score is from the opponent's perspective (since turn switched),
-        // so we negate it to get the score from the current player's perspective
+        // Using paranoid approach: score is always from White's perspective
         let score = evaluate_board(&board);
-        applications[idx].result_score = -score;
+        applications[idx].result_score = score;
         applications[idx].valid = 1u;
         applications[idx].board = board;
     } else {
