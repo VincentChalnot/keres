@@ -81,7 +81,7 @@ export class GameController {
     async playMove(from: number, to: number, unstack = false): Promise<void> {
         const board = this.gameState.getBoard();
         if (!board) return;
-        
+
         // Check if game is over
         if (board.isGameOver()) {
             console.log('Game is over - no more moves allowed');
@@ -154,7 +154,7 @@ export class GameController {
 
         this.gameState.setBoard(previousState);
         this.gameState.popMove();
-        
+
         // Update URL hash (set flag to prevent hashchange handler from triggering)
         this.updatingHashProgrammatically = true;
         window.location.hash = encodeBoardToHash(encodeBoardToBinary(previousState));
@@ -205,7 +205,7 @@ export class GameController {
     private handleTileClick(pos: number): void {
         const board = this.gameState.getBoard();
         if (!board) return;
-        
+
         // Check if game is over - don't allow any clicks
         if (board.isGameOver()) {
             console.log('Game is over - no more moves allowed');
@@ -288,7 +288,7 @@ export class GameController {
         const selectedPosition = this.gameState.getSelectedPosition();
 
         // Selected piece
-        if (selectedPosition) {
+        if (selectedPosition != null) {
             highlights.push({position: selectedPosition, type: 'selected'});
 
             // Potential moves
@@ -300,7 +300,7 @@ export class GameController {
         }
 
         const hoveredPosition = this.gameState.getHoveredPosition();
-        if (hoveredPosition) {
+        if (hoveredPosition != null) {
             for (const move of this.gameState.getPotentialMovesForPosition(hoveredPosition)) {
                 highlights.push({position: move.to, type: 'hovered'});
             }
@@ -337,17 +337,17 @@ export class GameController {
             if (boardBinary) {
                 const board = decodeBoardFromBinary(boardBinary);
                 this.gameState.setBoard(board);
-                
+
                 // Clear move history since we're loading a specific board state
                 // without knowing the move sequence that led to it
                 this.gameState.clearMoveHistory();
                 this.gameState.clearGameHistory();
-                
+
                 // Clear selection and update the view
                 this.gameState.setSelectedPosition(null);
                 await this.updatePotentialMoves();
                 await this.renderBoard();
-                
+
                 // Dispatch event to notify UI to update status and move history display
                 window.dispatchEvent(new CustomEvent('boardStateChanged'));
             }
@@ -356,7 +356,7 @@ export class GameController {
             await this.startNewGame();
             await this.updatePotentialMoves();
             await this.renderBoard();
-            
+
             // Dispatch event to notify UI to update
             window.dispatchEvent(new CustomEvent('boardStateChanged'));
         }
