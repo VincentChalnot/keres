@@ -45,18 +45,18 @@ use crate::board::{Board, Color, PieceType, Position};
 use crate::game::{Game, Move, PotentialMove};
 
 /// Piece values for material evaluation
-const PIECE_VALUES: [i32; 8] = [
-    0,   // Index 0: unused
-    10,  // Soldier
-    20,  // Jester
-    100, // Commander
-    20,  // Paladin
-    25,  // Guard
-    30,  // Dragon
-    15,  // Ballista
+const PIECE_VALUES: [i32; 9] = [
+    0,  // Index 0: unused
+    10, // Soldier
+    45, // Jester
+    60, // Commander
+    30, // Paladin
+    20, // Guard
+    35, // Dragon
+    20, // Ballista
+    0,  // King (invaluable)
 ];
 
-const KING_VALUE: i32 = 10000; // King is invaluable
 const INFINITY: i32 = 50000;
 
 /// Minimax engine configuration
@@ -88,12 +88,12 @@ impl Default for MinimaxConfig {
             max_depth: 6, // Increased from 4 to 6 for better play
             use_quiescence: true,
             use_transposition_table: true,
-            time_limit_ms: 3000,
+            time_limit_ms: 4000,
             material_weight: 0.85, // Increased from 0.40 to make material dominant
             territorial_weight: 0.08, // Reduced from 0.25
             mobility_weight: 0.05, // Reduced from 0.20
             king_safety_weight: 0.02, // Reduced from 0.15
-            stack_bonus: 0.30,
+            stack_bonus: 0.20,
         }
     }
 }
@@ -436,26 +436,12 @@ impl MinimaxEngine {
 
         // Terminal conditions
         let game = Game::from_board(board.clone());
-
-        // Check if game is over (king captured)
-        if board.is_game_over() {
-            // Return a very large score from the perspective of the winner
-            // If it's White's turn and game is over, Black won (Black captured White's king)
-            // If it's Black's turn and game is over, White won (White captured Black's king)
-            let winner_score = KING_VALUE;
-            return if board.is_white_to_move() {
-                -winner_score // Black won
-            } else {
-                -winner_score // White won (but from Black's perspective)
-            };
-        }
-
         let legal_moves = game.get_all_moves();
 
         if legal_moves.is_empty() || depth == 0 {
             // Enter quiescence search if enabled and not already in it
             if !in_quiescence && self.config.use_quiescence && depth == 0 {
-                return self.quiescence_search(board, alpha, beta, 2);
+                return self.quiescence_search(board, alpha, beta, 3);
             }
             return self.evaluate_position(board);
         }
@@ -836,10 +822,6 @@ impl MinimaxEngine {
             }
         }
 
-        // Check distance to enemy pieces (more is better)
-        let avg_enemy_distance = self.average_distance_to_enemy_pieces(board, king_pos, color);
-        safety += (avg_enemy_distance as f32 * 2.0) as i32;
-
         safety
     }
 
@@ -941,35 +923,6 @@ impl MinimaxEngine {
         count
     }
 
-    /// Calculate average distance to enemy pieces
-    fn average_distance_to_enemy_pieces(&self, board: &Board, pos: &Position, color: Color) -> f32 {
-        let mut total_distance = 0.0;
-        let mut count = 0;
-        let x = pos.x as f32;
-        let y = pos.y as f32;
-
-        for ey in 0..9 {
-            for ex in 0..9 {
-                let enemy_pos = Position::new(ex, ey);
-                if let Some(enemy_piece) = board.get_piece(&enemy_pos) {
-                    if enemy_piece.color != color {
-                        let dx = ex as f32 - x;
-                        let dy = ey as f32 - y;
-                        let distance = (dx * dx + dy * dy).sqrt();
-                        total_distance += distance;
-                        count += 1;
-                    }
-                }
-            }
-        }
-
-        if count > 0 {
-            total_distance / count as f32
-        } else {
-            0.0
-        }
-    }
-
     /// Check if a position is defended by a friendly piece
     fn is_defended(&self, board: &Board, pos: &Position, color: Color) -> bool {
         // Check if any friendly piece can move to this position
@@ -1002,7 +955,7 @@ impl MinimaxEngine {
             PieceType::Guard => PIECE_VALUES[5],
             PieceType::Dragon => PIECE_VALUES[6],
             PieceType::Ballista => PIECE_VALUES[7],
-            PieceType::King => KING_VALUE,
+            PieceType::King => PIECE_VALUES[8],
         }
     }
 
