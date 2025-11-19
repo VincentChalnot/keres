@@ -136,13 +136,17 @@ impl MoveGenerationEngine {
         // Convert board binary to GPU format
         let mut gpu_board = GpuBoardState {
             squares: [0; BOARD_SIZE],
-            white_to_move: board_binary[81] as u32,
+            white_to_move: 0,
             _padding: [0; 3],
         };
 
         for i in 0..BOARD_SIZE {
             gpu_board.squares[i] = board_binary[i] as u32;
         }
+        
+        // Extract white_to_move from the flags byte (bit 8)
+        let flags = board_binary[81];
+        gpu_board.white_to_move = if (flags & 0b10000000) != 0 { 1 } else { 0 };
 
         // Create buffers
         let board_buffer =
