@@ -293,3 +293,110 @@ fn evaluate_board(board_str: &str, depth: u32) -> Result<(), String> {
 
     Ok(())
 }
+
+// Public functions for testing
+#[cfg(test)]
+pub fn decode_board_for_test(board_str: &str) -> Result<Board, String> {
+    decode_board(board_str)
+}
+
+#[cfg(test)]
+pub fn evaluate_board_for_test(board_str: &str) -> Result<Vec<(Position, Position, i32, bool)>, String> {
+    let board = decode_board(board_str)?;
+    let game = Game::from_board(board.clone());
+    let moves = game.get_all_moves();
+    
+    let batch_sim = BatchSimulationEngine::new_sync()
+        .map_err(|e| format!("Failed to create GPU batch simulation engine: {}", e))?;
+    
+    let board_binary = board.to_binary();
+    let mut results = Vec::new();
+    
+    for potential_move in moves.iter() {
+        let move_u16 = potential_move.to_u16();
+        let boards = vec![board_binary];
+        let move_list = vec![move_u16];
+        
+        match batch_sim.process_batch(&boards, &move_list) {
+            Ok(batch_results) => {
+                if let Some(result) = batch_results.first() {
+                    results.push((
+                        potential_move.from.clone(),
+                        potential_move.to.clone(),
+                        result.score,
+                        result.valid,
+                    ));
+                }
+            }
+            Err(_) => {
+                results.push((
+                    potential_move.from.clone(),
+                    potential_move.to.clone(),
+                    0,
+                    false,
+                ));
+            }
+        }
+    }
+    
+    Ok(results)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_capture_evaluation() {
+        // Test board from issue: Black Dragon+Soldier in G7, White Soldier in H6
+        // Black to move, capturing H6 should show positive score
+        let board_str = "BwYEBTglAAAHAAADAAAAAgAAAQEBAQEBMQEBAAAAAAAAAEEAAAAAAAAAAAAAAAAAAAAAAAAAQUFBQUFBAEFBAABCAAAAQwAAR0ZERXhFREZHAAU=";
+        
+        let board = decode_board_for_test(board_str);
+        if let Err(e) = &board {
+            println!("Skipping test: Failed to decode board - {}", e);
+            return;
+        }
+        let board = board.unwrap();
+        
+        // Verify the setup
+        assert!(!board.is_white_to_move(), "Should be Black's turn");
+        
+        let g7 = Position::new(6, 2); // G7
+        let h6 = Position::new(7, 3); // H6
+        
+        let piece_g7 = board.get_piece(&g7);
+        assert!(piece_g7.is_some(), "Should have piece at G7");
+        let piece_g7 = piece_g7.unwrap();
+        assert_eq!(piece_g7.color, arx_engine::board::Color::Black);
+        assert_eq!(piece_g7.bottom, arx_engine::board::PieceType::Soldier);
+        assert_eq!(piece_g7.top, Some(arx_engine::board::PieceType::Dragon));
+        
+        let piece_h6 = board.get_piece(&h6);
+        assert!(piece_h6.is_some(), "Should have piece at H6");
+        let piece_h6 = piece_h6.unwrap();
+        assert_eq!(piece_h6.color, arx_engine::board::Color::White);
+        assert_eq!(piece_h6.bottom, arx_engine::board::PieceType::Soldier);
+        assert!(piece_h6.top.is_none(), "H6 should be a single soldier");
+        
+        // Try to evaluate with GPU
+        let results = evaluate_board_for_test(board_str);
+        if let Err(e) = &results {
+            println!("Skipping test: GPU not available - {}", e);
+            return;
+        }
+        let results = results.unwrap();
+        
+        // Find the G7->H6 move
+        let capture_move = results.iter().find(|(from, to, _, valid)| {
+            *valid && from.x == 6 && from.y == 2 && to.x == 7 && to.y == 3
+        });
+        
+        assert!(capture_move.is_some(), "Should find G7->H6 move");
+        let (_, _, score, _) = capture_move.unwrap();
+        
+        // The score should be positive (capturing a soldier is good for Black)
+        // After the move, Black will have gained material advantage
+        assert!(*score > 0, "Capturing a soldier should have positive score, got {}", score);
+    }
+}

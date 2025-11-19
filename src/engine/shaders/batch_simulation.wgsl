@@ -274,8 +274,10 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     
     if valid {
         // Evaluate the resulting position
+        // Note: The score is from the opponent's perspective (since turn switched),
+        // so we negate it to get the score from the current player's perspective
         let score = evaluate_board(&board);
-        applications[idx].result_score = score;
+        applications[idx].result_score = -score;
         applications[idx].valid = 1u;
         applications[idx].board = board;
     } else {
