@@ -96,7 +96,7 @@ MinimaxConfig {
 1. **Existing**: `POST /engine-move` (MCTS engine)
 2. **New**: `POST /minimax-move` (Minimax engine)
 
-Both accept binary board state (82 bytes) and return binary move (2 bytes).
+Both accept binary board state (83 bytes) and return binary move (2 bytes).
 
 ## Performance Characteristics
 

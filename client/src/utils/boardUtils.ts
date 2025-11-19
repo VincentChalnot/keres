@@ -118,11 +118,11 @@ export function encodePiece(piece: Piece): number {
 }
 
 /**
- * Decode Board from binary representation (Uint8Array of 82 bytes)
+ * Decode Board from binary representation (Uint8Array of 83 bytes)
  */
 export function decodeBoardFromBinary(binary: Uint8Array): Board {
-    if (binary.length !== 82) {
-        throw new Error('Binary board data must be 82 bytes');
+    if (binary.length !== 83) {
+        throw new Error('Binary board data must be 83 bytes');
     }
 
     const cells: (Piece | null)[] = [];
@@ -130,22 +130,41 @@ export function decodeBoardFromBinary(binary: Uint8Array): Board {
         cells.push(decodePiece(binary[i]));
     }
 
-    const whiteToMove = binary[81] === 1;
-    return new Board(cells, whiteToMove);
+    // Decode flags from byte 81
+    const flags = binary[81];
+    const whiteToMove = (flags & 0b10000000) !== 0; // bit 8
+    const gameOver = (flags & 0b01000000) !== 0;    // bit 7
+    const whiteWins = (flags & 0b00100000) !== 0;   // bit 6
+    const draw = (flags & 0b00010000) !== 0;        // bit 5
+    
+    // Get moves_without_capture counter from byte 82
+    const movesWithoutCapture = binary[82];
+    
+    return new Board(cells, whiteToMove, gameOver, whiteWins, draw, movesWithoutCapture);
 }
 
 /**
- * Encode Board to binary representation (Uint8Array of 82 bytes)
+ * Encode Board to binary representation (Uint8Array of 83 bytes)
  */
 export function encodeBoardToBinary(board: Board): Uint8Array {
-    const binary = new Uint8Array(82);
+    const binary = new Uint8Array(83);
     
     for (let i = 0; i < 81; i++) {
         const piece = board.cells[i];
         binary[i] = piece ? encodePiece(piece) : 0;
     }
     
-    binary[81] = board.whiteToMove ? 1 : 0;
+    // Pack flags into byte 81
+    let flags = 0;
+    if (board.whiteToMove) flags |= 0b10000000; // bit 8
+    if (board.gameOver) flags |= 0b01000000;    // bit 7
+    if (board.whiteWins) flags |= 0b00100000;   // bit 6
+    if (board.draw) flags |= 0b00010000;        // bit 5
+    binary[81] = flags;
+    
+    // Set moves_without_capture counter in byte 82
+    binary[82] = board.movesWithoutCapture;
+    
     return binary;
 }
 

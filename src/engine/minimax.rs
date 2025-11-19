@@ -35,13 +35,13 @@
 //! let best_move = engine.find_best_move(&game.board).expect("No legal moves");
 //! ```
 
+use rand::Rng;
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use rand::Rng;
-use rayon::prelude::*;
 
-use crate::board::{Board, Color, Position, PieceType};
+use crate::board::{Board, Color, PieceType, Position};
 use crate::game::{Game, Move, PotentialMove};
 
 /// Piece values for material evaluation
@@ -85,14 +85,14 @@ pub struct MinimaxConfig {
 impl Default for MinimaxConfig {
     fn default() -> Self {
         Self {
-            max_depth: 6,  // Increased from 4 to 6 for better play
+            max_depth: 6, // Increased from 4 to 6 for better play
             use_quiescence: true,
             use_transposition_table: true,
             time_limit_ms: 3000,
-            material_weight: 0.85,  // Increased from 0.40 to make material dominant
-            territorial_weight: 0.08,  // Reduced from 0.25
-            mobility_weight: 0.05,  // Reduced from 0.20
-            king_safety_weight: 0.02,  // Reduced from 0.15
+            material_weight: 0.85, // Increased from 0.40 to make material dominant
+            territorial_weight: 0.08, // Reduced from 0.25
+            mobility_weight: 0.05, // Reduced from 0.20
+            king_safety_weight: 0.02, // Reduced from 0.15
             stack_bonus: 0.30,
         }
     }
@@ -156,19 +156,19 @@ impl ZobristKeys {
 
     fn hash_board(&self, board: &Board) -> u64 {
         let mut hash = 0u64;
-        
+
         for y in 0..9 {
             for x in 0..9 {
                 let pos = Position::new(x, y);
                 let idx = (y * 9 + x) as usize;
-                
+
                 if let Some(piece) = board.get_piece(&pos) {
                     // Hash bottom piece
                     let color_offset = if piece.color == Color::White { 0 } else { 1 };
                     let piece_type_idx = self.piece_type_to_idx(piece.bottom);
                     let key_idx = idx * 32 + color_offset * 16 + piece_type_idx;
                     hash ^= self.pieces[key_idx];
-                    
+
                     // Hash top piece if exists
                     if let Some(top_type) = piece.top {
                         let top_piece_idx = self.piece_type_to_idx(top_type);
@@ -178,15 +178,15 @@ impl ZobristKeys {
                 }
             }
         }
-        
+
         // Include turn to move
         if board.is_white_to_move() {
             hash ^= self.pieces[0];
         }
-        
+
         hash
     }
-    
+
     fn piece_type_to_idx(&self, piece_type: PieceType) -> usize {
         match piece_type {
             PieceType::Soldier => 0,
@@ -222,42 +222,42 @@ impl MinimaxEngine {
     pub fn find_best_move(&mut self, board: &Board) -> Result<Move, String> {
         self.stats = MinimaxStatistics::default();
         self.search_start = Some(Instant::now());
-        
+
         // Generate all legal moves
         let game = Game::from_board(board.clone());
         let potential_moves = game.get_all_moves();
-        
+
         if potential_moves.is_empty() {
             return Err("No legal moves available".to_string());
         }
-        
+
         if potential_moves.len() == 1 {
             let unstack = potential_moves[0].force_unstack;
             return Ok(potential_moves[0].to_move(unstack));
         }
-        
+
         // Order moves for better alpha-beta efficiency
         let mut ordered_moves = self.order_moves(board, &potential_moves);
-        
+
         let mut best_move = ordered_moves[0].clone();
         let mut best_score = -INFINITY;
-        
+
         // Iterative deepening
         for depth in 1..=self.config.max_depth {
             if self.time_exceeded() {
                 break;
             }
-            
+
             // For the last iteration (max depth), use parallel evaluation at root
             if depth == self.config.max_depth && ordered_moves.len() > 1 {
                 // Parallel evaluation of root moves
                 let config = self.config.clone();
                 let board_clone = board.clone();
                 let start_time = self.search_start.unwrap();
-                
+
                 // Shared statistics accumulator
                 let shared_stats = Arc::new(Mutex::new(MinimaxStatistics::default()));
-                
+
                 let move_scores: Vec<(PotentialMove, i32)> = ordered_moves
                     .par_iter()
                     .filter_map(|potential_move| {
@@ -265,10 +265,10 @@ impl MinimaxEngine {
                         if start_time.elapsed() > Duration::from_millis(config.time_limit_ms) {
                             return None;
                         }
-                        
+
                         let unstack = potential_move.force_unstack;
                         let mv = potential_move.to_move(unstack);
-                        
+
                         // Create a new engine instance for this thread
                         let mut thread_engine = MinimaxEngine {
                             config: config.clone(),
@@ -277,34 +277,40 @@ impl MinimaxEngine {
                             stats: MinimaxStatistics::default(),
                             search_start: Some(start_time),
                         };
-                        
+
                         if let Ok(new_board) = thread_engine.apply_move(&board_clone, &mv) {
-                            let score = -thread_engine.minimax(&new_board, depth - 1, -INFINITY, INFINITY, false);
-                            
+                            let score = -thread_engine.minimax(
+                                &new_board,
+                                depth - 1,
+                                -INFINITY,
+                                INFINITY,
+                                false,
+                            );
+
                             // Accumulate statistics
                             if let Ok(mut stats) = shared_stats.lock() {
-                                stats.positions_evaluated += thread_engine.stats.positions_evaluated;
+                                stats.positions_evaluated +=
+                                    thread_engine.stats.positions_evaluated;
                                 stats.tt_hits += thread_engine.stats.tt_hits;
                                 stats.ab_cutoffs += thread_engine.stats.ab_cutoffs;
                                 stats.quiescence_nodes += thread_engine.stats.quiescence_nodes;
                             }
-                            
+
                             Some((potential_move.clone(), score))
                         } else {
                             None
                         }
                     })
                     .collect();
-                
+
                 // Find the best move from parallel evaluation
-                if let Some((best_parallel_move, best_parallel_score)) = move_scores
-                    .into_iter()
-                    .max_by_key(|(_, score)| *score)
+                if let Some((best_parallel_move, best_parallel_score)) =
+                    move_scores.into_iter().max_by_key(|(_, score)| *score)
                 {
                     best_move = best_parallel_move;
                     best_score = best_parallel_score;
                 }
-                
+
                 // Merge statistics
                 {
                     let stats = shared_stats.lock().unwrap();
@@ -317,23 +323,23 @@ impl MinimaxEngine {
                 // Sequential evaluation for earlier depths
                 let mut alpha = -INFINITY;
                 let beta = INFINITY;
-                
+
                 for potential_move in &ordered_moves {
                     if self.time_exceeded() {
                         break;
                     }
-                    
+
                     let unstack = potential_move.force_unstack;
                     let mv = potential_move.to_move(unstack);
-                    
+
                     if let Ok(new_board) = self.apply_move(board, &mv) {
                         let score = -self.minimax(&new_board, depth - 1, -beta, -alpha, false);
-                        
+
                         if score > best_score {
                             best_score = score;
                             best_move = potential_move.clone();
                         }
-                        
+
                         alpha = alpha.max(score);
                         if alpha >= beta {
                             self.stats.ab_cutoffs += 1;
@@ -342,7 +348,7 @@ impl MinimaxEngine {
                     }
                 }
             }
-            
+
             // Re-order moves based on current iteration results
             ordered_moves.sort_by_key(|mv| {
                 let unstack = mv.force_unstack;
@@ -354,23 +360,58 @@ impl MinimaxEngine {
                 }
             });
         }
-        
+
         if let Some(start) = self.search_start {
             self.stats.search_time_ms = start.elapsed().as_millis() as u64;
         }
-        
+
         let unstack = best_move.force_unstack;
         Ok(best_move.to_move(unstack))
     }
 
     /// Minimax algorithm with alpha-beta pruning
-    fn minimax(&mut self, board: &Board, depth: u32, mut alpha: i32, beta: i32, in_quiescence: bool) -> i32 {
+    fn minimax(
+        &mut self,
+        board: &Board,
+        depth: u32,
+        mut alpha: i32,
+        beta: i32,
+        in_quiescence: bool,
+    ) -> i32 {
         self.stats.positions_evaluated += 1;
-        
+
         if self.time_exceeded() {
             return self.evaluate_position(board);
         }
-        
+
+        // Check for game over immediately
+        if board.is_game_over() {
+            // Return extreme scores for terminal states
+            if board.is_draw() {
+                return 0; // Draw is neutral
+            } else if board.white_wins() {
+                // White has won. From current player's perspective:
+                // - If it's black to move, this is terrible for black: -INFINITY
+                // - If it's white to move, this shouldn't happen (game already over)
+                //   but would be great for white: +INFINITY
+                return if board.is_white_to_move() {
+                    INFINITY
+                } else {
+                    -INFINITY
+                };
+            } else {
+                // Black has won. From current player's perspective:
+                // - If it's white to move, this is terrible for white: -INFINITY
+                // - If it's black to move, this shouldn't happen (game already over)
+                //   but would be great for black: +INFINITY
+                return if board.is_white_to_move() {
+                    -INFINITY
+                } else {
+                    INFINITY
+                };
+            }
+        }
+
         // Check transposition table
         if self.config.use_transposition_table {
             let hash = self.zobrist_keys.hash_board(board);
@@ -392,10 +433,10 @@ impl MinimaxEngine {
                 }
             }
         }
-        
+
         // Terminal conditions
         let game = Game::from_board(board.clone());
-        
+
         // Check if game is over (king captured)
         if board.is_game_over() {
             // Return a very large score from the perspective of the winner
@@ -403,14 +444,14 @@ impl MinimaxEngine {
             // If it's Black's turn and game is over, White won (White captured Black's king)
             let winner_score = KING_VALUE;
             return if board.is_white_to_move() {
-                -winner_score  // Black won
+                -winner_score // Black won
             } else {
-                -winner_score  // White won (but from Black's perspective)
+                -winner_score // White won (but from Black's perspective)
             };
         }
-        
+
         let legal_moves = game.get_all_moves();
-        
+
         if legal_moves.is_empty() || depth == 0 {
             // Enter quiescence search if enabled and not already in it
             if !in_quiescence && self.config.use_quiescence && depth == 0 {
@@ -418,25 +459,25 @@ impl MinimaxEngine {
             }
             return self.evaluate_position(board);
         }
-        
+
         // Order moves for better pruning
         let ordered_moves = self.order_moves(board, &legal_moves);
-        
+
         let mut best_score = -INFINITY;
         let mut best_move_u16: Option<u16> = None;
-        
+
         for potential_move in &ordered_moves {
             let unstack = potential_move.force_unstack;
             let mv = potential_move.to_move(unstack);
-            
+
             if let Ok(new_board) = self.apply_move(board, &mv) {
                 let score = -self.minimax(&new_board, depth - 1, -beta, -alpha, in_quiescence);
-                
+
                 if score > best_score {
                     best_score = score;
                     best_move_u16 = Some(potential_move.to_u16());
                 }
-                
+
                 alpha = alpha.max(score);
                 if alpha >= beta {
                     self.stats.ab_cutoffs += 1;
@@ -444,7 +485,7 @@ impl MinimaxEngine {
                 }
             }
         }
-        
+
         // Store in transposition table
         if self.config.use_transposition_table {
             let hash = self.zobrist_keys.hash_board(board);
@@ -455,50 +496,60 @@ impl MinimaxEngine {
             } else {
                 NodeType::Exact
             };
-            
-            self.transposition_table.insert(hash, TranspositionEntry {
-                depth,
-                score: best_score,
-                best_move: best_move_u16,
-                node_type,
-            });
+
+            self.transposition_table.insert(
+                hash,
+                TranspositionEntry {
+                    depth,
+                    score: best_score,
+                    best_move: best_move_u16,
+                    node_type,
+                },
+            );
         }
-        
+
         best_score
     }
 
     /// Quiescence search to avoid horizon effect
-    fn quiescence_search(&mut self, board: &Board, mut alpha: i32, beta: i32, depth_left: u32) -> i32 {
+    fn quiescence_search(
+        &mut self,
+        board: &Board,
+        mut alpha: i32,
+        beta: i32,
+        depth_left: u32,
+    ) -> i32 {
         self.stats.quiescence_nodes += 1;
-        
+
         let stand_pat = self.evaluate_position(board);
-        
+
         if stand_pat >= beta || depth_left == 0 {
             return stand_pat;
         }
-        
+
         if stand_pat > alpha {
             alpha = stand_pat;
         }
-        
+
         // Only search captures and checks
         let game = Game::from_board(board.clone());
         let all_moves = game.get_all_moves();
-        let tactical_moves: Vec<PotentialMove> = all_moves.into_iter()
+        let tactical_moves: Vec<PotentialMove> = all_moves
+            .into_iter()
             .filter(|mv| self.is_tactical_move(board, mv))
             .collect();
-        
+
         if tactical_moves.is_empty() {
             return stand_pat;
         }
-        
+
         for potential_move in &tactical_moves {
             let unstack = potential_move.force_unstack;
             let mv = potential_move.to_move(unstack);
-            
+
             if let Ok(new_board) = self.apply_move(board, &mv) {
                 let score = -self.quiescence_search(&new_board, -beta, -alpha, depth_left - 1);
-                
+
                 if score >= beta {
                     return beta;
                 }
@@ -507,7 +558,7 @@ impl MinimaxEngine {
                 }
             }
         }
-        
+
         alpha
     }
 
@@ -526,24 +577,27 @@ impl MinimaxEngine {
 
     /// Order moves for better alpha-beta pruning efficiency
     fn order_moves(&self, board: &Board, moves: &[PotentialMove]) -> Vec<PotentialMove> {
-        let mut scored_moves: Vec<(PotentialMove, i32)> = moves.iter().map(|mv| {
-            let score = self.score_move_for_ordering(board, mv);
-            (mv.clone(), score)
-        }).collect();
-        
+        let mut scored_moves: Vec<(PotentialMove, i32)> = moves
+            .iter()
+            .map(|mv| {
+                let score = self.score_move_for_ordering(board, mv);
+                (mv.clone(), score)
+            })
+            .collect();
+
         // Sort in descending order (best moves first)
         scored_moves.sort_by_key(|(_, score)| -score);
-        
+
         scored_moves.into_iter().map(|(mv, _)| mv).collect()
     }
 
     /// Score a move for ordering purposes
     fn score_move_for_ordering(&self, board: &Board, potential_move: &PotentialMove) -> i32 {
         let mut score = 0;
-        
+
         let from_pos = &potential_move.from;
         let to_pos = &potential_move.to;
-        
+
         // Prioritize captures
         if let Some(target_piece) = board.get_piece(to_pos) {
             if let Some(moving_piece) = board.get_piece(from_pos) {
@@ -557,7 +611,7 @@ impl MinimaxEngine {
                         let bonus = (stack_total as f32 * self.config.stack_bonus) as i32;
                         target_value = stack_total + bonus;
                     }
-                    
+
                     let mut attacker_value = self.piece_value(moving_piece.bottom);
                     if let Some(top_type) = moving_piece.top {
                         let top_value = self.piece_value(top_type);
@@ -565,15 +619,16 @@ impl MinimaxEngine {
                         let bonus = (stack_total as f32 * self.config.stack_bonus) as i32;
                         attacker_value = stack_total + bonus;
                     }
-                    
+
                     score += target_value * 10 - attacker_value;
-                    
+
                     // Bonus for capturing commander (including when stacked)
-                    if target_piece.bottom == PieceType::Commander || 
-                       target_piece.top == Some(PieceType::Commander) {
+                    if target_piece.bottom == PieceType::Commander
+                        || target_piece.top == Some(PieceType::Commander)
+                    {
                         score += 500;
                     }
-                    
+
                     // Bonus for king threats
                     if target_piece.bottom == PieceType::King {
                         score += 10000;
@@ -581,36 +636,36 @@ impl MinimaxEngine {
                 }
             }
         }
-        
+
         // Bonus for center control
         let to_x = to_pos.x;
         let to_y = to_pos.y;
         if (3..=5).contains(&to_x) && (3..=5).contains(&to_y) {
             score += 30;
         }
-        
+
         score
     }
 
     /// Evaluate board position with multi-criteria heuristics
     fn evaluate_position(&self, board: &Board) -> i32 {
         let white_to_move = board.is_white_to_move();
-        
+
         let material = self.evaluate_material(board);
         let territorial = self.evaluate_territorial_control(board);
         let mobility = self.evaluate_mobility(board);
         let king_safety = self.evaluate_king_safety(board);
-        
+
         // Apply weights
-        let mut total_score = 
-            (material as f32 * self.config.material_weight +
-             territorial as f32 * self.config.territorial_weight +
-             mobility as f32 * self.config.mobility_weight +
-             king_safety as f32 * self.config.king_safety_weight) as i32;
-        
+        let mut total_score = (material as f32 * self.config.material_weight
+            + territorial as f32 * self.config.territorial_weight
+            + mobility as f32 * self.config.mobility_weight
+            + king_safety as f32 * self.config.king_safety_weight)
+            as i32;
+
         // Apply tactical penalties
         total_score += self.evaluate_tactical_penalties(board);
-        
+
         // Return from perspective of current player
         if white_to_move {
             total_score
@@ -623,13 +678,13 @@ impl MinimaxEngine {
     fn evaluate_material(&self, board: &Board) -> i32 {
         let mut white_material = 0;
         let mut black_material = 0;
-        
+
         for y in 0..9 {
             for x in 0..9 {
                 let pos = Position::new(x, y);
                 if let Some(piece) = board.get_piece(&pos) {
                     let mut piece_value = self.piece_value(piece.bottom);
-                    
+
                     // Add value for stacked piece with bonus
                     if let Some(top_type) = piece.top {
                         let top_value = self.piece_value(top_type);
@@ -637,7 +692,7 @@ impl MinimaxEngine {
                         let bonus = (stack_total as f32 * self.config.stack_bonus) as i32;
                         piece_value = stack_total + bonus;
                     }
-                    
+
                     if piece.color == Color::White {
                         white_material += piece_value;
                     } else {
@@ -646,7 +701,7 @@ impl MinimaxEngine {
                 }
             }
         }
-        
+
         white_material - black_material
     }
 
@@ -654,37 +709,37 @@ impl MinimaxEngine {
     fn evaluate_territorial_control(&self, board: &Board) -> i32 {
         let mut white_control = 0;
         let mut black_control = 0;
-        
+
         let game = Game::from_board(board.clone());
         let all_moves = game.get_all_moves();
-        
+
         for potential_move in &all_moves {
             let from_pos = &potential_move.from;
             let to_pos = &potential_move.to;
-            
+
             if let Some(piece) = board.get_piece(from_pos) {
                 let to_y = to_pos.y;
                 let to_x = to_pos.x;
-                
+
                 let mut control_value = 1;
-                
+
                 // Enemy territory bonus
                 if piece.color == Color::White && to_y >= 6 {
                     control_value += 2;
                 } else if piece.color == Color::Black && to_y <= 2 {
                     control_value += 2;
                 }
-                
+
                 // Central squares bonus
                 if (3..=5).contains(&to_x) && (3..=5).contains(&to_y) {
                     control_value += 3;
                 }
-                
+
                 // Check for proximity to enemy king
                 if self.is_adjacent_to_enemy_king(board, to_pos, piece.color) {
                     control_value += 5;
                 }
-                
+
                 if piece.color == Color::White {
                     white_control += control_value;
                 } else {
@@ -692,7 +747,7 @@ impl MinimaxEngine {
                 }
             }
         }
-        
+
         white_control - black_control
     }
 
@@ -700,21 +755,21 @@ impl MinimaxEngine {
     fn evaluate_mobility(&self, board: &Board) -> i32 {
         let mut white_mobility = 0;
         let mut black_mobility = 0;
-        
+
         let game = Game::from_board(board.clone());
         let all_moves = game.get_all_moves();
-        
+
         for potential_move in &all_moves {
             let from_pos = &potential_move.from;
-            
+
             if let Some(piece) = board.get_piece(from_pos) {
                 let mut mobility_value = 1;
-                
+
                 // Bonus for mobile pieces
                 if piece.bottom == PieceType::Dragon || piece.bottom == PieceType::Commander {
                     mobility_value = (mobility_value as f32 * 1.5) as i32;
                 }
-                
+
                 if piece.color == Color::White {
                     white_mobility += mobility_value;
                 } else {
@@ -722,7 +777,7 @@ impl MinimaxEngine {
                 }
             }
         }
-        
+
         white_mobility - black_mobility
     }
 
@@ -730,11 +785,11 @@ impl MinimaxEngine {
     fn evaluate_king_safety(&self, board: &Board) -> i32 {
         let mut white_safety = 0;
         let mut black_safety = 0;
-        
+
         // Find kings
         let mut white_king_pos: Option<Position> = None;
         let mut black_king_pos: Option<Position> = None;
-        
+
         for y in 0..9 {
             for x in 0..9 {
                 let pos = Position::new(x, y);
@@ -749,49 +804,49 @@ impl MinimaxEngine {
                 }
             }
         }
-        
+
         // Evaluate white king safety
         if let Some(king_pos) = white_king_pos {
             white_safety += self.evaluate_single_king_safety(board, &king_pos, Color::White);
         }
-        
+
         // Evaluate black king safety
         if let Some(king_pos) = black_king_pos {
             black_safety += self.evaluate_single_king_safety(board, &king_pos, Color::Black);
         }
-        
+
         white_safety - black_safety
     }
 
     /// Evaluate safety of a single king
     fn evaluate_single_king_safety(&self, board: &Board, king_pos: &Position, color: Color) -> i32 {
         let mut safety = 0;
-        
+
         // Count adjacent defenders
         let adjacent_defenders = self.count_adjacent_pieces(board, king_pos, color);
-        
+
         if adjacent_defenders < 2 {
             safety -= 30; // Exposed king penalty
         }
-        
+
         // Bonus if king is protected by stacked pieces
         if let Some(piece) = board.get_piece(king_pos) {
             if piece.top.is_some() {
                 safety += 15;
             }
         }
-        
+
         // Check distance to enemy pieces (more is better)
         let avg_enemy_distance = self.average_distance_to_enemy_pieces(board, king_pos, color);
         safety += (avg_enemy_distance as f32 * 2.0) as i32;
-        
+
         safety
     }
 
     /// Apply tactical penalties
     fn evaluate_tactical_penalties(&self, board: &Board) -> i32 {
         let mut penalty = 0;
-        
+
         for y in 0..9 {
             for x in 0..9 {
                 let pos = Position::new(x, y);
@@ -806,12 +861,11 @@ impl MinimaxEngine {
                             }
                         }
                     }
-                    
+
                     // Check if piece is in enemy territory and undefended
-                    let in_enemy_territory = 
-                        (piece.color == Color::White && y >= 6) ||
-                        (piece.color == Color::Black && y <= 2);
-                    
+                    let in_enemy_territory = (piece.color == Color::White && y >= 6)
+                        || (piece.color == Color::Black && y <= 2);
+
                     if in_enemy_territory && !self.is_defended(board, &pos, piece.color) {
                         let piece_val = self.piece_value(piece.bottom);
                         let undefended_penalty = (piece_val as f32 * 1.5) as i32;
@@ -824,7 +878,7 @@ impl MinimaxEngine {
                 }
             }
         }
-        
+
         penalty
     }
 
@@ -832,27 +886,29 @@ impl MinimaxEngine {
     fn is_adjacent_to_enemy_king(&self, board: &Board, pos: &Position, piece_color: Color) -> bool {
         let x = pos.x;
         let y = pos.y;
-        
+
         for dy in -1..=1 {
             for dx in -1..=1 {
                 if dx == 0 && dy == 0 {
                     continue;
                 }
-                
+
                 let nx = x as i32 + dx;
                 let ny = y as i32 + dy;
-                
+
                 if nx >= 0 && nx < 9 && ny >= 0 && ny < 9 {
                     let neighbor_pos = Position::new(nx as usize, ny as usize);
                     if let Some(neighbor_piece) = board.get_piece(&neighbor_pos) {
-                        if neighbor_piece.bottom == PieceType::King && neighbor_piece.color != piece_color {
+                        if neighbor_piece.bottom == PieceType::King
+                            && neighbor_piece.color != piece_color
+                        {
                             return true;
                         }
                     }
                 }
             }
         }
-        
+
         false
     }
 
@@ -861,16 +917,16 @@ impl MinimaxEngine {
         let mut count = 0;
         let x = pos.x;
         let y = pos.y;
-        
+
         for dy in -1..=1 {
             for dx in -1..=1 {
                 if dx == 0 && dy == 0 {
                     continue;
                 }
-                
+
                 let nx = x as i32 + dx;
                 let ny = y as i32 + dy;
-                
+
                 if nx >= 0 && nx < 9 && ny >= 0 && ny < 9 {
                     let neighbor_pos = Position::new(nx as usize, ny as usize);
                     if let Some(neighbor_piece) = board.get_piece(&neighbor_pos) {
@@ -881,7 +937,7 @@ impl MinimaxEngine {
                 }
             }
         }
-        
+
         count
     }
 
@@ -891,7 +947,7 @@ impl MinimaxEngine {
         let mut count = 0;
         let x = pos.x as f32;
         let y = pos.y as f32;
-        
+
         for ey in 0..9 {
             for ex in 0..9 {
                 let enemy_pos = Position::new(ex, ey);
@@ -906,7 +962,7 @@ impl MinimaxEngine {
                 }
             }
         }
-        
+
         if count > 0 {
             total_distance / count as f32
         } else {
@@ -919,11 +975,11 @@ impl MinimaxEngine {
         // Check if any friendly piece can move to this position
         let game = Game::from_board(board.clone());
         let all_moves = game.get_all_moves();
-        
+
         for potential_move in &all_moves {
             let from_pos = &potential_move.from;
             let to_pos = &potential_move.to;
-            
+
             if to_pos == pos {
                 if let Some(defending_piece) = board.get_piece(from_pos) {
                     if defending_piece.color == color {
@@ -932,7 +988,7 @@ impl MinimaxEngine {
                 }
             }
         }
-        
+
         false
     }
 
@@ -1021,7 +1077,11 @@ mod tests {
         let eval = engine.evaluate_position(&board);
         // Initial position should be roughly equal (within some tolerance)
         // The evaluation includes mobility and territorial control which may not be perfectly symmetric
-        assert!(eval.abs() < 1000, "Initial position evaluation should be reasonable, got {}", eval);
+        assert!(
+            eval.abs() < 1000,
+            "Initial position evaluation should be reasonable, got {}",
+            eval
+        );
     }
 
     #[test]
@@ -1038,10 +1098,10 @@ mod tests {
         let engine = MinimaxEngine::new();
         let board1 = Board::new();
         let board2 = Board::new();
-        
+
         let hash1 = engine.zobrist_keys.hash_board(&board1);
         let hash2 = engine.zobrist_keys.hash_board(&board2);
-        
+
         // Same position should have same hash
         assert_eq!(hash1, hash2);
     }
@@ -1053,12 +1113,12 @@ mod tests {
             time_limit_ms: 1000,
             ..Default::default()
         });
-        
+
         let board = Board::new();
         let result = engine.find_best_move(&board);
-        
+
         assert!(result.is_ok(), "Should find a move in initial position");
-        
+
         let stats = engine.get_statistics();
         assert!(stats.positions_evaluated > 0);
     }
@@ -1070,10 +1130,10 @@ mod tests {
             time_limit_ms: 2000,
             ..Default::default()
         });
-        
+
         // Create a position where the commander is under attack
         let mut board = Board::new();
-        
+
         // Clear the board for a simple test
         for y in 0..9 {
             for x in 0..9 {
@@ -1081,45 +1141,57 @@ mod tests {
                 board.set_piece(&pos, None);
             }
         }
-        
+
         // Set up a simple position
         // White king at E1, White commander at D4
         let white_king_pos = Position::new(4, 0);
         let white_commander_pos = Position::new(3, 3);
-        
+
         // Black king at E9, Black piece threatening commander at D5
         let black_king_pos = Position::new(4, 8);
         let black_attacker_pos = Position::new(3, 4);
-        
-        use crate::board::{Piece, PieceType, Color};
-        
-        board.set_piece(&white_king_pos, Some(Piece {
-            color: Color::White,
-            bottom: PieceType::King,
-            top: None,
-        }));
-        
-        board.set_piece(&white_commander_pos, Some(Piece {
-            color: Color::White,
-            bottom: PieceType::Commander,
-            top: None,
-        }));
-        
-        board.set_piece(&black_king_pos, Some(Piece {
-            color: Color::Black,
-            bottom: PieceType::King,
-            top: None,
-        }));
-        
-        board.set_piece(&black_attacker_pos, Some(Piece {
-            color: Color::Black,
-            bottom: PieceType::Guard,
-            top: None,
-        }));
-        
+
+        use crate::board::{Color, Piece, PieceType};
+
+        board.set_piece(
+            &white_king_pos,
+            Some(Piece {
+                color: Color::White,
+                bottom: PieceType::King,
+                top: None,
+            }),
+        );
+
+        board.set_piece(
+            &white_commander_pos,
+            Some(Piece {
+                color: Color::White,
+                bottom: PieceType::Commander,
+                top: None,
+            }),
+        );
+
+        board.set_piece(
+            &black_king_pos,
+            Some(Piece {
+                color: Color::Black,
+                bottom: PieceType::King,
+                top: None,
+            }),
+        );
+
+        board.set_piece(
+            &black_attacker_pos,
+            Some(Piece {
+                color: Color::Black,
+                bottom: PieceType::Guard,
+                top: None,
+            }),
+        );
+
         // White to move - should try to save or move the commander
         let result = engine.find_best_move(&board);
-        
+
         assert!(result.is_ok(), "Should find a move to protect commander");
     }
 
@@ -1130,10 +1202,10 @@ mod tests {
             time_limit_ms: 1000,
             ..Default::default()
         });
-        
+
         // Create a position where we can capture an enemy commander
         let mut board = Board::new();
-        
+
         // Clear the board
         for y in 0..9 {
             for x in 0..9 {
@@ -1141,54 +1213,68 @@ mod tests {
                 board.set_piece(&pos, None);
             }
         }
-        
-        use crate::board::{Piece, PieceType, Color};
-        
+
+        use crate::board::{Color, Piece, PieceType};
+
         // White pieces
         let white_king_pos = Position::new(0, 0);
         let white_guard_pos = Position::new(3, 3);
-        
+
         // Black pieces
         let black_king_pos = Position::new(8, 8);
         let black_commander_pos = Position::new(4, 4); // Adjacent to white guard
-        
-        board.set_piece(&white_king_pos, Some(Piece {
-            color: Color::White,
-            bottom: PieceType::King,
-            top: None,
-        }));
-        
-        board.set_piece(&white_guard_pos, Some(Piece {
-            color: Color::White,
-            bottom: PieceType::Guard,
-            top: None,
-        }));
-        
-        board.set_piece(&black_king_pos, Some(Piece {
-            color: Color::Black,
-            bottom: PieceType::King,
-            top: None,
-        }));
-        
-        board.set_piece(&black_commander_pos, Some(Piece {
-            color: Color::Black,
-            bottom: PieceType::Commander,
-            top: None,
-        }));
-        
+
+        board.set_piece(
+            &white_king_pos,
+            Some(Piece {
+                color: Color::White,
+                bottom: PieceType::King,
+                top: None,
+            }),
+        );
+
+        board.set_piece(
+            &white_guard_pos,
+            Some(Piece {
+                color: Color::White,
+                bottom: PieceType::Guard,
+                top: None,
+            }),
+        );
+
+        board.set_piece(
+            &black_king_pos,
+            Some(Piece {
+                color: Color::Black,
+                bottom: PieceType::King,
+                top: None,
+            }),
+        );
+
+        board.set_piece(
+            &black_commander_pos,
+            Some(Piece {
+                color: Color::Black,
+                bottom: PieceType::Commander,
+                top: None,
+            }),
+        );
+
         // White to move - should capture the commander if possible
         let result = engine.find_best_move(&board);
-        
+
         assert!(result.is_ok(), "Should find a move");
         let mv = result.unwrap();
-        
+
         // Check if the move captures the commander
         let captures_commander = mv.from == white_guard_pos && mv.to == black_commander_pos;
-        
+
         // The engine should prefer capturing high-value pieces
         // Note: This might not always be true due to tactical considerations
-        assert!(captures_commander || mv.from == white_guard_pos, 
-                "Should consider capturing or moving the guard");
+        assert!(
+            captures_commander || mv.from == white_guard_pos,
+            "Should consider capturing or moving the guard"
+        );
     }
 
     #[test]
@@ -1198,20 +1284,23 @@ mod tests {
             time_limit_ms: 500,
             ..Default::default()
         });
-        
+
         let board = Board::new();
-        
+
         // Reset statistics
         engine.reset_statistics();
         let stats_before = engine.get_statistics();
         assert_eq!(stats_before.positions_evaluated, 0);
-        
+
         // Find a move
         let _ = engine.find_best_move(&board);
-        
+
         // Check that statistics were updated
         let stats_after = engine.get_statistics();
-        assert!(stats_after.positions_evaluated > 0, "Should have evaluated positions");
+        assert!(
+            stats_after.positions_evaluated > 0,
+            "Should have evaluated positions"
+        );
         assert!(stats_after.search_time_ms > 0, "Should have tracked time");
     }
 
@@ -1220,50 +1309,58 @@ mod tests {
         // This test is based on the issue report where the engine should capture
         // a Dragon+Commander stack with a Paladin
         use base64::{engine::general_purpose, Engine as _};
-        
+
         // Load the board from the provided base64 hash
-        let board_str = "BwAEBTgFBABeAAADAAAAAAAAAQABAQAxAAAAAAABAAYBEQAAAAAAAAAAAAAAAAAAAABBAAAAQUFBQUFBAEEAAABCAAAAAABDR0ZERXhFRAAAAA==";
+        let board_str = "BwAEBTgFBABeAAADAAAAAAAAAQABAQAxAAAAAAABAAYBEQAAAAAAAAAAAAAAAAAAAABBAAAAQUFBQUFBAEEAAABCAAAAAABDR0ZERXhFRAAAAAA==";
         let bytes = general_purpose::STANDARD.decode(board_str).unwrap();
-        
-        let mut board_data = [0; 82];
+
+        let mut board_data = [0; 83];
         for (i, &byte) in bytes.iter().enumerate() {
             board_data[i] = byte;
         }
-        
+
         let board = Board::from_binary(board_data).unwrap();
-        
+
         // Verify the position: Black to move
         assert!(!board.is_white_to_move(), "Should be Black's turn");
-        
+
         // Verify pieces at key squares
-        let g9 = Position::new(6, 0);  // Black Paladin
-        let i9 = Position::new(8, 0);  // White Dragon+Commander
-        
+        let g9 = Position::new(6, 0); // Black Paladin
+        let i9 = Position::new(8, 0); // White Dragon+Commander
+
         let paladin = board.get_piece(&g9).expect("Should have piece at G9");
         assert_eq!(paladin.color, Color::Black);
         assert_eq!(paladin.bottom, PieceType::Paladin);
-        
+
         let target = board.get_piece(&i9).expect("Should have piece at I9");
         assert_eq!(target.color, Color::White);
         assert_eq!(target.bottom, PieceType::Dragon);
         assert_eq!(target.top, Some(PieceType::Commander));
-        
+
         // Engine should find the capture move
         let mut engine = MinimaxEngine::with_config(MinimaxConfig {
             max_depth: 6,
             time_limit_ms: 5000,
             ..Default::default()
         });
-        
+
         let best_move = engine.find_best_move(&board).expect("Should find a move");
-        
+
         // The best move should be G9->I9, capturing the Dragon+Commander
-        assert_eq!(best_move.from, g9, 
-            "Best move should start from G9 (Black Paladin), but got {} -> {}", 
-            best_move.from.to_string(), best_move.to.to_string());
-        assert_eq!(best_move.to, i9, 
-            "Best move should capture at I9 (White Dragon+Commander), but got {} -> {}", 
-            best_move.from.to_string(), best_move.to.to_string());
+        assert_eq!(
+            best_move.from,
+            g9,
+            "Best move should start from G9 (Black Paladin), but got {} -> {}",
+            best_move.from.to_string(),
+            best_move.to.to_string()
+        );
+        assert_eq!(
+            best_move.to,
+            i9,
+            "Best move should capture at I9 (White Dragon+Commander), but got {} -> {}",
+            best_move.from.to_string(),
+            best_move.to.to_string()
+        );
     }
 
     #[test]
@@ -1271,37 +1368,37 @@ mod tests {
         // Test that the engine never moves a guard that protects the king
         // when doing so would allow immediate king capture
         use base64::{engine::general_purpose, Engine as _};
-        
-        let board_str = "BwAEADgFXgAAAAADAAAAAAAAAAAAAAAFAAAAAAkBAAABAAAAAAAAAAAAAAAAAAAAAEJBAAAAQUFBAABBAEEAAAAAAAAAAAAAR0ZERXhFRAAAAA==";
+
+        let board_str = "BwAEADgFXgAAAAADAAAAAAAAAAAAAAAFAAAAAAkBAAABAAAAAAAAAAAAAAAAAAAAAEJBAAAAQUFBAABBAEEAAAAAAAAAAAAAR0ZERXhFRAAAAAA==";
         let bytes = general_purpose::STANDARD.decode(board_str).unwrap();
-        
-        let mut board_data = [0; 82];
+
+        let mut board_data = [0; 83];
         for (i, &byte) in bytes.iter().enumerate() {
             board_data[i] = byte;
         }
-        
+
         let board = Board::from_binary(board_data).unwrap();
-        
+
         // Verify the position: Black to move
         assert!(!board.is_white_to_move(), "Should be Black's turn");
-        
+
         // Key positions
-        let f9 = Position::new(5, 0);  // Black Guard protecting the king
-        let e9 = Position::new(4, 0);  // Black King
-        let g9 = Position::new(6, 0);  // White Dragon+Commander that can capture king
-        
+        let f9 = Position::new(5, 0); // Black Guard protecting the king
+        let e9 = Position::new(4, 0); // Black King
+        let g9 = Position::new(6, 0); // White Dragon+Commander that can capture king
+
         // Verify pieces
         let guard = board.get_piece(&f9).expect("Should have piece at F9");
         assert_eq!(guard.color, Color::Black);
         assert_eq!(guard.bottom, PieceType::Guard);
-        
+
         let king = board.get_piece(&e9).expect("Should have piece at E9");
         assert_eq!(king.color, Color::Black);
         assert_eq!(king.bottom, PieceType::King);
-        
+
         let threat = board.get_piece(&g9).expect("Should have piece at G9");
         assert_eq!(threat.color, Color::White);
-        
+
         // Test engine multiple times (as suggested in the requirement)
         for i in 1..=3 {
             let mut engine = MinimaxEngine::with_config(MinimaxConfig {
@@ -1309,9 +1406,9 @@ mod tests {
                 time_limit_ms: 5000,
                 ..Default::default()
             });
-            
+
             let best_move = engine.find_best_move(&board).expect("Should find a move");
-            
+
             // The engine must NEVER move the F9 Guard
             assert_ne!(best_move.from, f9,
                 "Test iteration {}: Engine moved F9 Guard ({} -> {}), exposing the king to immediate capture!",

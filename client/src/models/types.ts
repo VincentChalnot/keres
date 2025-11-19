@@ -60,13 +60,28 @@ export const PIECE_CODE: Record<number, string> = {
 export class Board {
     cells: (Piece | null)[];
     whiteToMove: boolean;
+    gameOver: boolean;
+    whiteWins: boolean;
+    draw: boolean;
+    movesWithoutCapture: number;
 
-    constructor(cells: (Piece | null)[], whiteToMove: boolean) {
+    constructor(
+        cells: (Piece | null)[],
+        whiteToMove: boolean,
+        gameOver: boolean = false,
+        whiteWins: boolean = false,
+        draw: boolean = false,
+        movesWithoutCapture: number = 0
+    ) {
         if (cells.length !== 81) {
             throw new Error('Board must have exactly 81 cells');
         }
         this.cells = cells;
         this.whiteToMove = whiteToMove;
+        this.gameOver = gameOver;
+        this.whiteWins = whiteWins;
+        this.draw = draw;
+        this.movesWithoutCapture = movesWithoutCapture;
     }
 
     /**
@@ -84,5 +99,28 @@ export class Board {
      */
     getCurrentTurn(): 'White' | 'Red' {
         return this.whiteToMove ? 'White' : 'Red';
+    }
+
+    /**
+     * Check if the game is over
+     */
+    isGameOver(): boolean {
+        return this.gameOver;
+    }
+
+    /**
+     * Get the game result message
+     */
+    getGameResult(): string {
+        if (!this.gameOver) {
+            return '';
+        }
+        if (this.draw) {
+            return 'Game Over - Draw!';
+        }
+        if (this.whiteWins) {
+            return 'Game Over - White Wins!';
+        }
+        return 'Game Over - Red Wins!';
     }
 }

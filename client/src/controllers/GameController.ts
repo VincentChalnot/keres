@@ -81,9 +81,22 @@ export class GameController {
     async playMove(from: number, to: number, unstack = false): Promise<void> {
         const board = this.gameState.getBoard();
         if (!board) return;
+        
+        // Check if game is over
+        if (board.isGameOver()) {
+            console.log('Game is over - no more moves allowed');
+            return;
+        }
 
-        // Save current state to history (clone the board)
-        const boardCopy = new Board([...board.cells], board.whiteToMove);
+        // Save current state to history (clone the board with all properties)
+        const boardCopy = new Board(
+            [...board.cells],
+            board.whiteToMove,
+            board.gameOver,
+            board.whiteWins,
+            board.draw,
+            board.movesWithoutCapture
+        );
         this.gameState.pushGameState(boardCopy);
 
         // Play move on server
@@ -192,6 +205,12 @@ export class GameController {
     private handleTileClick(pos: number): void {
         const board = this.gameState.getBoard();
         if (!board) return;
+        
+        // Check if game is over - don't allow any clicks
+        if (board.isGameOver()) {
+            console.log('Game is over - no more moves allowed');
+            return;
+        }
 
         const selectedPosition = this.gameState.getSelectedPosition();
 
