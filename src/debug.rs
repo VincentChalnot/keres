@@ -1,5 +1,5 @@
 use arx_engine::{
-    engine::{BatchSimulationEngine, MoveGenerationEngine},
+    engine::{MoveGenerationEngine, MctsEngine, SearchParams},
     Board, Game, Position, BOARD_SIZE,
 };
 use base64::{engine::general_purpose, Engine as _};
@@ -196,7 +196,7 @@ fn compare_moves(board_str: &str) -> Result<(), String> {
 }
 
 fn evaluate_board(board_str: &str, depth: u32) -> Result<(), String> {
-    println!("=== Board Evaluation: GPU Shader ===\n");
+    println!("=== Board Evaluation: MCTS Engine ===\n");
     println!("Search depth: {}\n", depth);
 
     // Decode board
@@ -206,94 +206,47 @@ fn evaluate_board(board_str: &str, depth: u32) -> Result<(), String> {
     println!("  Game over: {}", board.is_game_over());
     println!();
 
-    // Get all legal moves
-    let game = Game::from_board(board.clone());
-    let moves = game.get_all_moves();
-    
-    if moves.is_empty() {
+    // Create MCTS engine
+    let mut engine = MctsEngine::new()
+        .map_err(|e| format!("Failed to create MCTS engine: {}", e))?;
+
+    // Set search parameters
+    let params = SearchParams {
+        max_depth: depth,
+        simulations_per_move: 100,  // Default reasonable number
+        exploration_constant: 1.414,
+    };
+
+    println!("Evaluating legal moves...\n");
+
+    // Evaluate all moves
+    let scored_moves = engine.evaluate_moves(&board, &params)?;
+
+    if scored_moves.is_empty() {
         println!("No legal moves available");
         return Ok(());
     }
 
-    println!("Evaluating {} legal moves...\n", moves.len());
+    println!("Found {} legal moves\n", scored_moves.len());
 
-    // Create batch simulation engine
-    let batch_sim = BatchSimulationEngine::new_sync()
-        .map_err(|e| format!("Failed to create GPU batch simulation engine: {}", e))?;
-
-    // Evaluate each move
-    let mut move_scores: Vec<(usize, i32, bool)> = Vec::new();
-    let board_binary = board.to_binary();
-
-    for (idx, potential_move) in moves.iter().enumerate() {
-        let move_u16 = potential_move.to_u16();
-        
-        // For depth 1, just apply the move and evaluate
-        if depth == 1 {
-            let boards = vec![board_binary];
-            let move_list = vec![move_u16];
-            
-            match batch_sim.process_batch(&boards, &move_list) {
-                Ok(results) => {
-                    if let Some(result) = results.first() {
-                        if result.valid {
-                            move_scores.push((idx, result.score, true));
-                        } else {
-                            move_scores.push((idx, 0, false));
-                        }
-                    }
-                }
-                Err(e) => {
-                    eprintln!("  Warning: GPU evaluation failed for move {}: {}", idx, e);
-                    move_scores.push((idx, 0, false));
-                }
-            }
-        } else {
-            // For deeper search, we'd need to implement recursive evaluation
-            // For now, just do depth 1
-            eprintln!("Warning: Depth > 1 not yet fully implemented, using depth 1");
-            let boards = vec![board_binary];
-            let move_list = vec![move_u16];
-            
-            match batch_sim.process_batch(&boards, &move_list) {
-                Ok(results) => {
-                    if let Some(result) = results.first() {
-                        if result.valid {
-                            move_scores.push((idx, result.score, true));
-                        } else {
-                            move_scores.push((idx, 0, false));
-                        }
-                    }
-                }
-                Err(e) => {
-                    eprintln!("  Warning: GPU evaluation failed for move {}: {}", idx, e);
-                    move_scores.push((idx, 0, false));
-                }
-            }
-        }
-    }
-
-    // Sort by score
-    // Paranoid approach: highest score is best for White, lowest for Black
+    // Sort by score - paranoid approach: highest score is best for White, lowest for Black
+    let mut sorted_moves = scored_moves.clone();
     if board.is_white_to_move() {
-        move_scores.sort_by(|a, b| b.1.cmp(&a.1)); // Sort descending for White
+        sorted_moves.sort_by(|a, b| b.score.cmp(&a.score)); // Sort descending for White
     } else {
-        move_scores.sort_by(|a, b| a.1.cmp(&b.1)); // Sort ascending for Black
+        sorted_moves.sort_by(|a, b| a.score.cmp(&b.score)); // Sort ascending for Black
     }
 
     // Display results
     println!("=== Evaluation Results (sorted by score) ===");
     println!("(Scores are from White's perspective: positive=good for White, negative=good for Black)\n");
-    for (idx, score, valid) in move_scores {
-        let m = &moves[idx];
-        let status = if valid { "✓" } else { "✗" };
+    for sm in sorted_moves {
         println!(
-            "{} {} -> {}: score = {:6} {}",
-            status,
-            m.from.to_string(),
-            m.to.to_string(),
-            score,
-            if m.force_unstack { "(forced unstack)" } else if m.unstackable { "(unstackable)" } else { "" }
+            "{} -> {}: score = {:6} (from {} simulations)",
+            sm.mv.from.to_string(),
+            sm.mv.to.to_string(),
+            sm.score,
+            sm.simulations
         );
     }
 
@@ -309,40 +262,26 @@ pub fn decode_board_for_test(board_str: &str) -> Result<Board, String> {
 #[cfg(test)]
 pub fn evaluate_board_for_test(board_str: &str) -> Result<Vec<(Position, Position, i32, bool)>, String> {
     let board = decode_board(board_str)?;
-    let game = Game::from_board(board.clone());
-    let moves = game.get_all_moves();
     
-    let batch_sim = BatchSimulationEngine::new_sync()
-        .map_err(|e| format!("Failed to create GPU batch simulation engine: {}", e))?;
+    let mut engine = MctsEngine::new()
+        .map_err(|e| format!("Failed to create MCTS engine: {}", e))?;
     
-    let board_binary = board.to_binary();
+    let params = SearchParams {
+        max_depth: 1,
+        simulations_per_move: 10,  // Small number for testing
+        exploration_constant: 1.414,
+    };
+    
+    let scored_moves = engine.evaluate_moves(&board, &params)?;
+    
     let mut results = Vec::new();
-    
-    for potential_move in moves.iter() {
-        let move_u16 = potential_move.to_u16();
-        let boards = vec![board_binary];
-        let move_list = vec![move_u16];
-        
-        match batch_sim.process_batch(&boards, &move_list) {
-            Ok(batch_results) => {
-                if let Some(result) = batch_results.first() {
-                    results.push((
-                        potential_move.from.clone(),
-                        potential_move.to.clone(),
-                        result.score,
-                        result.valid,
-                    ));
-                }
-            }
-            Err(_) => {
-                results.push((
-                    potential_move.from.clone(),
-                    potential_move.to.clone(),
-                    0,
-                    false,
-                ));
-            }
-        }
+    for sm in scored_moves {
+        results.push((
+            sm.mv.from.clone(),
+            sm.mv.to.clone(),
+            sm.score,
+            true,  // All moves from evaluate_moves are valid
+        ));
     }
     
     Ok(results)
