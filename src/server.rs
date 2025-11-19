@@ -1,5 +1,5 @@
 use arx_engine::board::{Board, BOARD_SIZE};
-use arx_engine::engine::{EngineConfig, MctsEngine, MinimaxConfig, MinimaxEngine};
+use arx_engine::engine::{EngineConfig, MctsEngine, MinimaxConfig, MinimaxEngine, SearchParams};
 use arx_engine::game::{Game, Move};
 use axum::{
     body::Bytes,
@@ -21,11 +21,8 @@ struct AppState {
 
 #[tokio::main]
 async fn main() {
-    // Initialize the MCTS engine with configuration from engine_demo.rs
+    // Initialize the MCTS engine with configuration
     let mcts_config = EngineConfig {
-        max_depth: 16,
-        simulations_per_move: 100000,
-        exploration_constant: 1.414,
         gpu_batch_size: 4096,
         use_gpu_simulation: true,
     };
@@ -143,9 +140,22 @@ async fn engine_move(
         .as_mut()
         .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
 
-    // Find best move using the MCTS engine
-    let mv = engine.find_best_move(&board).map_err(|e| {
+    // Search parameters for this call
+    let search_params = SearchParams {
+        max_depth: 16,
+        simulations_per_move: 100000,
+        exploration_constant: 1.414,
+    };
+
+    // Evaluate all moves
+    let scored_moves = engine.evaluate_moves(&board, &search_params).map_err(|e| {
         eprintln!("MCTS Engine error: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Select the best move for the current player
+    let mv = MctsEngine::select_best_move(&board, &scored_moves).map_err(|e| {
+        eprintln!("MCTS Engine error selecting move: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 

@@ -75,15 +75,41 @@ const PIECE_VALUES: [i32; 8] = [
 
 const KING_VALUE: i32 = 1000; // King is invaluable
 
-/// Engine configuration
+/// Search parameters for MCTS evaluation
 #[derive(Clone, Debug)]
-pub struct EngineConfig {
+pub struct SearchParams {
     /// Maximum search depth
     pub max_depth: u32,
     /// Number of simulations per move evaluation
     pub simulations_per_move: u32,
     /// Exploration constant for UCB1
     pub exploration_constant: f32,
+}
+
+impl Default for SearchParams {
+    fn default() -> Self {
+        Self {
+            max_depth: 3,
+            simulations_per_move: 100,
+            exploration_constant: 1.414,
+        }
+    }
+}
+
+/// A move with its evaluated score
+#[derive(Clone, Debug)]
+pub struct ScoredMove {
+    /// The move
+    pub mv: Move,
+    /// The evaluated score (from White's perspective: positive=good for White, negative=good for Black)
+    pub score: i32,
+    /// Number of valid simulations that contributed to this score
+    pub simulations: u32,
+}
+
+/// Engine configuration
+#[derive(Clone, Debug)]
+pub struct EngineConfig {
     /// Batch size for GPU processing (number of simulations processed in parallel)
     pub gpu_batch_size: usize,
     /// Enable GPU-accelerated batch simulation (if false, uses CPU fallback)
@@ -93,9 +119,6 @@ pub struct EngineConfig {
 impl Default for EngineConfig {
     fn default() -> Self {
         Self {
-            max_depth: 3,
-            simulations_per_move: 100,
-            exploration_constant: 1.414,
             gpu_batch_size: 256,
             use_gpu_simulation: true,
         }
@@ -284,10 +307,9 @@ impl MctsEngine {
     }
 
     /// Run simulations from a given board state
-    /// Run simulations from a given board state
-    fn simulate(&self, board: &Board, depth: u32) -> i32 {
+    fn simulate(&self, board: &Board, depth: u32, max_depth: u32) -> i32 {
         // Terminal condition: max depth reached or game over
-        if depth >= self.config.max_depth {
+        if depth >= max_depth {
             return self.evaluate_board(board);
         }
 
@@ -308,28 +330,20 @@ impl MctsEngine {
         let mv = random_potential_move.to_move(unstack);
 
         match self.apply_move(board, &mv) {
-            Ok(new_board) => -self.simulate(&new_board, depth + 1), // Negate for opponent's perspective
+            Ok(new_board) => -self.simulate(&new_board, depth + 1, max_depth), // Negate for opponent's perspective
             Err(_) => self.evaluate_board(board), // Invalid move, evaluate current position
         }
     }
 
-    /// Find the best move using MCTS with GPU acceleration and multi-threading
-    pub fn find_best_move(&mut self, board: &Board) -> Result<Move, String> {
-        // Reset search-specific stats
-        let search_start_moves = self.stats.total_moves.load(Ordering::Relaxed);
-
+    /// Evaluate all legal moves for a board position
+    /// Returns a list of moves with their scores (from White's perspective)
+    pub fn evaluate_moves(&mut self, board: &Board, params: &SearchParams) -> Result<Vec<ScoredMove>, String> {
         // Generate all legal moves using Game API
         let game = Game::from_board(board.clone());
         let potential_moves = game.get_all_moves();
 
         if potential_moves.is_empty() {
-            return Err("No legal moves available".to_string());
-        }
-
-        if potential_moves.len() == 1 {
-            // Return the only move, deciding on unstack based on force_unstack
-            let unstack = potential_moves[0].force_unstack;
-            return Ok(potential_moves[0].to_move(unstack));
+            return Ok(Vec::new());
         }
 
         // Convert board to binary for GPU communication
@@ -339,29 +353,41 @@ impl MctsEngine {
         let moves_u16 = self.move_gen.generate_moves(&board_binary)?;
 
         // Use GPU batch processing if available
-        let best_move_u16 = if let Some(ref batch_sim) = self.batch_sim {
-            self.find_best_move_gpu(&board_binary, &moves_u16, batch_sim, search_start_moves)?
+        let move_scores = if let Some(ref batch_sim) = self.batch_sim {
+            self.evaluate_moves_gpu(&board_binary, &moves_u16, batch_sim, params)?
         } else {
-            self.find_best_move_cpu(board, &potential_moves, search_start_moves)?
+            self.evaluate_moves_cpu(board, &potential_moves, params)?
         };
 
-        // Convert the u16 back to a Move
-        let potential_move = PotentialMove::from_u16(best_move_u16);
-        let unstack = potential_move.force_unstack;
-        Ok(potential_move.to_move(unstack))
+        Ok(move_scores)
+    }
+
+    /// Select the best move for the current player from evaluated moves
+    pub fn select_best_move(board: &Board, scored_moves: &[ScoredMove]) -> Result<Move, String> {
+        if scored_moves.is_empty() {
+            return Err("No moves to select from".to_string());
+        }
+
+        let white_to_move = board.is_white_to_move();
+        
+        // Paranoid approach: pick highest for White, lowest for Black
+        let best = if white_to_move {
+            scored_moves.iter().max_by_key(|sm| sm.score)
+        } else {
+            scored_moves.iter().min_by_key(|sm| sm.score)
+        };
+
+        best.map(|sm| sm.mv).ok_or_else(|| "No valid moves found".to_string())
     }
 
     /// GPU-accelerated move evaluation with batch processing
-    fn find_best_move_gpu(
+    fn evaluate_moves_gpu(
         &self,
         board: &[u8; 83],
         moves: &[u16],
         batch_sim: &BatchSimulationEngine,
-        _search_start_moves: u64,
-    ) -> Result<u16, String> {
-        // Determine who is moving
-        let board_obj = Board::from_binary(*board).map_err(|e| format!("Failed to parse board: {}", e))?;
-        let white_to_move = board_obj.is_white_to_move();
+        params: &SearchParams,
+    ) -> Result<Vec<ScoredMove>, String> {
         
         // Evaluate each move using parallel processing
         let move_scores: Vec<(u16, i32, u32)> = moves
@@ -374,11 +400,11 @@ impl MctsEngine {
                 // Process simulations in batches
                 let batch_size = self.config.gpu_batch_size;
                 let num_batches =
-                    (self.config.simulations_per_move as usize + batch_size - 1) / batch_size;
+                    (params.simulations_per_move as usize + batch_size - 1) / batch_size;
 
                 for batch_idx in 0..num_batches {
                     let sims_in_batch = batch_size
-                        .min(self.config.simulations_per_move as usize - batch_idx * batch_size);
+                        .min(params.simulations_per_move as usize - batch_idx * batch_size);
 
                     // Prepare batch: apply initial move and create boards for simulation
                     let mut batch_boards = Vec::with_capacity(sims_in_batch);
@@ -422,7 +448,7 @@ impl MctsEngine {
                                 .fetch_add(sims_in_batch as u64, Ordering::Relaxed);
                             for _ in 0..sims_in_batch {
                                 if let Ok(new_board) = self.apply_move(&board_obj, &move_obj) {
-                                    let score = -self.simulate(&new_board, 1);
+                                    let score = -self.simulate(&new_board, 1, params.max_depth);
                                     total_score += score;
                                     valid_simulations += 1;
                                     moves_evaluated += 1;
@@ -443,37 +469,34 @@ impl MctsEngine {
             })
             .collect();
 
-        // Find move with best average score
-        // Paranoid approach: pick highest for White, lowest for Black
-        let best_move = move_scores
-            .iter()
-            .filter(|(_, _, sims)| *sims > 0)
-            .max_by(|a, b| {
-                let avg_a = a.1 as f32 / a.2 as f32;
-                let avg_b = b.1 as f32 / b.2 as f32;
-                
-                // If White to move, pick highest score; if Black to move, pick lowest score
-                if white_to_move {
-                    avg_a.partial_cmp(&avg_b).unwrap_or(std::cmp::Ordering::Equal)
-                } else {
-                    avg_b.partial_cmp(&avg_a).unwrap_or(std::cmp::Ordering::Equal)
-                }
-            })
-            .map(|(mv, _, _)| *mv)
-            .ok_or("No valid moves found")?;
+        // Convert to ScoredMove vector
+        let mut scored_moves = Vec::new();
+        for (move_u16, total_score, sims) in move_scores {
+            if sims > 0 {
+                let potential_move = PotentialMove::from_u16(move_u16);
+                let unstack = potential_move.force_unstack;
+                let mv = potential_move.to_move(unstack);
+                let avg_score = total_score / sims as i32;
+                scored_moves.push(ScoredMove {
+                    mv,
+                    score: avg_score,
+                    simulations: sims,
+                });
+            }
+        }
 
-        Ok(best_move)
+        Ok(scored_moves)
     }
 
     /// CPU-based move evaluation with multi-threading (fallback)
-    fn find_best_move_cpu(
+    fn evaluate_moves_cpu(
         &self,
         board: &Board,
         potential_moves: &[PotentialMove],
-        _search_start_moves: u64,
-    ) -> Result<u16, String> {
+        params: &SearchParams,
+    ) -> Result<Vec<ScoredMove>, String> {
         // Evaluate each move using parallel processing
-        let move_scores: Vec<(u16, i32, u32)> = potential_moves
+        let move_scores: Vec<(Move, i32, u32)> = potential_moves
             .par_iter()
             .map(|potential_mv| {
                 let mut total_score = 0;
@@ -483,10 +506,10 @@ impl MctsEngine {
                 let unstack = potential_mv.force_unstack;
                 let mv = potential_mv.to_move(unstack);
 
-                for _ in 0..self.config.simulations_per_move {
+                for _ in 0..params.simulations_per_move {
                     match self.apply_move(board, &mv) {
                         Ok(new_board) => {
-                            let score = -self.simulate(&new_board, 1);
+                            let score = -self.simulate(&new_board, 1, params.max_depth);
                             total_score += score;
                             simulations += 1;
                         }
@@ -504,25 +527,24 @@ impl MctsEngine {
                     .total_moves
                     .fetch_add(simulations as u64, Ordering::Relaxed);
 
-                (potential_mv.to_u16(), total_score, simulations)
+                (mv, total_score, simulations)
             })
             .collect();
 
-        // Find move with best average score
-        let best_move = move_scores
-            .iter()
-            .filter(|(_, _, sims)| *sims > 0)
-            .max_by(|a, b| {
-                let avg_a = a.1 as f32 / a.2 as f32;
-                let avg_b = b.1 as f32 / b.2 as f32;
-                avg_a
-                    .partial_cmp(&avg_b)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
-            .map(|(mv, _, _)| *mv)
-            .ok_or("No valid moves found")?;
+        // Convert to ScoredMove vector
+        let mut scored_moves = Vec::new();
+        for (mv, total_score, sims) in move_scores {
+            if sims > 0 {
+                let avg_score = total_score / sims as i32;
+                scored_moves.push(ScoredMove {
+                    mv,
+                    score: avg_score,
+                    simulations: sims,
+                });
+            }
+        }
 
-        Ok(best_move)
+        Ok(scored_moves)
     }
 
     /// Get search statistics
@@ -610,9 +632,6 @@ mod tests {
     #[test]
     fn test_engine_config() {
         let config = EngineConfig {
-            max_depth: 5,
-            simulations_per_move: 200,
-            exploration_constant: 2.0,
             gpu_batch_size: 128,
             use_gpu_simulation: true,
         };
@@ -622,8 +641,8 @@ mod tests {
             return;
         }
         let engine = engine.unwrap();
-        assert_eq!(engine.config().max_depth, 5);
-        assert_eq!(engine.config().simulations_per_move, 200);
+        assert_eq!(engine.config().gpu_batch_size, 128);
+        assert_eq!(engine.config().use_gpu_simulation, true);
     }
 
     #[test]
