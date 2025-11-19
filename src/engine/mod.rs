@@ -240,9 +240,9 @@ impl MctsEngine {
     }
 
     /// Evaluate a board position and return the value
-    /// Positive values favor the current player
+    /// Uses paranoid approach: always returns from White's perspective
+    /// Positive = good for White, Negative = good for Black
     fn evaluate_board(&self, board: &Board) -> i32 {
-        let white_to_move = board.is_white_to_move();
         let mut white_value = 0;
         let mut black_value = 0;
 
@@ -292,12 +292,8 @@ impl MctsEngine {
             }
         }
 
-        // Return value from perspective of current player
-        if white_to_move {
-            white_value - black_value
-        } else {
-            black_value - white_value
-        }
+        // Return value from White's perspective (paranoid approach)
+        white_value - black_value
     }
 
     /// Apply a move to a board state using proper game logic
@@ -307,6 +303,7 @@ impl MctsEngine {
     }
 
     /// Run simulations from a given board state
+    /// Uses paranoid approach: always evaluates from White's perspective
     fn simulate(&self, board: &Board, depth: u32, max_depth: u32) -> i32 {
         // Terminal condition: max depth reached or game over
         if depth >= max_depth {
@@ -330,7 +327,7 @@ impl MctsEngine {
         let mv = random_potential_move.to_move(unstack);
 
         match self.apply_move(board, &mv) {
-            Ok(new_board) => -self.simulate(&new_board, depth + 1, max_depth), // Negate for opponent's perspective
+            Ok(new_board) => self.simulate(&new_board, depth + 1, max_depth), // Paranoid: no negation
             Err(_) => self.evaluate_board(board), // Invalid move, evaluate current position
         }
     }
@@ -448,7 +445,7 @@ impl MctsEngine {
                                 .fetch_add(sims_in_batch as u64, Ordering::Relaxed);
                             for _ in 0..sims_in_batch {
                                 if let Ok(new_board) = self.apply_move(&board_obj, &move_obj) {
-                                    let score = -self.simulate(&new_board, 1, params.max_depth);
+                                    let score = self.simulate(&new_board, 1, params.max_depth); // Paranoid: no negation
                                     total_score += score;
                                     valid_simulations += 1;
                                     moves_evaluated += 1;
@@ -509,7 +506,7 @@ impl MctsEngine {
                 for _ in 0..params.simulations_per_move {
                     match self.apply_move(board, &mv) {
                         Ok(new_board) => {
-                            let score = -self.simulate(&new_board, 1, params.max_depth);
+                            let score = self.simulate(&new_board, 1, params.max_depth); // Paranoid: no negation
                             total_score += score;
                             simulations += 1;
                         }
