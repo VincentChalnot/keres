@@ -7,11 +7,11 @@
 // - Bits 5-3: Top piece code (000 if no top piece)
 // - Bits 2-0: Bottom piece code
 
-// Move encoding: 16 bits
-// - Bit 15: force_unstack flag
-// - Bit 14: unstackable flag
+// Move encoding: 16 bits (same as Move.to_u16())
+// - Bit 14: unstack flag (1 if unstacking, 0 if moving full stack)
 // - Bits 13-7: to position (0-80)
 // - Bits 6-0: from position (0-80)
+// Note: When a move can be either full-stack or unstack, we generate BOTH moves
 
 struct BoardState {
     squares: array<u32, 81>,  // 81 squares, each u8 encoded as u32 (WGSL limitation)
@@ -86,17 +86,39 @@ fn is_stackable(piece: u32) -> bool {
 }
 
 fn add_move(from_idx: u32, to: u32, unstackable: bool, force_unstack: bool) {
-    var move_encoding: u32 = from_idx | (to << 7u);
-    if unstackable {
-        move_encoding |= (1u << 14u);
-    }
-    if force_unstack {
-        move_encoding |= (1u << 15u);
-    }
+    // When unstackable is true, we generate TWO moves:
+    // 1. Full stack move (unstack=false)
+    // 2. Unstack move (unstack=true)
+    // When force_unstack is true, we only generate the unstack move
     
-    let index = atomicAdd(&moves.count, 1u);
-    if index < 2048u {
-        moves.moves[index] = move_encoding;
+    if force_unstack {
+        // Only generate unstack move
+        let move_encoding = from_idx | (to << 7u) | (1u << 14u);
+        let index = atomicAdd(&moves.count, 1u);
+        if index < 2048u {
+            moves.moves[index] = move_encoding;
+        }
+    } else if unstackable {
+        // Generate both full-stack and unstack moves
+        // Full stack move
+        let move_fullstack = from_idx | (to << 7u);
+        let index1 = atomicAdd(&moves.count, 1u);
+        if index1 < 2048u {
+            moves.moves[index1] = move_fullstack;
+        }
+        // Unstack move
+        let move_unstack = from_idx | (to << 7u) | (1u << 14u);
+        let index2 = atomicAdd(&moves.count, 1u);
+        if index2 < 2048u {
+            moves.moves[index2] = move_unstack;
+        }
+    } else {
+        // Only generate full stack move
+        let move_encoding = from_idx | (to << 7u);
+        let index = atomicAdd(&moves.count, 1u);
+        if index < 2048u {
+            moves.moves[index] = move_encoding;
+        }
     }
 }
 

@@ -464,9 +464,9 @@ impl MctsEngine {
         let mut scored_moves = Vec::new();
         for (move_u16, total_score, sims) in move_scores {
             if sims > 0 {
-                let mv = Move::from_u16(move_u16);
-                
-                
+                let potential_move = PotentialMove::from_u16(move_u16);
+                let unstack = potential_move.force_unstack;
+                let mv = potential_move.to_move(unstack);
                 let avg_score = total_score / sims as i32;
                 scored_moves.push(ScoredMove {
                     mv,
