@@ -177,6 +177,8 @@ fn evaluate_board(board: ptr<function, BoardState>) -> i32 {
     let white_to_move = (*board).white_to_move;
     var white_value: i32 = 0;
     var black_value: i32 = 0;
+    var white_king_exists = false;
+    var black_king_exists = false;
     
     for (var i = 0u; i < BOARD_SIZE; i++) {
         let piece = (*board).squares[i];
@@ -191,8 +193,10 @@ fn evaluate_board(board: ptr<function, BoardState>) -> i32 {
         if payload == KING_PAYLOAD {
             if is_white {
                 white_value += KING_VALUE;
+                white_king_exists = true;
             } else {
                 black_value += KING_VALUE;
+                black_king_exists = true;
             }
             continue;
         }
@@ -218,6 +222,24 @@ fn evaluate_board(board: ptr<function, BoardState>) -> i32 {
             } else {
                 black_value += value;
             }
+        }
+    }
+    
+    // Check for king capture (game over)
+    if !white_king_exists {
+        // Black wins - return extreme value from current player's perspective
+        if white_to_move == 1u {
+            return -100000; // Very bad for white
+        } else {
+            return 100000; // Very good for black
+        }
+    }
+    if !black_king_exists {
+        // White wins
+        if white_to_move == 1u {
+            return 100000; // Very good for white
+        } else {
+            return -100000; // Very bad for black
         }
     }
     

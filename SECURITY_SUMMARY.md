@@ -36,7 +36,7 @@ The implementation contains minimal unsafe code, limited to:
 
 ### Input Validation
 1. **Board State**: 
-   - 82-byte array (81 squares + 1 turn indicator)
+   - 83-byte array (81 squares + 1 byte for flags + 1 byte move counter)
    - Piece encoding validated by shader logic
    - Invalid encodings result in no moves being generated
 

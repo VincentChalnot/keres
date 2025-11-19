@@ -188,8 +188,28 @@ class ArxGame {
     }
 
     private updateStatus(): void {
+        const board = this.gameState.getBoard();
+        if (!board) {
+            this.statusDiv.innerText = 'Loading...';
+            return;
+        }
+        
+        // Check if game is over
+        if (board.isGameOver()) {
+            this.statusDiv.innerText = board.getGameResult();
+            // Disable engine buttons when game is over
+            this.askEngineBtn.disabled = true;
+            this.askMinimaxBtn.disabled = true;
+            return;
+        }
+        
+        // Normal turn display
         const turn = this.controller.getCurrentTurn();
         this.statusDiv.innerText = `${turn}'s turn to play.`;
+        
+        // Re-enable engine buttons if they were disabled
+        this.askEngineBtn.disabled = false;
+        this.askMinimaxBtn.disabled = false;
     }
 
     private updateMoveHistoryDisplay(): void {
