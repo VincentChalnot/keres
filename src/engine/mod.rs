@@ -359,6 +359,10 @@ impl MctsEngine {
         batch_sim: &BatchSimulationEngine,
         _search_start_moves: u64,
     ) -> Result<u16, String> {
+        // Determine who is moving
+        let board_obj = Board::from_binary(*board).map_err(|e| format!("Failed to parse board: {}", e))?;
+        let white_to_move = board_obj.is_white_to_move();
+        
         // Evaluate each move using parallel processing
         let move_scores: Vec<(u16, i32, u32)> = moves
             .par_iter()
@@ -392,8 +396,9 @@ impl MctsEngine {
 
                             for result in results {
                                 if result.valid {
-                                    // Negate score for opponent's perspective
-                                    total_score -= result.score;
+                                    // Paranoid approach: score is always from White's perspective
+                                    // No negation needed
+                                    total_score += result.score;
                                     valid_simulations += 1;
                                     moves_evaluated += 1;
                                 }
@@ -439,15 +444,20 @@ impl MctsEngine {
             .collect();
 
         // Find move with best average score
+        // Paranoid approach: pick highest for White, lowest for Black
         let best_move = move_scores
             .iter()
             .filter(|(_, _, sims)| *sims > 0)
             .max_by(|a, b| {
                 let avg_a = a.1 as f32 / a.2 as f32;
                 let avg_b = b.1 as f32 / b.2 as f32;
-                avg_a
-                    .partial_cmp(&avg_b)
-                    .unwrap_or(std::cmp::Ordering::Equal)
+                
+                // If White to move, pick highest score; if Black to move, pick lowest score
+                if white_to_move {
+                    avg_a.partial_cmp(&avg_b).unwrap_or(std::cmp::Ordering::Equal)
+                } else {
+                    avg_b.partial_cmp(&avg_a).unwrap_or(std::cmp::Ordering::Equal)
+                }
             })
             .map(|(mv, _, _)| *mv)
             .ok_or("No valid moves found")?;

@@ -273,11 +273,17 @@ fn evaluate_board(board_str: &str, depth: u32) -> Result<(), String> {
         }
     }
 
-    // Sort by score (highest first)
-    move_scores.sort_by(|a, b| b.1.cmp(&a.1));
+    // Sort by score
+    // Paranoid approach: highest score is best for White, lowest for Black
+    if board.is_white_to_move() {
+        move_scores.sort_by(|a, b| b.1.cmp(&a.1)); // Sort descending for White
+    } else {
+        move_scores.sort_by(|a, b| a.1.cmp(&b.1)); // Sort ascending for Black
+    }
 
     // Display results
-    println!("=== Evaluation Results (sorted by score) ===\n");
+    println!("=== Evaluation Results (sorted by score) ===");
+    println!("(Scores are from White's perspective: positive=good for White, negative=good for Black)\n");
     for (idx, score, valid) in move_scores {
         let m = &moves[idx];
         let status = if valid { "✓" } else { "✗" };
@@ -395,8 +401,23 @@ mod tests {
         assert!(capture_move.is_some(), "Should find G7->H6 move");
         let (_, _, score, _) = capture_move.unwrap();
         
-        // The score should be positive (capturing a soldier is good for Black)
-        // After the move, Black will have gained material advantage
-        assert!(*score > 0, "Capturing a soldier should have positive score, got {}", score);
+        // Paranoid approach: scores are always from White's perspective
+        // Black capturing a White soldier means Black gains material
+        // This should result in a MORE NEGATIVE score (worse for White)
+        // So we expect the capture to have a lower (more negative) score than non-capturing moves
+        assert!(*score < 0, "Black capturing White soldier should have negative score (good for Black), got {}", score);
+        
+        // Compare with a non-capture move to verify the capture is valued
+        // Find a non-capture move for comparison
+        let non_capture = results.iter().find(|(from, to, _, valid)| {
+            *valid && from.x == 6 && from.y == 2 && (to.x != 7 || to.y != 3)
+        });
+        
+        if let Some((_, _, non_capture_score, _)) = non_capture {
+            // The capture should be more favorable for Black (more negative) than non-capture
+            assert!(*score < *non_capture_score, 
+                "Capture move (score={}) should be more negative than non-capture (score={}) for Black", 
+                score, non_capture_score);
+        }
     }
 }
