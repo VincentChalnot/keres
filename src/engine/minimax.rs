@@ -218,6 +218,11 @@ impl MinimaxEngine {
         }
     }
 
+    /// Create a new minimax engine with a pre-configured variant
+    pub fn with_variant(variant: crate::engine::EngineVariant) -> Self {
+        Self::with_config(variant.config())
+    }
+
     /// Find the best move using minimax with alpha-beta pruning
     pub fn find_best_move(&mut self, board: &Board) -> Result<Move, String> {
         self.stats = MinimaxStatistics::default();
