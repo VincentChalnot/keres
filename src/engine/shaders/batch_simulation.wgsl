@@ -4,6 +4,11 @@
 // 2. Evaluate board positions
 // This reduces CPU-GPU transfer overhead by batching operations
 
+// Move encoding: 16 bits (same as Move.to_u16())
+// - Bit 14: unstack flag (1 if unstacking, 0 if moving full stack)
+// - Bits 13-7: to position (0-80)
+// - Bits 6-0: from position (0-80)
+
 struct BoardState {
     squares: array<u32, 81>,  // 81 squares, each u8 encoded as u32 (WGSL limitation)
     white_to_move: u32,        // bool as u32: 1 if white to move, 0 if black
