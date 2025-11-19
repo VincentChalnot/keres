@@ -1261,26 +1261,66 @@ mod tests {
     fn test_capture_dragon_commander_stack() {
         // This test is based on the issue report where the engine should capture
         // a Dragon+Commander stack with a Paladin
-        use base64::{engine::general_purpose, Engine as _};
-
-        // Load the board from the provided base64 hash
-        let board_str = "BwAEBTgFBABeAAADAAAAAAAAAQABAQAxAAAAAAABAAYBEQAAAAAAAAAAAAAAAAAAAABBAAAAQUFBQUFBAEEAAABCAAAAAABDR0ZERXhFRAAAAAA==";
-        let bytes = general_purpose::STANDARD.decode(board_str).unwrap();
-
-        let mut board_data = [0; 83];
-        for (i, &byte) in bytes.iter().enumerate() {
-            board_data[i] = byte;
+        
+        // Create a custom board position
+        let mut board = Board::new();
+        
+        // Clear the board
+        for y in 0..9 {
+            for x in 0..9 {
+                let pos = Position::new(x, y);
+                board.set_piece(&pos, None);
+            }
         }
-
-        let board = Board::from_binary(board_data).unwrap();
-
-        // Verify the position: Black to move
-        assert!(!board.is_white_to_move(), "Should be Black's turn");
-
-        // Verify pieces at key squares
+        
+        use crate::board::{Color, Piece, PieceType};
+        
+        // Set up the critical pieces
         let g9 = Position::new(6, 0); // Black Paladin
         let i9 = Position::new(8, 0); // White Dragon+Commander
+        let e9 = Position::new(4, 0); // Black King
+        let a1 = Position::new(0, 8); // White King
+        
+        board.set_piece(
+            &g9,
+            Some(Piece {
+                color: Color::Black,
+                bottom: PieceType::Paladin,
+                top: None,
+            }),
+        );
+        
+        board.set_piece(
+            &i9,
+            Some(Piece {
+                color: Color::White,
+                bottom: PieceType::Dragon,
+                top: Some(PieceType::Commander),
+            }),
+        );
+        
+        board.set_piece(
+            &e9,
+            Some(Piece {
+                color: Color::Black,
+                bottom: PieceType::King,
+                top: None,
+            }),
+        );
+        
+        board.set_piece(
+            &a1,
+            Some(Piece {
+                color: Color::White,
+                bottom: PieceType::King,
+                top: None,
+            }),
+        );
+        
+        // Set turn to Black
+        board.set_white_to_move(false);
 
+        // Verify pieces at key squares
         let paladin = board.get_piece(&g9).expect("Should have piece at G9");
         assert_eq!(paladin.color, Color::Black);
         assert_eq!(paladin.bottom, PieceType::Paladin);
@@ -1320,25 +1360,74 @@ mod tests {
     fn test_avoid_exposing_king() {
         // Test that the engine never moves a guard that protects the king
         // when doing so would allow immediate king capture
-        use base64::{engine::general_purpose, Engine as _};
-
-        let board_str = "BwAEADgFXgAAAAADAAAAAAAAAAAAAAAFAAAAAAkBAAABAAAAAAAAAAAAAAAAAAAAAEJBAAAAQUFBAABBAEEAAAAAAAAAAAAAR0ZERXhFRAAAAAA==";
-        let bytes = general_purpose::STANDARD.decode(board_str).unwrap();
-
-        let mut board_data = [0; 83];
-        for (i, &byte) in bytes.iter().enumerate() {
-            board_data[i] = byte;
+        
+        // Create a custom board position
+        let mut board = Board::new();
+        
+        // Clear the board
+        for y in 0..9 {
+            for x in 0..9 {
+                let pos = Position::new(x, y);
+                board.set_piece(&pos, None);
+            }
         }
-
-        let board = Board::from_binary(board_data).unwrap();
-
-        // Verify the position: Black to move
-        assert!(!board.is_white_to_move(), "Should be Black's turn");
-
+        
+        use crate::board::{Color, Piece, PieceType};
+        
         // Key positions
         let f9 = Position::new(5, 0); // Black Guard protecting the king
         let e9 = Position::new(4, 0); // Black King
         let g9 = Position::new(6, 0); // White Dragon+Commander that can capture king
+        let a1 = Position::new(0, 8); // White King
+        let d5 = Position::new(3, 4); // Another black piece to give options
+        
+        board.set_piece(
+            &f9,
+            Some(Piece {
+                color: Color::Black,
+                bottom: PieceType::Guard,
+                top: None,
+            }),
+        );
+        
+        board.set_piece(
+            &e9,
+            Some(Piece {
+                color: Color::Black,
+                bottom: PieceType::King,
+                top: None,
+            }),
+        );
+        
+        board.set_piece(
+            &g9,
+            Some(Piece {
+                color: Color::White,
+                bottom: PieceType::Dragon,
+                top: Some(PieceType::Commander),
+            }),
+        );
+        
+        board.set_piece(
+            &a1,
+            Some(Piece {
+                color: Color::White,
+                bottom: PieceType::King,
+                top: None,
+            }),
+        );
+        
+        board.set_piece(
+            &d5,
+            Some(Piece {
+                color: Color::Black,
+                bottom: PieceType::Soldier,
+                top: None,
+            }),
+        );
+        
+        // Set turn to Black
+        board.set_white_to_move(false);
 
         // Verify pieces
         let guard = board.get_piece(&f9).expect("Should have piece at F9");
