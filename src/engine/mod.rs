@@ -366,7 +366,7 @@ impl MctsEngine {
         }
 
         let white_to_move = board.is_white_to_move();
-        
+
         // Paranoid approach: pick highest for White, lowest for Black
         let best = if white_to_move {
             scored_moves.iter().max_by_key(|sm| sm.score)
@@ -385,7 +385,7 @@ impl MctsEngine {
         batch_sim: &BatchSimulationEngine,
         params: &SearchParams,
     ) -> Result<Vec<ScoredMove>, String> {
-        
+
         // Evaluate each move using parallel processing
         let move_scores: Vec<(u16, i32, u32)> = moves
             .par_iter()

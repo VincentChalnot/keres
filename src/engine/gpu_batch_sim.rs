@@ -4,6 +4,8 @@
 //! allowing multiple simulations to be processed in parallel on the GPU.
 
 use super::gpu_context::GpuContext;
+use crate::cli_rendering::get_board_hash;
+use crate::{Board, Move};
 use bytemuck::{Pod, Zeroable};
 use std::borrow::Cow;
 use wgpu::util::DeviceExt;
@@ -15,13 +17,13 @@ const MAX_BATCH_SIZE: usize = 1024;
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct GpuBoardState {
-    pub squares: [u32; BOARD_SIZE],  // u8 values stored as u32 for WGSL alignment
-    pub white_to_move: u32,  // bool as u32 (WGSL doesn't support bool in storage)
-    pub game_over: u32,       // bool as u32
-    pub white_wins: u32,      // bool as u32
-    pub draw: u32,            // bool as u32
-    pub moves_without_capture: u32,  // u8 as u32 for alignment
-    _padding: [u32; 2], // Padding for alignment
+    pub squares: [u32; BOARD_SIZE], // u8 values stored as u32 for WGSL alignment
+    pub white_to_move: u32,         // bool as u32 (WGSL doesn't support bool in storage)
+    pub game_over: u32,             // bool as u32
+    pub white_wins: u32,            // bool as u32
+    pub draw: u32,                  // bool as u32
+    pub moves_without_capture: u32, // u8 as u32 for alignment
+    _padding: [u32; 2],             // Padding for alignment
 }
 
 unsafe impl Pod for GpuBoardState {}
@@ -135,14 +137,14 @@ impl BatchSimulationEngine {
         for i in 0..BOARD_SIZE {
             gpu_board.squares[i] = board_binary[i] as u32;
         }
-        
+
         // Extract flags from byte 81
         let flags = board_binary[81];
         gpu_board.white_to_move = if (flags & 0b10000000) != 0 { 1 } else { 0 };
         gpu_board.game_over = if (flags & 0b01000000) != 0 { 1 } else { 0 };
         gpu_board.white_wins = if (flags & 0b00100000) != 0 { 1 } else { 0 };
         gpu_board.draw = if (flags & 0b00010000) != 0 { 1 } else { 0 };
-        
+
         // Extract moves_without_capture counter from byte 82
         gpu_board.moves_without_capture = board_binary[82] as u32;
 
@@ -152,12 +154,12 @@ impl BatchSimulationEngine {
     /// Convert GPU board back to binary format
     fn gpu_to_board(&self, gpu_board: &GpuBoardState) -> [u8; 83] {
         let mut board = [0u8; 83];
-        
+
         // Copy all 81 squares, converting u32 to u8
         for i in 0..BOARD_SIZE {
             board[i] = (gpu_board.squares[i] & 0xFF) as u8;
         }
-        
+
         // Pack flags into byte 81
         let mut flags = 0u8;
         if gpu_board.white_to_move != 0 {
@@ -173,10 +175,10 @@ impl BatchSimulationEngine {
             flags |= 0b00010000;
         }
         board[81] = flags;
-        
+
         // Set moves_without_capture counter in byte 82
         board[82] = (gpu_board.moves_without_capture & 0xFF) as u8;
-        
+
         board
     }
 
@@ -296,7 +298,25 @@ impl BatchSimulationEngine {
         let result_applications: &[GpuMoveApplication] = bytemuck::cast_slice(&data);
 
         let mut results = Vec::with_capacity(batch_size);
-        for app in result_applications.iter().take(batch_size) {
+        for (i, app) in result_applications.iter().take(batch_size).enumerate() {
+            if app.valid == 0 {
+                let board = match Board::from_binary(self.gpu_to_board(&app.board)) {
+                    Ok(board) => board,
+                    Err(_) => {
+                        panic!(
+                            "[GPU INVALID BOARD] Could not decode board (batch idx {})",
+                            i
+                        );
+                    }
+                };
+                let move_obj = Move::from_u16(app.move_encoding as u16);
+                eprintln!(
+                    "[GPU INVALID MOVE] Board hash: {} Move: {} (batch idx {})",
+                    get_board_hash(&board),
+                    move_obj.to_string(),
+                    i
+                );
+            }
             results.push(BatchSimulationResult {
                 score: app.result_score,
                 valid: app.valid != 0,
