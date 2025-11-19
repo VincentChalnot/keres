@@ -28,9 +28,13 @@ const MAX_MOVES: usize = 2048;
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 struct GpuBoardState {
-    squares: [u32; BOARD_SIZE],
-    white_to_move: u32,
-    _padding: [u32; 3], // Padding for alignment
+    squares: [u32; BOARD_SIZE],  // u8 values stored as u32 for WGSL alignment
+    white_to_move: u32,  // bool as u32 (WGSL doesn't support bool in storage)
+    game_over: u32,       // bool as u32
+    white_wins: u32,      // bool as u32
+    draw: u32,            // bool as u32
+    moves_without_capture: u32,  // u8 as u32 for alignment
+    _padding: [u32; 2], // Padding for alignment
 }
 
 unsafe impl Pod for GpuBoardState {}
@@ -136,13 +140,28 @@ impl MoveGenerationEngine {
         // Convert board binary to GPU format
         let mut gpu_board = GpuBoardState {
             squares: [0; BOARD_SIZE],
-            white_to_move: board_binary[81] as u32,
-            _padding: [0; 3],
+            white_to_move: 0,
+            game_over: 0,
+            white_wins: 0,
+            draw: 0,
+            moves_without_capture: 0,
+            _padding: [0; 2],
         };
 
+        // Copy all 81 squares, converting u8 to u32
         for i in 0..BOARD_SIZE {
             gpu_board.squares[i] = board_binary[i] as u32;
         }
+        
+        // Extract flags from byte 81
+        let flags = board_binary[81];
+        gpu_board.white_to_move = if (flags & 0b10000000) != 0 { 1 } else { 0 };
+        gpu_board.game_over = if (flags & 0b01000000) != 0 { 1 } else { 0 };
+        gpu_board.white_wins = if (flags & 0b00100000) != 0 { 1 } else { 0 };
+        gpu_board.draw = if (flags & 0b00010000) != 0 { 1 } else { 0 };
+        
+        // Extract moves_without_capture counter from byte 82
+        gpu_board.moves_without_capture = board_binary[82] as u32;
 
         // Create buffers
         let board_buffer =
