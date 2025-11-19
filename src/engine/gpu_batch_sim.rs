@@ -15,9 +15,13 @@ const MAX_BATCH_SIZE: usize = 1024;
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct GpuBoardState {
-    pub squares: [u32; BOARD_SIZE],
-    pub white_to_move: u32,
-    _padding: [u32; 3], // Padding for alignment
+    pub squares: [u32; BOARD_SIZE],  // u8 values stored as u32 for WGSL alignment
+    pub white_to_move: u32,  // bool as u32 (WGSL doesn't support bool in storage)
+    pub game_over: u32,       // bool as u32
+    pub white_wins: u32,      // bool as u32
+    pub draw: u32,            // bool as u32
+    pub moves_without_capture: u32,  // u8 as u32 for alignment
+    _padding: [u32; 2], // Padding for alignment
 }
 
 unsafe impl Pod for GpuBoardState {}
@@ -120,18 +124,27 @@ impl BatchSimulationEngine {
         let mut gpu_board = GpuBoardState {
             squares: [0; BOARD_SIZE],
             white_to_move: 0,
-            _padding: [0; 3],
+            game_over: 0,
+            white_wins: 0,
+            draw: 0,
+            moves_without_capture: 0,
+            _padding: [0; 2],
         };
 
+        // Copy all 81 squares, converting u8 to u32
         for i in 0..BOARD_SIZE {
             gpu_board.squares[i] = board_binary[i] as u32;
         }
         
-        // Extract white_to_move from the flags byte (bit 8)
+        // Extract flags from byte 81
         let flags = board_binary[81];
         gpu_board.white_to_move = if (flags & 0b10000000) != 0 { 1 } else { 0 };
+        gpu_board.game_over = if (flags & 0b01000000) != 0 { 1 } else { 0 };
+        gpu_board.white_wins = if (flags & 0b00100000) != 0 { 1 } else { 0 };
+        gpu_board.draw = if (flags & 0b00010000) != 0 { 1 } else { 0 };
         
-        // Note: board_binary[82] is the moves_without_capture counter, not used in GPU simulation
+        // Extract moves_without_capture counter from byte 82
+        gpu_board.moves_without_capture = board_binary[82] as u32;
 
         gpu_board
     }
@@ -139,16 +152,31 @@ impl BatchSimulationEngine {
     /// Convert GPU board back to binary format
     fn gpu_to_board(&self, gpu_board: &GpuBoardState) -> [u8; 83] {
         let mut board = [0u8; 83];
+        
+        // Copy all 81 squares, converting u32 to u8
         for i in 0..BOARD_SIZE {
-            board[i] = gpu_board.squares[i] as u8;
+            board[i] = (gpu_board.squares[i] & 0xFF) as u8;
         }
-        // Pack white_to_move into bit 8 of the flags byte
+        
+        // Pack flags into byte 81
         let mut flags = 0u8;
         if gpu_board.white_to_move != 0 {
             flags |= 0b10000000;
         }
+        if gpu_board.game_over != 0 {
+            flags |= 0b01000000;
+        }
+        if gpu_board.white_wins != 0 {
+            flags |= 0b00100000;
+        }
+        if gpu_board.draw != 0 {
+            flags |= 0b00010000;
+        }
         board[81] = flags;
-        // board[82] (moves_without_capture) remains 0 as it's not tracked in GPU simulation
+        
+        // Set moves_without_capture counter in byte 82
+        board[82] = (gpu_board.moves_without_capture & 0xFF) as u8;
+        
         board
     }
 

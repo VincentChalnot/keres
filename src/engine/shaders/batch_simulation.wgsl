@@ -5,8 +5,13 @@
 // This reduces CPU-GPU transfer overhead by batching operations
 
 struct BoardState {
-    squares: array<u32, 81>,  // 81 squares
-    white_to_move: u32,        // 1 if white to move, 0 if black
+    squares: array<u32, 81>,  // 81 squares, each u8 encoded as u32 (WGSL limitation)
+    white_to_move: u32,        // bool as u32: 1 if white to move, 0 if black
+    game_over: u32,            // bool as u32: 1 if game is over, 0 otherwise
+    white_wins: u32,           // bool as u32: 1 if white wins, 0 otherwise
+    draw: u32,                 // bool as u32: 1 if draw, 0 otherwise
+    moves_without_capture: u32, // u8 as u32: counter for 40-move rule
+    // No padding needed here - struct is already aligned
 }
 
 struct MoveApplication {
