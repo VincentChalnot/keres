@@ -1,7 +1,7 @@
 //! Monte Carlo Tree Search Engine for Arx
 //!
 //! This module provides a GPU-accelerated MCTS engine for evaluating board positions
-//! and finding optimal moves. The engine is completely independent from the main
+//! and finding optimal moves. The engine is completely independent of the main
 //! game logic (board.rs and game.rs) and implements its own simplified move application
 //! and evaluation functions.
 //!
@@ -41,13 +41,11 @@
 //! println!("Simulations run: {}", stats.simulations_run);
 //! ```
 
-use rand::Rng;
-use rayon::prelude::*;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use crate::board::Board;
-use crate::game::{Game, Move, PotentialMove};
+use crate::game::Move;
 
 mod gpu_context;
 pub use gpu_context::{get_shared_context, GpuContext};
@@ -59,21 +57,7 @@ mod gpu_batch_sim;
 pub use gpu_batch_sim::BatchSimulationEngine;
 
 mod minimax;
-pub use minimax::{MinimaxEngine, MinimaxConfig, MinimaxStatistics};
-
-/// Piece values for evaluation (based on chess piece values, scaled with Soldier=1)
-const PIECE_VALUES: [i32; 8] = [
-    0, // Index 0: unused
-    1, // Soldier
-    3, // Jester (like Bishop)
-    5, // Commander (like Rook)
-    3, // Paladin (like Bishop-lite)
-    3, // Guard (like Bishop-lite)
-    3, // Dragon (like Knight)
-    5, // Ballista (like Rook-lite)
-];
-
-const KING_VALUE: i32 = 1000; // King is invaluable
+pub use minimax::{MinimaxConfig, MinimaxEngine, MinimaxStatistics};
 
 /// Search parameters for MCTS evaluation
 #[derive(Clone, Debug)]
@@ -239,118 +223,31 @@ impl MctsEngine {
         })
     }
 
-    /// Evaluate a board position and return the value
-    /// Uses paranoid approach: always returns from White's perspective
-    /// Positive = good for White, Negative = good for Black
-    fn evaluate_board(&self, board: &Board) -> i32 {
-        let mut white_value = 0;
-        let mut black_value = 0;
-
-        // Iterate through all positions on the board
-        for y in 0..9 {
-            for x in 0..9 {
-                let pos = crate::board::Position::new(x, y);
-                if let Some(piece) = board.get_piece(&pos) {
-                    // Add value for bottom piece
-                    let bottom_value = match piece.bottom {
-                        crate::board::PieceType::Soldier => PIECE_VALUES[1],
-                        crate::board::PieceType::Jester => PIECE_VALUES[2],
-                        crate::board::PieceType::Commander => PIECE_VALUES[3],
-                        crate::board::PieceType::Paladin => PIECE_VALUES[4],
-                        crate::board::PieceType::Guard => PIECE_VALUES[5],
-                        crate::board::PieceType::Dragon => PIECE_VALUES[6],
-                        crate::board::PieceType::Ballista => PIECE_VALUES[7],
-                        crate::board::PieceType::King => KING_VALUE,
-                    };
-
-                    if piece.color == crate::board::Color::White {
-                        white_value += bottom_value;
-                    } else {
-                        black_value += bottom_value;
-                    }
-
-                    // Add value for top piece if stacked
-                    if let Some(top_piece) = piece.top {
-                        let top_value = match top_piece {
-                            crate::board::PieceType::Soldier => PIECE_VALUES[1],
-                            crate::board::PieceType::Jester => PIECE_VALUES[2],
-                            crate::board::PieceType::Commander => PIECE_VALUES[3],
-                            crate::board::PieceType::Paladin => PIECE_VALUES[4],
-                            crate::board::PieceType::Guard => PIECE_VALUES[5],
-                            crate::board::PieceType::Dragon => PIECE_VALUES[6],
-                            crate::board::PieceType::Ballista => PIECE_VALUES[7],
-                            crate::board::PieceType::King => KING_VALUE,
-                        };
-
-                        if piece.color == crate::board::Color::White {
-                            white_value += top_value;
-                        } else {
-                            black_value += top_value;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Return value from White's perspective (paranoid approach)
-        white_value - black_value
-    }
-
-    /// Apply a move to a board state using proper game logic
-    fn apply_move(&self, board: &Board, mv: &Move) -> Result<Board, String> {
-        let game = Game::from_board(board.clone());
-        game.apply_move_copy(*mv)
-    }
-
-    /// Run simulations from a given board state
-    /// Uses paranoid approach: always evaluates from White's perspective
-    fn simulate(&self, board: &Board, depth: u32, max_depth: u32) -> i32 {
-        // Terminal condition: max depth reached or game over
-        if depth >= max_depth {
-            return self.evaluate_board(board);
-        }
-
-        // Generate legal moves using the Game API
-        let game = Game::from_board(board.clone());
-        let potential_moves = game.get_all_moves();
-
-        if potential_moves.is_empty() {
-            return self.evaluate_board(board);
-        }
-
-        // Simple rollout: pick random move and continue
-        let mut rng = rand::thread_rng();
-        let random_potential_move = &potential_moves[rng.gen_range(0..potential_moves.len())];
-
-        // Decide whether to unstack based on force_unstack
-        let unstack = random_potential_move.force_unstack;
-        let mv = random_potential_move.to_move(unstack);
-
-        match self.apply_move(board, &mv) {
-            Ok(new_board) => self.simulate(&new_board, depth + 1, max_depth), // Paranoid: no negation
-            Err(_) => self.evaluate_board(board), // Invalid move, evaluate current position
-        }
-    }
-
     /// Evaluate all legal moves for a board position
     /// Evaluate all legal moves for a board position using GPU
     /// Returns a list of moves with their scores (from White's perspective)
-    pub fn evaluate_moves(&mut self, board: &Board, params: &SearchParams) -> Result<Vec<ScoredMove>, String> {
+    pub fn evaluate_moves(
+        &mut self,
+        board: &Board,
+        params: &SearchParams,
+    ) -> Result<Vec<ScoredMove>, String> {
         // Convert board to binary for GPU communication
         let board_binary = board.to_binary();
 
-        // Use GPU for move generation - returns Move encodings (u16)
-        let moves_u16 = self.move_gen.generate_moves(&board_binary)?;
+        // Use GPU for move generation - returns GPU buffer
+        let moves_buffer = self.move_gen.generate_moves_buffer(&board_binary)?;
 
-        if moves_u16.is_empty() {
+        if self.move_gen.is_buffer_empty(&moves_buffer)? {
             return Ok(Vec::new());
         }
 
         // Use GPU batch simulation engine (required)
-        let batch_sim = self.batch_sim.as_ref()
+        let batch_sim = self
+            .batch_sim
+            .as_ref()
             .ok_or("GPU batch simulation engine required but not available")?;
 
-        self.evaluate_moves_gpu(&board_binary, &moves_u16, batch_sim, params)
+        self.evaluate_moves_gpu(&board_binary, &moves_buffer, batch_sim, params)
     }
 
     /// Select the best move for the current player from evaluated moves
@@ -368,174 +265,20 @@ impl MctsEngine {
             scored_moves.iter().min_by_key(|sm| sm.score)
         };
 
-        best.map(|sm| sm.mv).ok_or_else(|| "No valid moves found".to_string())
+        best.map(|sm| sm.mv)
+            .ok_or_else(|| "No valid moves found".to_string())
     }
 
     /// GPU-accelerated move evaluation with batch processing
     fn evaluate_moves_gpu(
         &self,
         board: &[u8; 83],
-        moves: &[u16],
+        moves_buffer: &wgpu::Buffer,
         batch_sim: &BatchSimulationEngine,
         params: &SearchParams,
     ) -> Result<Vec<ScoredMove>, String> {
-
-        // Evaluate each move using parallel processing
-        let move_scores: Vec<(u16, i32, u32)> = moves
-            .par_iter()
-            .map(|&mv| {
-                let mut total_score = 0i32;
-                let mut valid_simulations = 0u32;
-                let mut moves_evaluated = 0u64;
-
-                // Process simulations in batches
-                let batch_size = self.config.gpu_batch_size;
-                let num_batches =
-                    (params.simulations_per_move as usize + batch_size - 1) / batch_size;
-
-                for batch_idx in 0..num_batches {
-                    let sims_in_batch = batch_size
-                        .min(params.simulations_per_move as usize - batch_idx * batch_size);
-
-                    // Prepare batch: apply initial move and create boards for simulation
-                    let mut batch_boards = Vec::with_capacity(sims_in_batch);
-                    let mut batch_moves = Vec::with_capacity(sims_in_batch);
-
-                    for _ in 0..sims_in_batch {
-                        batch_boards.push(*board);
-                        batch_moves.push(mv);
-                    }
-
-                    // Process batch on GPU
-                    match batch_sim.process_batch(&batch_boards, &batch_moves) {
-                        Ok(results) => {
-                            self.stats.gpu_batches.fetch_add(1, Ordering::Relaxed);
-
-                            for result in results {
-                                if result.valid {
-                                    // Paranoid approach: score is always from White's perspective
-                                    // No negation needed
-                                    total_score += result.score;
-                                    valid_simulations += 1;
-                                    moves_evaluated += 1;
-                                }
-                            }
-                        }
-                        Err(_) => {
-                            // Fall back to CPU for this batch
-                            // Convert binary board to Board object for CPU processing
-                            let board_obj = match Board::from_binary(*board) {
-                                Ok(b) => b,
-                                Err(_) => continue,
-                            };
-
-                            // Decode the move
-                            let potential_move = PotentialMove::from_u16(mv);
-                            let unstack = potential_move.force_unstack;
-                            let move_obj = potential_move.to_move(unstack);
-
-                            self.stats
-                                .cpu_sims
-                                .fetch_add(sims_in_batch as u64, Ordering::Relaxed);
-                            for _ in 0..sims_in_batch {
-                                if let Ok(new_board) = self.apply_move(&board_obj, &move_obj) {
-                                    let score = self.simulate(&new_board, 1, params.max_depth); // Paranoid: no negation
-                                    total_score += score;
-                                    valid_simulations += 1;
-                                    moves_evaluated += 1;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                self.stats
-                    .simulations
-                    .fetch_add(valid_simulations as u64, Ordering::Relaxed);
-                self.stats
-                    .total_moves
-                    .fetch_add(moves_evaluated, Ordering::Relaxed);
-
-                (mv, total_score, valid_simulations)
-            })
-            .collect();
-
-        // Convert to ScoredMove vector
-        let mut scored_moves = Vec::new();
-        for (move_u16, total_score, sims) in move_scores {
-            if sims > 0 {
-                let mv = Move::from_u16(move_u16);
-                
-                
-                let avg_score = total_score / sims as i32;
-                scored_moves.push(ScoredMove {
-                    mv,
-                    score: avg_score,
-                    simulations: sims,
-                });
-            }
-        }
-
-        Ok(scored_moves)
-    }
-
-    /// CPU-based move evaluation with multi-threading (fallback)
-    fn evaluate_moves_cpu(
-        &self,
-        board: &Board,
-        potential_moves: &[PotentialMove],
-        params: &SearchParams,
-    ) -> Result<Vec<ScoredMove>, String> {
-        // Evaluate each move using parallel processing
-        let move_scores: Vec<(Move, i32, u32)> = potential_moves
-            .par_iter()
-            .map(|potential_mv| {
-                let mut total_score = 0;
-                let mut simulations = 0;
-
-                // Decide on unstack based on force_unstack
-                let unstack = potential_mv.force_unstack;
-                let mv = potential_mv.to_move(unstack);
-
-                for _ in 0..params.simulations_per_move {
-                    match self.apply_move(board, &mv) {
-                        Ok(new_board) => {
-                            let score = self.simulate(&new_board, 1, params.max_depth); // Paranoid: no negation
-                            total_score += score;
-                            simulations += 1;
-                        }
-                        Err(_) => continue, // Skip invalid moves
-                    }
-                }
-
-                self.stats
-                    .simulations
-                    .fetch_add(simulations as u64, Ordering::Relaxed);
-                self.stats
-                    .cpu_sims
-                    .fetch_add(simulations as u64, Ordering::Relaxed);
-                self.stats
-                    .total_moves
-                    .fetch_add(simulations as u64, Ordering::Relaxed);
-
-                (mv, total_score, simulations)
-            })
-            .collect();
-
-        // Convert to ScoredMove vector
-        let mut scored_moves = Vec::new();
-        for (mv, total_score, sims) in move_scores {
-            if sims > 0 {
-                let avg_score = total_score / sims as i32;
-                scored_moves.push(ScoredMove {
-                    mv,
-                    score: avg_score,
-                    simulations: sims,
-                });
-            }
-        }
-
-        Ok(scored_moves)
+        // Directly use the GPU buffer for move evaluation in batch_sim
+        batch_sim.evaluate_moves_gpu(board, moves_buffer, params)
     }
 
     /// Get search statistics
@@ -582,42 +325,6 @@ mod tests {
             return;
         }
         assert!(engine.is_ok());
-    }
-
-    #[test]
-    fn test_board_evaluation() {
-        let engine = MctsEngine::new();
-        if let Err(e) = &engine {
-            println!("Skipping test: GPU not available - {}", e);
-            return;
-        }
-        let engine = engine.unwrap();
-
-        // Test empty board
-        let mut board = Board::new();
-        // Clear the board
-        for y in 0..9 {
-            for x in 0..9 {
-                let pos = crate::board::Position::new(x, y);
-                board.set_piece(&pos, None);
-            }
-        }
-        let eval = engine.evaluate_board(&board);
-        assert_eq!(eval, 0, "Empty board should evaluate to 0");
-
-        // Test board with one white soldier
-        let pos = crate::board::Position::new(4, 4); // Center
-        let piece = crate::board::Piece {
-            color: crate::board::Color::White,
-            bottom: crate::board::PieceType::Soldier,
-            top: None,
-        };
-        board.set_piece(&pos, Some(piece));
-        let eval = engine.evaluate_board(&board);
-        assert_eq!(
-            eval, 1,
-            "Board with one white soldier should evaluate to 1 for white"
-        );
     }
 
     #[test]

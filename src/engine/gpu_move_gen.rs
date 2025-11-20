@@ -28,13 +28,13 @@ const MAX_MOVES: usize = 2048;
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 struct GpuBoardState {
-    squares: [u32; BOARD_SIZE],  // u8 values stored as u32 for WGSL alignment
-    white_to_move: u32,  // bool as u32 (WGSL doesn't support bool in storage)
-    game_over: u32,       // bool as u32
-    white_wins: u32,      // bool as u32
-    draw: u32,            // bool as u32
-    moves_without_capture: u32,  // u8 as u32 for alignment
-    _padding: [u32; 2], // Padding for alignment
+    squares: [u32; BOARD_SIZE], // u8 values stored as u32 for WGSL alignment
+    white_to_move: u32,         // bool as u32 (WGSL doesn't support bool in storage)
+    game_over: u32,             // bool as u32
+    white_wins: u32,            // bool as u32
+    draw: u32,                  // bool as u32
+    moves_without_capture: u32, // u8 as u32 for alignment
+    _padding: [u32; 2],         // Padding for alignment
 }
 
 unsafe impl Pod for GpuBoardState {}
@@ -43,10 +43,10 @@ unsafe impl Zeroable for GpuBoardState {}
 /// Move buffer for GPU
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
-struct GpuMoveBuffer {
-    moves: [u32; MAX_MOVES],
-    count: u32,
-    _padding: [u32; 3], // Padding for alignment
+pub struct GpuMoveBuffer {
+    pub moves: [u32; MAX_MOVES],
+    pub count: u32,
+    pub _padding: [u32; 3], // Padding for alignment
 }
 
 unsafe impl Pod for GpuMoveBuffer {}
@@ -135,8 +135,8 @@ impl MoveGenerationEngine {
     }
 
     /// Generate all legal moves for a given board state
-    /// Returns a list of move encodings (u16 format)
-    pub fn generate_moves(&self, board_binary: &[u8; 83]) -> Result<Vec<u16>, String> {
+    /// Returns a GPU buffer containing move encodings (u32 format)
+    pub fn generate_moves_buffer(&self, board_binary: &[u8; 83]) -> Result<wgpu::Buffer, String> {
         // Convert board binary to GPU format
         let mut gpu_board = GpuBoardState {
             squares: [0; BOARD_SIZE],
@@ -152,14 +152,14 @@ impl MoveGenerationEngine {
         for i in 0..BOARD_SIZE {
             gpu_board.squares[i] = board_binary[i] as u32;
         }
-        
+
         // Extract flags from byte 81
         let flags = board_binary[81];
         gpu_board.white_to_move = if (flags & 0b10000000) != 0 { 1 } else { 0 };
         gpu_board.game_over = if (flags & 0b01000000) != 0 { 1 } else { 0 };
         gpu_board.white_wins = if (flags & 0b00100000) != 0 { 1 } else { 0 };
         gpu_board.draw = if (flags & 0b00010000) != 0 { 1 } else { 0 };
-        
+
         // Extract moves_without_capture counter from byte 82
         gpu_board.moves_without_capture = board_binary[82] as u32;
 
@@ -189,17 +189,6 @@ impl MoveGenerationEngine {
                         | wgpu::BufferUsages::COPY_DST
                         | wgpu::BufferUsages::COPY_SRC,
                 });
-
-        // Create staging buffer for reading back results
-        let staging_buffer = self
-            .gpu_context
-            .device()
-            .create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Staging Buffer"),
-                size: std::mem::size_of::<GpuMoveBuffer>() as u64,
-                usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
 
         // Create bind group
         let bind_group = self
@@ -239,46 +228,115 @@ impl MoveGenerationEngine {
             compute_pass.dispatch_workgroups(1, 1, 1); // Single workgroup of 9x9x1
         }
 
-        // Copy results to staging buffer
+        // Submit commands
+        self.gpu_context.queue().submit(Some(encoder.finish()));
+
+        // Return the move buffer for further GPU use
+        Ok(move_buffer)
+    }
+
+    /// Generate all legal moves for a given board state and return them as a Vec<u16>.
+    /// This is a convenience wrapper for tests, debug, and CPU-side usage.
+    pub fn generate_moves(&self, board_binary: &[u8; 83]) -> Result<Vec<u16>, String> {
+        use std::mem::size_of;
+        use wgpu::BufferAsyncError;
+
+        let move_buffer = self.generate_moves_buffer(board_binary)?;
+        let device = self.gpu_context.device();
+        let queue = self.gpu_context.queue();
+
+        // Create a staging buffer to copy the move buffer to CPU
+        let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Move Staging Buffer"),
+            size: size_of::<GpuMoveBuffer>() as u64,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        // Encode copy from move_buffer to staging_buffer
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Move Buffer Copy Encoder"),
+        });
         encoder.copy_buffer_to_buffer(
             &move_buffer,
             0,
             &staging_buffer,
             0,
-            std::mem::size_of::<GpuMoveBuffer>() as u64,
+            size_of::<GpuMoveBuffer>() as u64,
         );
+        queue.submit(Some(encoder.finish()));
 
-        // Submit commands
-        self.gpu_context.queue().submit(Some(encoder.finish()));
-
-        // Read back results
-        let buffer_slice = staging_buffer.slice(..);
-        let (sender, receiver) = std::sync::mpsc::channel();
-        buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
-            sender.send(result).unwrap();
-        });
-
-        self.gpu_context.device().poll(wgpu::Maintain::Wait);
-        receiver
-            .recv()
-            .map_err(|e| format!("Failed to receive buffer mapping result: {}", e))?
-            .map_err(|e| format!("Failed to map buffer: {:?}", e))?;
-
-        let data = buffer_slice.get_mapped_range();
-        let result_buffer: &GpuMoveBuffer = bytemuck::from_bytes(&data);
-
-        let move_count = result_buffer.count as usize;
-        let mut moves = Vec::with_capacity(move_count);
-
-        for i in 0..move_count.min(MAX_MOVES) {
-            // Convert from u32 to u16 (our move encoding is 16 bits)
-            moves.push(result_buffer.moves[i] as u16);
+        // Map staging buffer and block until ready
+        let (tx, rx) = std::sync::mpsc::channel();
+        staging_buffer
+            .slice(..)
+            .map_async(wgpu::MapMode::Read, move |v| {
+                tx.send(v).unwrap();
+            });
+        device.poll(wgpu::Maintain::Wait);
+        let map_result = rx.recv().unwrap();
+        if let Err(BufferAsyncError) = map_result {
+            return Err("Failed to map move buffer for reading".to_string());
         }
-
+        let data = staging_buffer.slice(..).get_mapped_range();
+        let result_buffer: &GpuMoveBuffer = bytemuck::from_bytes(&data);
+        let count = result_buffer.count as usize;
+        let mut moves = Vec::with_capacity(count);
+        for &m in result_buffer.moves.iter().take(count) {
+            moves.push(m as u16);
+        }
         drop(data);
         staging_buffer.unmap();
-
         Ok(moves)
+    }
+
+    /// Checks if the given GPU move buffer contains any moves.
+    pub fn is_buffer_empty(&self, move_buffer: &wgpu::Buffer) -> Result<bool, String> {
+        use std::mem::size_of;
+        use wgpu::BufferAsyncError;
+
+        let device = self.gpu_context.device();
+        let queue = self.gpu_context.queue();
+
+        // Create a staging buffer to copy the move buffer to CPU
+        let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Move Staging Buffer for Empty Check"),
+            size: size_of::<GpuMoveBuffer>() as u64,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        // Encode copy from move_buffer to staging_buffer
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Move Buffer Copy Encoder for Empty Check"),
+        });
+        encoder.copy_buffer_to_buffer(
+            move_buffer,
+            0,
+            &staging_buffer,
+            0,
+            size_of::<GpuMoveBuffer>() as u64,
+        );
+        queue.submit(Some(encoder.finish()));
+
+        // Map staging buffer and block until ready
+        let (tx, rx) = std::sync::mpsc::channel();
+        staging_buffer
+            .slice(..)
+            .map_async(wgpu::MapMode::Read, move |v| {
+                tx.send(v).unwrap();
+            });
+        device.poll(wgpu::Maintain::Wait);
+        let map_result = rx.recv().unwrap();
+        if let Err(BufferAsyncError) = map_result {
+            return Err("Failed to map move buffer for reading (empty check)".to_string());
+        }
+        let data = staging_buffer.slice(..).get_mapped_range();
+        let result_buffer: &GpuMoveBuffer = bytemuck::from_bytes(&data);
+        let is_empty = result_buffer.count == 0;
+        drop(data);
+        staging_buffer.unmap();
+        Ok(is_empty)
     }
 
     /// Create a synchronized instance (blocking)
