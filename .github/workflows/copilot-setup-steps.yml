@@ -1,0 +1,22 @@
+name: "Copilot Setup Steps"
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  copilot-setup-steps:
+    runs-on: [ self-hosted ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
