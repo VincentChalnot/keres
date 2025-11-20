@@ -44,17 +44,36 @@ Key features:
 - GPU-accelerated board evaluation
 - Configurable batch sizes for optimal performance
 
-### 3. MCTS Engine (`mod.rs`)
+### 3. MCTS Engine (`mod.rs` and `mcts.rs`)
 
-The MCTS engine implements Monte Carlo Tree Search with the following features:
+The MCTS engine implements Monte Carlo Tree Search with proper tree structure, selection, expansion, simulation, and backpropagation:
 
-- Multi-threaded evaluation using Rayon
-- GPU-accelerated batch processing when available
+**Tree Structure (`mcts.rs`)**:
+- `MctsNode` represents board states with statistics (visit count, total score, win/loss/draw counts)
+- Tree nodes store move that led to state, child nodes, and unexplored moves
+- UCT (Upper Confidence Bound for Trees) for node selection
+
+**Search Algorithm**:
+- **Selection**: Traverse tree using UCT policy to find most promising leaf
+- **Expansion**: Add new child node for an unexplored move
+- **Simulation**: Random playout from expanded node to terminal state or max depth
+- **Backpropagation**: Update statistics for all nodes along selection path
+
+**Configuration**:
+- `max_depth`: Maximum depth for random simulations (default: 50)
+- `simulations_per_move`: Number of MCTS iterations (default: 1000)
+- `exploration_constant`: UCT exploration parameter (default: 1.414 = sqrt(2))
+- `gpu_batch_size`: GPU batch size for future optimization (default: 256)
+
+**Features**:
+- Statistics tracking (moves evaluated, simulations run)
+- Best move selection via visit count (robust child)
+- Handles force_unstack moves correctly
 - CPU fallback for environments without GPU support
-- Configurable search depth and simulation count
-- Board evaluation based on piece values
-- Statistics tracking (moves evaluated, simulations run, GPU vs CPU usage)
-- Independent from the main game logic (doesn't use `board.rs` or `game.rs`)
+- Independent simulation using Game API for move generation and application
+
+**Future GPU Integration**:
+The current implementation uses CPU-based simulation for correctness. GPU batch simulation can be integrated by batching multiple MCTS iterations and using the GPU batch simulation engine for parallel rollouts.
 
 ## Performance Optimizations
 
@@ -80,69 +99,68 @@ The engine uses the following piece values for evaluation:
 
 ## Usage
 
-### Basic Usage
+### Basic Usage with MCTS
 
 ```rust
 use arx_engine::engine::{MctsEngine, EngineConfig};
+use arx_engine::Game;
 
 // Create engine with default configuration
 let mut engine = MctsEngine::new()?;
 
-// Get a board state from the game
-let board_binary = game.to_binary();
+// Get a board state
+let game = Game::new();
 
-// Find the best move
-let best_move = engine.find_best_move(&board_binary)?;
+// Find the best move using MCTS
+let best_move = engine.find_best_move(&game.board)?;
 
 // Get statistics
 let stats = engine.get_statistics();
-println!("Moves evaluated: {}", stats.total_moves_evaluated);
 println!("Simulations run: {}", stats.simulations_run);
 
 // Apply the move to the game
-let mv = arx_engine::game::Move::from_u16(best_move);
-game.apply_move(mv)?;
+game.apply_move(best_move)?;
 ```
 
-### Custom Configuration
+### Custom Configuration for MCTS
 
 ```rust
 use arx_engine::engine::{MctsEngine, EngineConfig};
 
-// Configure engine strength and GPU usage
+// Configure MCTS strength
 let config = EngineConfig {
-    max_depth: 5,                 // Search up to 5 moves ahead
-    simulations_per_move: 200,    // Run 200 simulations per candidate move
-    exploration_constant: 1.414,  // UCB1 exploration constant
-    gpu_batch_size: 512,          // Process 512 simulations per GPU batch
-    use_gpu_simulation: true,     // Enable GPU-accelerated simulation
+    max_depth: 50,                   // Maximum simulation depth (plies)
+    simulations_per_move: 1000,      // Number of MCTS iterations
+    exploration_constant: 1.414,     // UCT exploration constant (sqrt(2))
+    gpu_batch_size: 512,             // GPU batch size (for future optimization)
+    use_gpu_simulation: true,        // Enable GPU features when available
 };
 
 let mut engine = MctsEngine::with_config(config)?;
 ```
 
-### Adjusting Engine Strength
+### Adjusting MCTS Strength
 
 You can control the engine's strength by adjusting:
 
-1. **`max_depth`**: How many moves ahead to search
-    - Lower values (1-3): Beginner level
-    - Medium values (4-6): Intermediate level
-    - Higher values (7+): Advanced level (but slower)
+1. **`simulations_per_move`**: Number of MCTS iterations
+    - Lower values (100-500): Faster but weaker play
+    - Medium values (500-2000): Good balance
+    - Higher values (2000+): Stronger but slower
 
-2. **`simulations_per_move`**: Number of random playouts per move
-    - Lower values (50-100): Faster but less accurate
-    - Medium values (100-500): Good balance
-    - Higher values (500+): More accurate but slower
+2. **`max_depth`**: Maximum depth for random simulations
+    - Lower values (20-30): Faster rollouts, less deep exploration
+    - Medium values (30-60): Good balance
+    - Higher values (60+): Deeper exploration, better terminal detection
 
-3. **`gpu_batch_size`**: Number of simulations processed per GPU batch
-    - Lower values (64-128): Lower latency, more overhead
-    - Medium values (256-512): Good balance
-    - Higher values (512-1024): Better throughput, higher latency
+3. **`exploration_constant`**: UCT exploration parameter
+    - Lower values (0.5-1.0): More exploitative (favor best moves)
+    - Standard value (1.414 = sqrt(2)): Balanced exploration/exploitation
+    - Higher values (2.0+): More exploratory (try diverse moves)
 
-4. **`use_gpu_simulation`**: Enable/disable GPU acceleration
-    - `true`: Use GPU for move application and evaluation (faster)
-    - `false`: Use CPU-only mode (portable, but slower)
+4. **`gpu_batch_size`**: GPU batch size (reserved for future GPU optimization)
+    - Current implementation uses CPU-based simulation
+    - This parameter prepares for future GPU integration
 
 ### Statistics Tracking
 

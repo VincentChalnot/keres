@@ -4,8 +4,28 @@
 //! - Tree structure with nodes containing statistics
 //! - UCT-based selection policy
 //! - Expansion of unexplored moves
-//! - Random simulation (rollouts) using GPU batch simulation
+//! - Random simulation (rollouts) - currently CPU-based
 //! - Backpropagation of scores up the tree
+//!
+//! # Architecture
+//!
+//! The MCTS implementation follows the standard four phases:
+//! 1. **Selection**: Traverse tree using UCT to find a leaf node
+//! 2. **Expansion**: Add a new child node for an unexplored move
+//! 3. **Simulation**: Perform random playout from the new node
+//! 4. **Backpropagation**: Update statistics for all nodes along the path
+//!
+//! # GPU Integration Note
+//!
+//! The current implementation uses CPU-based simulation for simplicity and correctness.
+//! GPU batch simulation could be integrated by:
+//! - Batching multiple MCTS iterations together
+//! - Using GPU for parallel simulation of multiple leaf nodes
+//! - This would require collecting N leaf nodes before simulating
+//! - Trade-off: higher latency per iteration, but better throughput
+//!
+//! The existing GPU batch simulation engine in `gpu_batch_sim.rs` is designed
+//! for this use case and can process up to 1024 simulations in parallel.
 
 use crate::board::Board;
 use crate::game::{Game, Move};
@@ -275,6 +295,21 @@ impl MctsSearch {
     }
     
     /// Simulate a random game from the given board state
+    ///
+    /// Performs a random playout from the current position up to max_depth moves.
+    /// Uses CPU-based move generation and application via the Game API.
+    ///
+    /// # Future GPU Integration
+    ///
+    /// This method could be optimized using GPU batch simulation:
+    /// 1. Collect multiple boards needing simulation
+    /// 2. For each depth level, generate all moves on GPU
+    /// 3. Apply moves in parallel on GPU using batch simulation
+    /// 4. Continue until all simulations reach terminal state or max_depth
+    ///
+    /// The GPU batch simulation engine supports processing up to 1024
+    /// board+move combinations in parallel, which would significantly
+    /// speed up the simulation phase when many MCTS iterations are needed.
     fn simulate(&self, board: &Board, max_depth: u32) -> Result<SimulationResult, String> {
         let mut game = Game::from_board(board.clone());
         let mut depth = 0;
@@ -385,5 +420,47 @@ mod tests {
         let result = SimulationResult::from_board(&game.board);
         // Initial board is not terminal, should be treated as draw
         assert_eq!(result, SimulationResult::Draw);
+    }
+    
+    #[test]
+    fn test_full_mcts_workflow() {
+        // This test demonstrates the full MCTS workflow:
+        // 1. Create root node with legal moves
+        // 2. Run MCTS search with selection, expansion, simulation, backpropagation
+        // 3. Select best move based on visit counts
+        
+        let game = Game::new();
+        let legal_moves: Vec<Move> = game.get_all_moves()
+            .into_iter()
+            .map(|pm| if pm.force_unstack { pm.to_move(true) } else { pm.to_move(false) })
+            .collect();
+        
+        assert!(!legal_moves.is_empty(), "Should have legal moves at start");
+        
+        let mut root = MctsNode::new_root(game.board.clone(), legal_moves);
+        let mut mcts = MctsSearch::new(1.414);
+        
+        // Run 50 MCTS iterations
+        let result = mcts.search(&mut root, 50, 20);
+        assert!(result.is_ok(), "MCTS search should succeed");
+        
+        // Verify statistics were updated
+        assert!(root.visit_count > 0, "Root should be visited");
+        assert!(root.children.len() > 0, "Root should have expanded children");
+        
+        // Verify we can select a best move
+        let best_move = get_best_move_from_root(&root);
+        assert!(best_move.is_some(), "Should find a best move");
+        
+        // Verify the best move is legal
+        let selected_move = best_move.unwrap();
+        let legal_move_positions: Vec<_> = game.get_all_moves()
+            .iter()
+            .map(|pm| (pm.from, pm.to))
+            .collect();
+        assert!(
+            legal_move_positions.contains(&(selected_move.from, selected_move.to)),
+            "Selected move should be legal"
+        );
     }
 }
