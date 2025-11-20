@@ -91,7 +91,7 @@ The engine features:
 
 ## Documentation
 - [Game Rules](./rules.md): Full rules and piece movements
-- [Piece Encoding](.github/instructions/piece_encoding.instructions.md): Details on board and piece encoding
+- [Piece Encoding](.github/instructions/binary_encoding.instructions.md): Details on board and piece encoding
 - [MCTS Engine](src/engine/README.md): GPU-accelerated engine for computer play
 
 ## License
