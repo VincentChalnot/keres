@@ -229,7 +229,7 @@ impl BatchSimulationEngine {
             .device()
             .create_buffer(&wgpu::BufferDescriptor {
                 label: Some("Staging Buffer"),
-                size: (std::mem::size_of::<GpuMoveApplication>() * batch_size) as u64,
+                size: (size_of::<GpuMoveApplication>() * batch_size) as u64,
                 usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
@@ -275,7 +275,7 @@ impl BatchSimulationEngine {
             0,
             &staging_buffer,
             0,
-            (std::mem::size_of::<GpuMoveApplication>() * batch_size) as u64,
+            (size_of::<GpuMoveApplication>() * batch_size) as u64,
         );
 
         // Submit commands
@@ -328,6 +328,76 @@ impl BatchSimulationEngine {
         staging_buffer.unmap();
 
         Ok(results)
+    }
+
+    /// Evaluate moves from a GPU buffer, using the board binary and search params.
+    pub fn evaluate_moves_gpu(
+        &self,
+        board: &[u8; 83],
+        moves_buffer: &wgpu::Buffer,
+        params: &crate::engine::SearchParams,
+    ) -> Result<Vec<crate::engine::ScoredMove>, String> {
+        use std::mem::size_of;
+
+        // Map the GPU buffer to CPU and extract moves
+        let device = self.gpu_context.device();
+        let queue = self.gpu_context.queue();
+        let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Move Staging Buffer for Evaluation"),
+            size: size_of::<super::gpu_move_gen::GpuMoveBuffer>() as u64,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Move Buffer Copy Encoder for Evaluation"),
+        });
+        encoder.copy_buffer_to_buffer(
+            moves_buffer,
+            0,
+            &staging_buffer,
+            0,
+            size_of::<super::gpu_move_gen::GpuMoveBuffer>() as u64,
+        );
+        queue.submit(Some(encoder.finish()));
+        let (tx, rx) = std::sync::mpsc::channel();
+        staging_buffer
+            .slice(..)
+            .map_async(wgpu::MapMode::Read, move |v| {
+                tx.send(v).unwrap();
+            });
+        device.poll(wgpu::Maintain::Wait);
+        let map_result = rx.recv().unwrap();
+        if let Err(wgpu::BufferAsyncError) = map_result {
+            return Err("Failed to map move buffer for reading (evaluation)".to_string());
+        }
+        let data = staging_buffer.slice(..).get_mapped_range();
+        let result_buffer: &super::gpu_move_gen::GpuMoveBuffer = bytemuck::from_bytes(&data);
+        let count = result_buffer.count as usize;
+        let moves: Vec<u16> = result_buffer
+            .moves
+            .iter()
+            .take(count)
+            .map(|&m| m as u16)
+            .collect();
+        drop(data);
+        staging_buffer.unmap();
+
+        // Prepare boards for batch simulation (all the same board)
+        let boards: Vec<[u8; 83]> = vec![*board; moves.len()];
+        let batch_results = self.process_batch(&boards, &moves)?;
+
+        // Convert batch results to ScoredMove
+        let scored_moves = batch_results
+            .iter()
+            .enumerate()
+            .map(|(i, res)| crate::engine::ScoredMove {
+                mv: Move::from_u16(moves[i]),
+                score: res.score,
+                simulations: 1, // Each batch result is one simulation
+            })
+            .collect();
+
+        Ok(scored_moves)
     }
 
     /// Create a synchronized instance (blocking)

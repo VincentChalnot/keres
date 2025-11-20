@@ -1,10 +1,9 @@
 use arx_engine::{
     engine::{MctsEngine, MoveGenerationEngine, SearchParams},
-    Board, Game, Position, BOARD_SIZE,
+    Board, Game, Move, Position, BOARD_SIZE,
 };
 use base64::{engine::general_purpose, Engine as _};
 use clap::{Args, Parser, Subcommand};
-use std::collections::HashSet;
 
 #[derive(Parser)]
 #[command(author, version, about = "Debug utility for Arx engine GPU shaders", long_about = None)]
@@ -107,35 +106,36 @@ fn compare_moves(board_str: &str) -> Result<(), String> {
     let rust_moves = game.get_all_moves();
     println!("Rust implementation generated {} moves", rust_moves.len());
 
-    // Get GPU-generated moves
+    // Get GPU-generated moves (u16)
     let move_gen = MoveGenerationEngine::new_sync()
         .map_err(|e| format!("Failed to create GPU move generation engine: {}", e))?;
-
     let board_binary = board.to_binary();
     let gpu_moves_u16 = move_gen.generate_moves(&board_binary)?;
     println!("GPU shader generated {} moves", gpu_moves_u16.len());
     println!();
 
-    // Convert GPU moves to PotentialMove format for comparison
-    let gpu_moves: Vec<_> = gpu_moves_u16
-        .iter()
-        .map(|&m| arx_engine::game::PotentialMove::from_u16(m))
-        .collect();
+    // Convert Rust PotentialMoves to u16 Moves
+    let mut rust_moves_u16 = Vec::new();
+    for m in &rust_moves {
+        if m.unstackable && !m.force_unstack {
+            // Generate both variants
+            let move_unstack = m.to_move(true);
+            let move_fullstack = m.to_move(false);
+            rust_moves_u16.push(move_unstack.to_u16());
+            rust_moves_u16.push(move_fullstack.to_u16());
+        } else {
+            let mv = m.to_move(m.force_unstack);
+            rust_moves_u16.push(mv.to_u16());
+        }
+    }
 
-    // Convert both to sets of (from, to, force_unstack) tuples for comparison
-    let rust_set: HashSet<_> = rust_moves
-        .iter()
-        .map(|m| (m.from.to_u8(), m.to.to_u8(), m.force_unstack))
-        .collect();
+    // Compare sets of u16 moves
+    use std::collections::HashSet;
+    let rust_set: HashSet<_> = rust_moves_u16.iter().copied().collect();
+    let gpu_set: HashSet<_> = gpu_moves_u16.iter().copied().collect();
 
-    let gpu_set: HashSet<_> = gpu_moves
-        .iter()
-        .map(|m| (m.from.to_u8(), m.to.to_u8(), m.force_unstack))
-        .collect();
-
-    // Find differences
-    let in_rust_not_gpu: Vec<_> = rust_set.difference(&gpu_set).collect();
-    let in_gpu_not_rust: Vec<_> = gpu_set.difference(&rust_set).collect();
+    let in_rust_not_gpu: Vec<_> = rust_set.difference(&gpu_set).copied().collect();
+    let in_gpu_not_rust: Vec<_> = gpu_set.difference(&rust_set).copied().collect();
 
     if in_rust_not_gpu.is_empty() && in_gpu_not_rust.is_empty() {
         println!("✓ SUCCESS: Both implementations generate the same moves!");
@@ -147,19 +147,8 @@ fn compare_moves(board_str: &str) -> Result<(), String> {
                 "\n  Moves in Rust but NOT in GPU ({}):",
                 in_rust_not_gpu.len()
             );
-            for &&(from, to, force_unstack) in &in_rust_not_gpu {
-                let from_pos = Position::from_u8(from);
-                let to_pos = Position::from_u8(to);
-                println!(
-                    "    {} -> {} {}",
-                    from_pos.to_string(),
-                    to_pos.to_string(),
-                    if force_unstack {
-                        "(forced unstack)"
-                    } else {
-                        ""
-                    }
-                );
+            for &m in &in_rust_not_gpu {
+                println!("    {}", Move::from_u16(m).to_string());
             }
         }
 
@@ -168,56 +157,9 @@ fn compare_moves(board_str: &str) -> Result<(), String> {
                 "\n  Moves in GPU but NOT in Rust ({}):",
                 in_gpu_not_rust.len()
             );
-            for &&(from, to, force_unstack) in &in_gpu_not_rust {
-                let from_pos = Position::from_u8(from);
-                let to_pos = Position::from_u8(to);
-                println!(
-                    "    {} -> {} {}",
-                    from_pos.to_string(),
-                    to_pos.to_string(),
-                    if force_unstack {
-                        "(forced unstack)"
-                    } else {
-                        ""
-                    }
-                );
+            for &m in &in_gpu_not_rust {
+                println!("    {}", Move::from_u16(m).to_string());
             }
-        }
-    }
-
-    // Display detailed move list if requested
-    if rust_moves.len() < 50 {
-        println!("\n=== Detailed Move List ===");
-        println!("\nRust moves:");
-        for m in &rust_moves {
-            println!(
-                "  {} -> {} {}",
-                m.from.to_string(),
-                m.to.to_string(),
-                if m.force_unstack {
-                    "(forced unstack)"
-                } else if m.unstackable {
-                    "(unstackable)"
-                } else {
-                    ""
-                }
-            );
-        }
-
-        println!("\nGPU moves:");
-        for m in &gpu_moves {
-            println!(
-                "  {} -> {} {}",
-                Position::from_u8(m.from.to_u8()).to_string(),
-                Position::from_u8(m.to.to_u8()).to_string(),
-                if m.force_unstack {
-                    "(forced unstack)"
-                } else if m.unstackable {
-                    "(unstackable)"
-                } else {
-                    ""
-                }
-            );
         }
     }
 
