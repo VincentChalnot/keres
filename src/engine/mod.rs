@@ -45,7 +45,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use crate::board::Board;
-use crate::game::Move;
+use crate::game::{Game, Move};
 
 mod gpu_context;
 pub use gpu_context::{get_shared_context, GpuContext};
@@ -58,6 +58,9 @@ pub use gpu_batch_sim::BatchSimulationEngine;
 
 mod minimax;
 pub use minimax::{MinimaxConfig, MinimaxEngine, MinimaxStatistics};
+
+mod mcts;
+pub use mcts::{MctsNode, MctsSearch, SimulationResult, get_best_move_from_root};
 
 /// Search parameters for MCTS evaluation
 #[derive(Clone, Debug)]
@@ -94,6 +97,12 @@ pub struct ScoredMove {
 /// Engine configuration
 #[derive(Clone, Debug)]
 pub struct EngineConfig {
+    /// Maximum depth for simulation rollouts
+    pub max_depth: u32,
+    /// Number of MCTS simulations per move evaluation
+    pub simulations_per_move: u32,
+    /// Exploration constant for UCT (typically sqrt(2) ≈ 1.414)
+    pub exploration_constant: f64,
     /// Batch size for GPU processing (number of simulations processed in parallel)
     pub gpu_batch_size: usize,
     /// Enable GPU-accelerated batch simulation (if false, uses CPU fallback)
@@ -103,6 +112,9 @@ pub struct EngineConfig {
 impl Default for EngineConfig {
     fn default() -> Self {
         Self {
+            max_depth: 50,
+            simulations_per_move: 1000,
+            exploration_constant: 1.414,
             gpu_batch_size: 256,
             use_gpu_simulation: true,
         }
@@ -311,6 +323,44 @@ impl MctsEngine {
             }
         }
     }
+
+    /// Find the best move using MCTS
+    /// Performs Monte Carlo Tree Search with random simulations and backpropagation
+    pub fn find_best_move(&mut self, board: &Board) -> Result<Move, String> {
+        // Create a Game from the board to generate legal moves
+        let game = Game::from_board(board.clone());
+        
+        // Generate legal moves for the root position
+        let legal_moves: Vec<Move> = game
+            .get_all_moves()
+            .into_iter()
+            .map(|pm| if pm.force_unstack { pm.to_move(true) } else { pm.to_move(false) })
+            .collect();
+
+        if legal_moves.is_empty() {
+            return Err("No legal moves available".to_string());
+        }
+
+        // Create root node for MCTS
+        let mut root = MctsNode::new_root(board.clone(), legal_moves);
+
+        // Create MCTS search
+        let mut mcts = MctsSearch::new(self.config.exploration_constant);
+
+        // Perform MCTS iterations
+        let iterations = self.config.simulations_per_move;
+        let max_depth = self.config.max_depth;
+
+        mcts.search(&mut root, iterations, max_depth)?;
+
+        // Update statistics
+        self.stats
+            .simulations
+            .fetch_add(iterations as u64, Ordering::Relaxed);
+
+        // Select best move based on visit counts
+        get_best_move_from_root(&root).ok_or_else(|| "No move found after MCTS".to_string())
+    }
 }
 
 #[cfg(test)]
@@ -330,6 +380,9 @@ mod tests {
     #[test]
     fn test_engine_config() {
         let config = EngineConfig {
+            max_depth: 30,
+            simulations_per_move: 500,
+            exploration_constant: 1.0,
             gpu_batch_size: 128,
             use_gpu_simulation: true,
         };
@@ -339,6 +392,8 @@ mod tests {
             return;
         }
         let engine = engine.unwrap();
+        assert_eq!(engine.config().max_depth, 30);
+        assert_eq!(engine.config().simulations_per_move, 500);
         assert_eq!(engine.config().gpu_batch_size, 128);
         assert_eq!(engine.config().use_gpu_simulation, true);
     }

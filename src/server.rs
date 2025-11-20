@@ -23,6 +23,9 @@ struct AppState {
 async fn main() {
     // Initialize the MCTS engine with configuration
     let mcts_config = EngineConfig {
+        max_depth: 50,
+        simulations_per_move: 1000,
+        exploration_constant: 1.414,
         gpu_batch_size: 4096,
         use_gpu_simulation: true,
     };
