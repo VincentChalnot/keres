@@ -215,7 +215,7 @@ export class GameController {
         const selectedPosition = this.gameState.getSelectedPosition();
 
         // No selected position: select piece if potential
-        if (!selectedPosition) {
+        if (selectedPosition === null) {
             const moves = this.gameState.getPotentialMovesForPosition(pos);
             if (moves.length > 0) { // Only select if there are potential moves
                 this.gameState.setSelectedPosition(pos);
@@ -274,7 +274,7 @@ export class GameController {
         const selectedPosition = this.gameState.getSelectedPosition();
 
         // Show potential moves for hovered piece if no piece is selected
-        if (!selectedPosition) {
+        if (selectedPosition === null) {
             this.gameState.setHoveredPosition(pos);
             this.updateOverlays();
         }

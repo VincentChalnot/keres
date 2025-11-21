@@ -97,7 +97,7 @@ class ArxGame {
         this.unstackModal.classList.remove('is-active');
         const selectedPosition = this.gameState.getSelectedPosition();
         const clickedDestination = this.gameState.getClickedDestination();
-        if (selectedPosition && clickedDestination) {
+        if (selectedPosition !== null && clickedDestination !== null) {
             await this.controller.playMove(selectedPosition, clickedDestination, fullStack);
             this.updateStatus();
             this.updateMoveHistoryDisplay();
@@ -193,7 +193,7 @@ class ArxGame {
             this.statusDiv.innerText = 'Loading...';
             return;
         }
-        
+
         // Check if game is over
         if (board.isGameOver()) {
             this.statusDiv.innerText = board.getGameResult();
@@ -202,11 +202,11 @@ class ArxGame {
             this.askMinimaxBtn.disabled = true;
             return;
         }
-        
+
         // Normal turn display
         const turn = this.controller.getCurrentTurn();
         this.statusDiv.innerText = `${turn}'s turn to play.`;
-        
+
         // Re-enable engine buttons if they were disabled
         this.askEngineBtn.disabled = false;
         this.askMinimaxBtn.disabled = false;
