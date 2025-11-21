@@ -1,7 +1,7 @@
 # GPU Access Verification Report
 
 ## Summary
-Successfully verified access to the custom runner with GPU/compute capabilities for the arx-engine repository.
+Successfully verified GPU/compute capabilities on the custom runner for the arx-engine repository.
 
 ## Test Results
 
@@ -26,7 +26,9 @@ This package provides:
 Executed the recommended command from the issue:
 
 ```bash
-cargo run --bin debug compare-moves --board=BwYEBTglAAAHAAADAAAAAgAAAQEBAQEBMQEBAAAAAAAAAEEAAAAAAAAAAAAAAAAAAAAAAAAAQUFBQUFBAEFBAABCAAAAQwAAR0ZERXhFREZHgAU=
+cargo run --bin debug compare-moves \
+  --board=BwYEBTglAAAHAAADAAAAAgAAAQEBAQEBMQEBAAAAAAAAAEEAAAAAAAAAAAAAA\
+AAAAAAAAAAAAAAAAQUFBQUFBAEFBAAABCAAAAQAAAR0ZERXhFREZHgAU=
 ```
 
 **Output:**
@@ -40,7 +42,7 @@ Board state:
 
 Rust implementation generated 57 moves
 🔄 Initializing shared GPU context...
-📊 Found 1 GPU adapter(s):
+📊 Found 1 GPU adapter:
    [0] llvmpipe (LLVM 20.1.2, 256 bits) - Cpu (Vulkan)
 ✓ Selected GPU: llvmpipe (LLVM 20.1.2, 256 bits) (Vulkan)
 GPU shader generated 57 moves
