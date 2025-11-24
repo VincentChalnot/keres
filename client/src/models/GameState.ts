@@ -6,6 +6,8 @@ import {Board, PotentialMove} from './types';
 export class GameState {
     private board: Board | null = null;
     private potentialMoves: PotentialMove[] = [];
+    private opponentThreats: PotentialMove[] = [];
+    private showThreats = true;
     private selectedPosition: number | null = null;
     private clickedDestination: number | null = null;
     private boardFlipped = false;
@@ -27,6 +29,32 @@ export class GameState {
 
     setPotentialMoves(moves: PotentialMove[]): void {
         this.potentialMoves = moves;
+    }
+
+    getOpponentThreats(): PotentialMove[] {
+        return this.opponentThreats;
+    }
+
+    setOpponentThreats(threats: PotentialMove[]): void {
+        this.opponentThreats = threats;
+    }
+
+    getOpponentThreatsForPosition(pos: number): PotentialMove[] {
+        const threats: PotentialMove[] = [];
+        for (const threat of this.opponentThreats) {
+            if (threat.from === pos) {
+                threats.push(threat);
+            }
+        }
+        return threats;
+    }
+
+    isShowThreats(): boolean {
+        return this.showThreats;
+    }
+
+    setShowThreats(show: boolean): void {
+        this.showThreats = show;
     }
 
     getPotentialMovesForPosition(pos: number): PotentialMove[] {

@@ -73,6 +73,9 @@ export class GameController {
         if (!board) return;
 
         this.gameState.setPotentialMoves(await this.api.getPotentialMoves(board));
+        
+        // Also fetch opponent threats
+        this.gameState.setOpponentThreats(await this.api.getOpponentThreats(board));
     }
 
     /**
@@ -275,6 +278,17 @@ export class GameController {
 
         // Show potential moves for hovered piece if no piece is selected
         if (selectedPosition === null) {
+            const piece = board.getPieceAt(pos);
+            
+            // Check if this is an enemy piece and show threats is enabled
+            if (piece && piece.color !== board.whiteToMove && this.gameState.isShowThreats()) {
+                // This is an enemy piece, show its threats
+                this.gameState.setHoveredPosition(pos);
+                this.updateOverlays();
+                return;
+            }
+            
+            // Otherwise show potential moves for friendly pieces
             this.gameState.setHoveredPosition(pos);
             this.updateOverlays();
         }
@@ -301,8 +315,21 @@ export class GameController {
 
         const hoveredPosition = this.gameState.getHoveredPosition();
         if (hoveredPosition != null) {
-            for (const move of this.gameState.getPotentialMovesForPosition(hoveredPosition)) {
-                highlights.push({position: move.to, type: 'hovered'});
+            const board = this.gameState.getBoard();
+            if (board) {
+                const piece = board.getPieceAt(hoveredPosition);
+                
+                // If hovering over an enemy piece and show threats is enabled, show threats in red
+                if (piece && piece.color !== board.whiteToMove && this.gameState.isShowThreats()) {
+                    for (const threat of this.gameState.getOpponentThreatsForPosition(hoveredPosition)) {
+                        highlights.push({position: threat.to, type: 'threat'});
+                    }
+                } else {
+                    // Otherwise show potential moves for friendly pieces
+                    for (const move of this.gameState.getPotentialMovesForPosition(hoveredPosition)) {
+                        highlights.push({position: move.to, type: 'hovered'});
+                    }
+                }
             }
         }
 
@@ -382,5 +409,20 @@ export class GameController {
     clearSelectedMove(): void {
         this.gameState.setSelectedPosition(null);
         this.updateOverlays();
+    }
+
+    /**
+     * Toggle showing threats
+     */
+    toggleShowThreats(): void {
+        this.gameState.setShowThreats(!this.gameState.isShowThreats());
+        this.updateOverlays();
+    }
+
+    /**
+     * Get show threats state
+     */
+    isShowThreats(): boolean {
+        return this.gameState.isShowThreats();
     }
 }
