@@ -36,6 +36,32 @@ export class GameAPI {
     }
 
     /**
+     * Get opponent threats by fetching moves with inverted turn
+     */
+    async getOpponentThreats(board: Board): Promise<PotentialMove[]> {
+        // Create a copy of the board with inverted turn
+        const invertedBoard = new Board(
+            [...board.cells],
+            !board.whiteToMove,  // Invert the turn
+            board.gameOver,
+            board.whiteWins,
+            board.draw,
+            board.movesWithoutCapture
+        );
+        
+        const binary = encodeBoardToBinary(invertedBoard);
+        const response = await fetch(`${this.config.backendUrl}/moves`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/octet-stream'},
+            body: binary as BodyInit,
+        });
+        const buffer = await response.arrayBuffer();
+        const movesU16 = new Uint16Array(buffer);
+
+        return Array.from(movesU16).map(decodePotentialMove);
+    }
+
+    /**
      * Play a move and get the new board state
      */
     async playMove(board: Board, move: Move): Promise<Board> {

@@ -24,6 +24,7 @@ class ArxGame {
     private undoBtn: HTMLButtonElement;
     private askEngineBtn: HTMLButtonElement;
     private askMinimaxBtn: HTMLButtonElement;
+    private toggleThreatsBtn: HTMLButtonElement;
 
     constructor() {
         this.gameState = new GameState();
@@ -40,6 +41,7 @@ class ArxGame {
         this.undoBtn = document.getElementById('undo-btn') as HTMLButtonElement;
         this.askEngineBtn = document.getElementById('ask-engine-btn') as HTMLButtonElement;
         this.askMinimaxBtn = document.getElementById('ask-minimax-btn') as HTMLButtonElement;
+        this.toggleThreatsBtn = document.getElementById('toggle-threats-btn') as HTMLButtonElement;
     }
 
     async initialize(): Promise<void> {
@@ -63,6 +65,7 @@ class ArxGame {
         // Update UI
         this.updateStatus();
         this.updateMoveHistoryDisplay();
+        this.updateToggleThreatsButton();
     }
 
     private setupEventListeners(): void {
@@ -80,6 +83,7 @@ class ArxGame {
         this.askMinimaxBtn.addEventListener('click', () => this.handleAskMinimax());
         this.undoBtn.addEventListener('click', () => this.handleUndo());
         this.loadGameBtn.addEventListener('click', () => this.handleLoadGame());
+        this.toggleThreatsBtn.addEventListener('click', () => this.handleToggleThreats());
 
         // Custom event for unstack modal
         window.addEventListener('showUnstackModal', () => {
@@ -184,6 +188,19 @@ class ArxGame {
             this.updateMoveHistoryDisplay();
         } catch (error) {
             alert((error as Error).message);
+        }
+    }
+
+    private handleToggleThreats(): void {
+        this.controller.toggleShowThreats();
+        this.updateToggleThreatsButton();
+    }
+
+    private updateToggleThreatsButton(): void {
+        if (this.controller.isShowThreats()) {
+            this.toggleThreatsBtn.innerText = 'Hide Threats';
+        } else {
+            this.toggleThreatsBtn.innerText = 'Show Threats';
         }
     }
 

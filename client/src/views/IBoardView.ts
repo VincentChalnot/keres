@@ -41,7 +41,7 @@ export interface IBoardView {
 
 export interface TileHighlight {
     position: number;
-    type: 'selected' | 'potential' | 'hovered';
+    type: 'selected' | 'potential' | 'hovered' | 'threat';
 }
 
 /**
