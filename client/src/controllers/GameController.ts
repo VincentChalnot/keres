@@ -278,17 +278,6 @@ export class GameController {
 
         // Show potential moves for hovered piece if no piece is selected
         if (selectedPosition === null) {
-            const piece = board.getPieceAt(pos);
-            
-            // Check if this is an enemy piece and show threats is enabled
-            if (piece && piece.color !== board.whiteToMove && this.gameState.isShowThreats()) {
-                // This is an enemy piece, show its threats
-                this.gameState.setHoveredPosition(pos);
-                this.updateOverlays();
-                return;
-            }
-            
-            // Otherwise show potential moves for friendly pieces
             this.gameState.setHoveredPosition(pos);
             this.updateOverlays();
         }

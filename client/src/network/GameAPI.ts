@@ -23,16 +23,7 @@ export class GameAPI {
      * Get potential moves for current board state
      */
     async getPotentialMoves(board: Board): Promise<PotentialMove[]> {
-        const binary = encodeBoardToBinary(board);
-        const response = await fetch(`${this.config.backendUrl}/moves`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/octet-stream'},
-            body: binary as BodyInit,
-        });
-        const buffer = await response.arrayBuffer();
-        const movesU16 = new Uint16Array(buffer);
-
-        return Array.from(movesU16).map(decodePotentialMove);
+        return this.fetchMoves(board);
     }
 
     /**
@@ -49,7 +40,14 @@ export class GameAPI {
             board.movesWithoutCapture
         );
         
-        const binary = encodeBoardToBinary(invertedBoard);
+        return this.fetchMoves(invertedBoard);
+    }
+
+    /**
+     * Private helper to fetch moves for a given board state
+     */
+    private async fetchMoves(board: Board): Promise<PotentialMove[]> {
+        const binary = encodeBoardToBinary(board);
         const response = await fetch(`${this.config.backendUrl}/moves`, {
             method: 'POST',
             headers: {'Content-Type': 'application/octet-stream'},
