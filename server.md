@@ -1,10 +1,10 @@
-# ARX Engine Server API Documentation
+# KERES Engine Server API Documentation
 
-This document describes the binary API endpoints for the ARX Engine server. All endpoints use raw binary formats for performance and minimal network overhead. This guide is intended for client developers.
+This document describes the binary API endpoints for the KERES Engine server. All endpoints use raw binary formats for performance and minimal network overhead. This guide is intended for client developers.
 
 ## General Notes
 - All requests and responses use the `application/octet-stream` content type.
-- Board data is always sent and received in the ARX binary format (see piece_encoding.instructions.md for details).
+- Board data is always sent and received in the KERES binary format (see piece_encoding.instructions.md for details).
 - Moves are represented as `u16` values in little-endian byte order.
 
 ---

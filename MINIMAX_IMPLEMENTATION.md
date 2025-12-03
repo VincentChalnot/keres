@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-Successfully implemented a complete Minimax AI engine with Alpha-Beta pruning for the Arx game engine. The implementation is production-ready, fully tested, and introduces no security vulnerabilities.
+Successfully implemented a complete Minimax AI engine with Alpha-Beta pruning for the Keres game engine. The implementation is production-ready, fully tested, and introduces no security vulnerabilities.
 
 ## Deliverables - All Complete ✅
 

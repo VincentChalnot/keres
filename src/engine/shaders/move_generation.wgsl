@@ -1,4 +1,4 @@
-// Move generation compute shader for Arx engine
+// Move generation compute shader for Keres engine
 // This shader generates all legal moves for a given board position
 
 // Board state representation: 9x9 board (81 squares)

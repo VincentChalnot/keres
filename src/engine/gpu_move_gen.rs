@@ -1,4 +1,4 @@
-//! GPU-accelerated move generation engine for Arx
+//! GPU-accelerated move generation engine for Keres
 //!
 //! This module provides a WebGPU-based compute shader implementation for generating
 //! all legal moves for a given board position. The shader processes all 81 squares
@@ -7,7 +7,7 @@
 //! # Example
 //!
 //! ```no_run
-//! use arx_engine::engine::MoveGenerationEngine;
+//! use keres_engine::engine::MoveGenerationEngine;
 //!
 //! let engine = MoveGenerationEngine::new_sync().expect("Failed to create engine");
 //! let board_state = [0u8; 82]; // Your board state

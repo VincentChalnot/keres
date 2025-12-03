@@ -1,6 +1,3 @@
-use arx_engine::board::{Board, BOARD_SIZE};
-use arx_engine::engine::{EngineConfig, MctsEngine, MinimaxConfig, MinimaxEngine, SearchParams};
-use arx_engine::game::{Game, Move};
 use axum::{
     body::Bytes,
     extract::State,
@@ -9,6 +6,9 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use keres_engine::board::{Board, BOARD_SIZE};
+use keres_engine::engine::{EngineConfig, MctsEngine, MinimaxConfig, MinimaxEngine, SearchParams};
+use keres_engine::game::{Game, Move};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use tower_http::cors::{Any, CorsLayer};
@@ -203,7 +203,7 @@ async fn minimax_move(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use arx_engine::board::Position;
+    use keres_engine::board::Position;
 
     #[test]
     fn test_move_encoding_matches_client_expectations() {

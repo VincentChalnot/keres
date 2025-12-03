@@ -1,5 +1,5 @@
-use arx_engine::{Board, Game, Position};
 use base64::{engine::general_purpose, Engine as _};
+use keres_engine::{Board, Game, Position};
 
 fn calculate_simple_material(board: &Board) -> i32 {
     let piece_values = [
@@ -14,33 +14,33 @@ fn calculate_simple_material(board: &Board) -> i32 {
         for x in 0..9 {
             if let Some(piece) = board.get_piece(&Position::new(x, y)) {
                 let mut value = match piece.bottom {
-                    arx_engine::PieceType::Soldier => piece_values[1],
-                    arx_engine::PieceType::Jester => piece_values[2],
-                    arx_engine::PieceType::Commander => piece_values[3],
-                    arx_engine::PieceType::Paladin => piece_values[4],
-                    arx_engine::PieceType::Guard => piece_values[5],
-                    arx_engine::PieceType::Dragon => piece_values[6],
-                    arx_engine::PieceType::Ballista => piece_values[7],
-                    arx_engine::PieceType::King => 10000,
+                    keres_engine::PieceType::Soldier => piece_values[1],
+                    keres_engine::PieceType::Jester => piece_values[2],
+                    keres_engine::PieceType::Commander => piece_values[3],
+                    keres_engine::PieceType::Paladin => piece_values[4],
+                    keres_engine::PieceType::Guard => piece_values[5],
+                    keres_engine::PieceType::Dragon => piece_values[6],
+                    keres_engine::PieceType::Ballista => piece_values[7],
+                    keres_engine::PieceType::King => 10000,
                 };
 
                 if let Some(top) = piece.top {
                     let top_value = match top {
-                        arx_engine::PieceType::Soldier => piece_values[1],
-                        arx_engine::PieceType::Jester => piece_values[2],
-                        arx_engine::PieceType::Commander => piece_values[3],
-                        arx_engine::PieceType::Paladin => piece_values[4],
-                        arx_engine::PieceType::Guard => piece_values[5],
-                        arx_engine::PieceType::Dragon => piece_values[6],
-                        arx_engine::PieceType::Ballista => piece_values[7],
-                        arx_engine::PieceType::King => 10000,
+                        keres_engine::PieceType::Soldier => piece_values[1],
+                        keres_engine::PieceType::Jester => piece_values[2],
+                        keres_engine::PieceType::Commander => piece_values[3],
+                        keres_engine::PieceType::Paladin => piece_values[4],
+                        keres_engine::PieceType::Guard => piece_values[5],
+                        keres_engine::PieceType::Dragon => piece_values[6],
+                        keres_engine::PieceType::Ballista => piece_values[7],
+                        keres_engine::PieceType::King => 10000,
                     };
                     let total = value + top_value;
                     let bonus = (total as f32 * 0.30) as i32;
                     value = total + bonus;
                 }
 
-                if piece.color == arx_engine::Color::White {
+                if piece.color == keres_engine::Color::White {
                     white_material += value;
                 } else {
                     black_material += value;
@@ -76,7 +76,7 @@ fn main() {
     // After G9->I9
     let g9 = Position::new(6, 0);
     let i9 = Position::new(8, 0);
-    if let Ok(board_after_capture) = game.apply_move_copy(arx_engine::game::Move {
+    if let Ok(board_after_capture) = game.apply_move_copy(keres_engine::game::Move {
         from: g9,
         to: i9,
         unstack: false,
@@ -97,7 +97,7 @@ fn main() {
     // After D7->E6
     let d7 = Position::new(3, 2);
     let e6 = Position::new(4, 3);
-    if let Ok(board_after_stack) = game.apply_move_copy(arx_engine::game::Move {
+    if let Ok(board_after_stack) = game.apply_move_copy(keres_engine::game::Move {
         from: d7,
         to: e6,
         unstack: false,

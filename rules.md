@@ -1,4 +1,4 @@
-# Game of Arx
+# Game of Keres
 Abstract strategy board game inspired by chess where the main difference is the ability to stack friendly pieces to combine their movements.
 
 ## Game Rules Summary:

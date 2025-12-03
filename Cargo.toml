@@ -1,9 +1,9 @@
 [package]
-name = "arx-engine"
+name = "keres"
 version = "0.1.0"
 edition = "2021"
-authors = ["Vincent"]
-description = "A library for the abstract game Arx"
+authors = ["Vincent Chalnot"]
+description = "A library for the abstract game Keres"
 
 [dependencies]
 clap = { version = "4.4", features = ["derive"] }
@@ -20,11 +20,11 @@ rand = "0.8"
 rayon = "1.10"
 
 [lib]
-name = "arx_engine"
+name = "keres_engine"
 path = "src/lib.rs"
 
 [[bin]]
-name = "arx"
+name = "keres"
 path = "src/main.rs"
 
 [[bin]]

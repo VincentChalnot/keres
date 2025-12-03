@@ -1,4 +1,4 @@
-//! Monte Carlo Tree Search Engine for Arx
+//! Monte Carlo Tree Search Engine for Keres
 //!
 //! This module provides a GPU-accelerated MCTS engine for evaluating board positions
 //! and finding optimal moves. The engine is completely independent of the main
@@ -18,8 +18,8 @@
 //! # Example
 //!
 //! ```no_run
-//! use arx_engine::engine::{MctsEngine, EngineConfig};
-//! use arx_engine::{Game, Board};
+//! use keres_engine::engine::{MctsEngine, EngineConfig};
+//! use keres_engine::{Game, Board};
 //!
 //! // Create engine with custom configuration
 //! let config = EngineConfig {

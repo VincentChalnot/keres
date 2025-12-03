@@ -1,6 +1,6 @@
-use arx_engine::engine::{MinimaxConfig, MinimaxEngine};
-use arx_engine::{Board, Position};
 use base64::{engine::general_purpose, Engine as _};
+use keres_engine::engine::{MinimaxConfig, MinimaxEngine};
+use keres_engine::{Board, Position};
 
 fn main() {
     let board_str = "BwAEBTgFBABeAAADAAAAAAAAAQABAQAxAAAAAAABAAYBEQAAAAAAAAAAAAAAAAAAAABBAAAAQUFBQUFBAEEAAABCAAAAAABDR0ZERXhFRAAAAAA==";

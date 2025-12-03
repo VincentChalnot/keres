@@ -1,12 +1,12 @@
-use arx_engine::{
+use base64::{engine::general_purpose, Engine as _};
+use clap::{Args, Parser, Subcommand};
+use keres_engine::{
     engine::{MctsEngine, MoveGenerationEngine, SearchParams},
     Board, Game, Move, Position, BOARD_SIZE,
 };
-use base64::{engine::general_purpose, Engine as _};
-use clap::{Args, Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(author, version, about = "Debug utility for Arx engine GPU shaders", long_about = None)]
+#[command(author, version, about = "Debug utility for Keres engine GPU shaders", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -289,15 +289,15 @@ mod tests {
         let piece_g7 = board.get_piece(&g7);
         assert!(piece_g7.is_some(), "Should have piece at G7");
         let piece_g7 = piece_g7.unwrap();
-        assert_eq!(piece_g7.color, arx_engine::board::Color::Black);
-        assert_eq!(piece_g7.bottom, arx_engine::board::PieceType::Soldier);
-        assert_eq!(piece_g7.top, Some(arx_engine::board::PieceType::Dragon));
+        assert_eq!(piece_g7.color, keres_engine::board::Color::Black);
+        assert_eq!(piece_g7.bottom, keres_engine::board::PieceType::Soldier);
+        assert_eq!(piece_g7.top, Some(keres_engine::board::PieceType::Dragon));
 
         let piece_h6 = board.get_piece(&h6);
         assert!(piece_h6.is_some(), "Should have piece at H6");
         let piece_h6 = piece_h6.unwrap();
-        assert_eq!(piece_h6.color, arx_engine::board::Color::White);
-        assert_eq!(piece_h6.bottom, arx_engine::board::PieceType::Soldier);
+        assert_eq!(piece_h6.color, keres_engine::board::Color::White);
+        assert_eq!(piece_h6.bottom, keres_engine::board::PieceType::Soldier);
         assert!(piece_h6.top.is_none(), "H6 should be a single soldier");
 
         // Try to evaluate with GPU

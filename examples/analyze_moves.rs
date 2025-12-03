@@ -1,5 +1,5 @@
-use arx_engine::{Board, Game, Position};
 use base64::{engine::general_purpose, Engine as _};
+use keres_engine::{Board, Game, Position};
 
 fn main() {
     // Load the board from base64
@@ -39,7 +39,7 @@ fn main() {
 
     // Try G9->I9
     println!("1. G9->I9 (Paladin takes Dragon+Commander):");
-    if let Ok(new_board) = game.apply_move_copy(arx_engine::game::Move {
+    if let Ok(new_board) = game.apply_move_copy(keres_engine::game::Move {
         from: g9,
         to: i9,
         unstack: false,
@@ -54,7 +54,7 @@ fn main() {
         for y in 0..9 {
             for x in 0..9 {
                 if let Some(p) = new_board.get_piece(&Position::new(x, y)) {
-                    if p.color == arx_engine::Color::White {
+                    if p.color == keres_engine::Color::White {
                         white_count += 1;
                     } else {
                         black_count += 1;
@@ -70,7 +70,7 @@ fn main() {
 
     // Try D7->E6
     println!("\n2. D7->E6:");
-    if let Ok(new_board) = game.apply_move_copy(arx_engine::game::Move {
+    if let Ok(new_board) = game.apply_move_copy(keres_engine::game::Move {
         from: d7,
         to: e6,
         unstack: false,
@@ -85,7 +85,7 @@ fn main() {
         for y in 0..9 {
             for x in 0..9 {
                 if let Some(p) = new_board.get_piece(&Position::new(x, y)) {
-                    if p.color == arx_engine::Color::White {
+                    if p.color == keres_engine::Color::White {
                         white_count += 1;
                     } else {
                         black_count += 1;

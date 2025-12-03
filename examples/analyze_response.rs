@@ -1,6 +1,6 @@
-use arx_engine::engine::{MinimaxConfig, MinimaxEngine};
-use arx_engine::{Board, Game, Position};
 use base64::{engine::general_purpose, Engine as _};
+use keres_engine::engine::{MinimaxConfig, MinimaxEngine};
+use keres_engine::{Board, Game, Position};
 
 fn main() {
     // Load the board from base64
@@ -21,7 +21,7 @@ fn main() {
     let g9 = Position::new(6, 0);
     let i9 = Position::new(8, 0);
 
-    if let Ok(board_after_capture) = game.apply_move_copy(arx_engine::game::Move {
+    if let Ok(board_after_capture) = game.apply_move_copy(keres_engine::game::Move {
         from: g9,
         to: i9,
         unstack: false,
@@ -66,7 +66,7 @@ fn main() {
     let d7 = Position::new(3, 2);
     let e6 = Position::new(4, 3);
 
-    if let Ok(board_after_stack) = game.apply_move_copy(arx_engine::game::Move {
+    if let Ok(board_after_stack) = game.apply_move_copy(keres_engine::game::Move {
         from: d7,
         to: e6,
         unstack: false,

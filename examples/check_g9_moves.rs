@@ -1,5 +1,5 @@
-use arx_engine::{Board, Game, Position};
 use base64::{engine::general_purpose, Engine as _};
+use keres_engine::{Board, Game, Position};
 
 fn main() {
     let board_str = "BwAEADgFXgAAAAADAAAAAAAAAAAAAAAFAAAAAAkBAAABAAAAAAAAAAAAAAAAAAAAAEJBAAAAQUFBAABBAEEAAAAAAAAAAAAAR0ZERXhFRAAAAAA==";
@@ -17,7 +17,7 @@ fn main() {
     let f9 = Position::new(5, 0);
     let e8 = Position::new(4, 1);
 
-    if let Ok(board_after_guard_move) = game.apply_move_copy(arx_engine::game::Move {
+    if let Ok(board_after_guard_move) = game.apply_move_copy(keres_engine::game::Move {
         from: f9,
         to: e8,
         unstack: false,

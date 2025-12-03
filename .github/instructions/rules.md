@@ -1,7 +1,7 @@
 ---
 applyTo: '**'
 ---
-# Game of Arx
+# Game of Keres
 Abstract strategy board game inspired by chess.
 
 ## Game Rules Summary

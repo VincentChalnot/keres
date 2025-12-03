@@ -83,7 +83,7 @@ let config = EngineConfig {
 ## Usage Example
 
 ```rust
-use arx_engine::engine::{MctsEngine, EngineConfig};
+use keres_engine::engine::{MctsEngine, EngineConfig};
 
 // Create optimized engine
 let config = EngineConfig {

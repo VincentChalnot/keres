@@ -1,9 +1,9 @@
-use arx_engine::cli_rendering::get_board_hash;
-use arx_engine::{
-    cli_rendering::display_stack, run_tui, Game, Position, BOARD_DIMENSION, BOARD_SIZE,
-};
 use base64::{engine::general_purpose, Engine as _};
 use clap::{Args, Parser, Subcommand};
+use keres_engine::cli_rendering::get_board_hash;
+use keres_engine::{
+    cli_rendering::display_stack, run_tui, Game, Position, BOARD_DIMENSION, BOARD_SIZE,
+};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]

@@ -15,10 +15,10 @@ interface TileOverlay {
 
 // Board margin constants for aligning with physical board image
 const BOARD_ASPECT_RATIO = 1.285;
-const BOARD_MARGIN_TOP = 0.054;
-const BOARD_MARGIN_SIDES = 0.0655; // Left and right margins
-const BOARD_MARGIN_BOTTOM = 0.102;
-const PIECE_SCALE_FACTOR = 0.8; // Scale factor for piece size relative to tile size
+const BOARD_MARGIN_TOP = 0.106
+const BOARD_MARGIN_SIDES = 0.095; // Left and right margins
+const BOARD_MARGIN_BOTTOM = 0.136;
+const PIECE_SCALE_FACTOR = 0.75; // Scale factor for piece size relative to tile size
 const PIECE_OFFSET_Y = 0.008;
 const PIECE_TOP_OFFSET_FACTOR = 0.2; // Relative to tile height
 const OVERLAY_SCALE_FACTOR = 1;
@@ -161,7 +161,7 @@ export default class ThreeJSBoardView implements IBoardView {
 
     private async updateBoard(): Promise<void> {
         if (!this.boardSprite) {
-            const texture = await this.loadTexture('images/board.webp');
+            const texture = await this.loadTexture('images/board-v2.webp');
             texture.colorSpace = THREE.SRGBColorSpace;
             const material = new THREE.SpriteMaterial({map: texture});
             this.boardSprite = new THREE.Sprite(material);

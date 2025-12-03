@@ -1,6 +1,6 @@
 # Frontend Architecture
 
-This document describes the architecture of the Arx game frontend.
+This document describes the architecture of the Keres game frontend.
 
 ## Architecture Overview
 

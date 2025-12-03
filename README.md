@@ -1,12 +1,12 @@
-# Arx Engine
+# Keres Engine
 
-Arx Engine is a Rust implementation of the abstract strategy board game **Arx**, inspired by chess but featuring unique stacking mechanics. This project provides a command-line interface and terminal UI for playing, analyzing, and exporting/importing game states.
+Keres Engine is a Rust implementation of the abstract strategy board game **Keres**, inspired by chess but featuring unique stacking mechanics. This project provides a command-line interface and terminal UI for playing, analyzing, and exporting/importing game states.
 
 ## Game Overview
-Arx is played on a 9x9 board. Players control unique pieces, each with specific movement rules. Unlike chess, friendly pieces can be stacked to combine their movement abilities, creating new tactical possibilities. For a full description of the rules and piece movements, see [rules.md](./rules.md).
+Keres is played on a 9x9 board. Players control unique pieces, each with specific movement rules. Unlike chess, friendly pieces can be stacked to combine their movement abilities, creating new tactical possibilities. For a full description of the rules and piece movements, see [rules.md](./rules.md).
 
 ## Features
-- Play Arx in the terminal
+- Play Keres in the terminal
 - Export and import board states using base64 encoding
 - Display possible moves for any position
 - Visualize the board with colored pieces and stacks
@@ -54,7 +54,7 @@ For detailed GPU setup and troubleshooting, see the [Engine Documentation](src/e
 ## Command Line Options
 The CLI supports several subcommands:
 
-- `play` : Launches the interactive terminal UI for playing Arx. (default command)
+- `play` : Launches the interactive terminal UI for playing Keres. (default command)
 - `export` : Prints the current board state as a base64 string.
 - `import <data>` : Loads a board state from a base64 string.
 - `show-moves [coordinates]` : Displays possible moves for a given position (e.g., `E2`).

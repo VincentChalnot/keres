@@ -4,7 +4,7 @@
 set -e
 
 echo "======================================"
-echo "Arx Engine Performance Test"
+echo "Keres Engine Performance Test"
 echo "======================================"
 echo ""
 

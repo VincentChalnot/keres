@@ -6,7 +6,7 @@ import {GameController} from './controllers/GameController';
 /**
  * Main application entry point
  */
-class ArxGame {
+class KeresGame {
     private gameState: GameState;
     private api!: GameAPI;
     private view!: ThreeJSBoardView;
@@ -244,5 +244,5 @@ class ArxGame {
 }
 
 // Initialize the game when DOM is ready
-const game = new ArxGame();
+const game = new KeresGame();
 game.initialize();

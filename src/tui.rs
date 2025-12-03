@@ -318,7 +318,7 @@ fn ui(f: &mut Frame, app: &App) {
     };
 
     let title_paragraph = Paragraph::new(title)
-        .block(Block::default().borders(Borders::ALL).title("Arx Game"))
+        .block(Block::default().borders(Borders::ALL).title("Keres Game"))
         .alignment(Alignment::Center);
     f.render_widget(title_paragraph, chunks[0]);
 

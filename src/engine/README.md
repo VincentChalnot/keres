@@ -1,6 +1,6 @@
-# Arx Engine - MCTS GPU Engine
+# Keres Engine - MCTS GPU Engine
 
-This module provides a GPU-accelerated Monte Carlo Tree Search (MCTS) engine for evaluating Arx board positions and
+This module provides a GPU-accelerated Monte Carlo Tree Search (MCTS) engine for evaluating Keres board positions and
 finding the best moves.
 
 ## Architecture
@@ -29,7 +29,7 @@ position in parallel. Each square of the 9x9 board is processed by a separate th
 Key features:
 
 - Parallel processing of all board squares
-- Full implementation of Arx movement rules in WGSL shader
+- Full implementation of Keres movement rules in WGSL shader
 - Returns encoded moves (16-bit format) that can be used by the MCTS engine
 
 ### 2. GPU Batch Simulation (`gpu_batch_sim.rs`)
@@ -83,7 +83,7 @@ The engine uses the following piece values for evaluation:
 ### Basic Usage
 
 ```rust
-use arx_engine::engine::{MctsEngine, EngineConfig};
+use keres_engine::engine::{MctsEngine, EngineConfig};
 
 // Create engine with default configuration
 let mut engine = MctsEngine::new()?;
@@ -100,14 +100,14 @@ println!("Moves evaluated: {}", stats.total_moves_evaluated);
 println!("Simulations run: {}", stats.simulations_run);
 
 // Apply the move to the game
-let mv = arx_engine::game::Move::from_u16(best_move);
+let mv = keres_engine::game::Move::from_u16(best_move);
 game.apply_move(mv)?;
 ```
 
 ### Custom Configuration
 
 ```rust
-use arx_engine::engine::{MctsEngine, EngineConfig};
+use keres_engine::engine::{MctsEngine, EngineConfig};
 
 // Configure engine strength and GPU usage
 let config = EngineConfig {

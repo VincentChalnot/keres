@@ -1,8 +1,8 @@
-//! Minimax Engine with Alpha-Beta Pruning for Arx
+//! Minimax Engine with Alpha-Beta Pruning for Keres
 //!
 //! This module provides a classical minimax search algorithm with alpha-beta pruning
 //! for evaluating board positions and finding optimal moves. The engine uses a
-//! sophisticated multi-criteria evaluation function tailored for Arx.
+//! sophisticated multi-criteria evaluation function tailored for Keres.
 //!
 //! # Features
 //!
@@ -17,8 +17,8 @@
 //! # Example
 //!
 //! ```no_run
-//! use arx_engine::engine::{MinimaxEngine, MinimaxConfig};
-//! use arx_engine::{Game, Board};
+//! use keres_engine::engine::{MinimaxEngine, MinimaxConfig};
+//! use keres_engine::{Game, Board};
 //!
 //! // Create engine with custom configuration
 //! let config = MinimaxConfig {

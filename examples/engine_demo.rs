@@ -1,10 +1,10 @@
-use arx_engine::{
+use keres_engine::{
     engine::{EngineConfig, MctsEngine},
     Game,
 };
 
 fn main() {
-    println!("Arx Engine - MCTS GPU Engine Example");
+    println!("Keres Engine - MCTS GPU Engine Example");
     println!("=====================================\n");
 
     // Create a new game
@@ -12,16 +12,11 @@ fn main() {
 
     // For this example, we'll use Easy difficulty with GPU acceleration
     let config = EngineConfig {
-        max_depth: 16,
-        simulations_per_move: 100000,
-        exploration_constant: 1.414,
         gpu_batch_size: 4096,
         use_gpu_simulation: true,
     };
 
     println!("Creating MCTS engine with following difficulty...");
-    println!("  Max depth: {}", config.max_depth);
-    println!("  Simulations per move: {}", config.simulations_per_move);
     println!("  GPU batch size: {}", config.gpu_batch_size);
     println!("  GPU simulation: {}", config.use_gpu_simulation);
 

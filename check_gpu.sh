@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# GPU Diagnostic Script for Arx Engine
+# GPU Diagnostic Script for Keres Engine
 # This script helps diagnose GPU availability issues, especially in containers
 
 echo "================================"
-echo "Arx Engine GPU Diagnostic Tool"
+echo "Keres Engine GPU Diagnostic Tool"
 echo "================================"
 echo ""
 
@@ -64,16 +64,16 @@ echo "WGPU_BACKEND: ${WGPU_BACKEND:-not set (will try all backends)}"
 echo "VK_ICD_FILENAMES: ${VK_ICD_FILENAMES:-not set}"
 echo ""
 
-# Test with Arx Engine
-echo "--- Testing Arx Engine GPU Detection ---"
-if [ -f "./target/debug/arx" ] || [ -f "./target/release/arx" ]; then
-    binary=$([ -f "./target/release/arx" ] && echo "./target/release/arx" || echo "./target/debug/arx")
+# Test with Keres Engine
+echo "--- Testing Keres Engine GPU Detection ---"
+if [ -f "./target/debug/keres" ] || [ -f "./target/release/keres" ]; then
+    binary=$([ -f "./target/release/keres" ] && echo "./target/release/keres" || echo "./target/debug/keres")
     echo "Running cargo test to check GPU detection..."
     echo "(This will show GPU initialization logs)"
     echo ""
     cargo test --lib test_gpu_context_creation -- --nocapture 2>&1 | grep -E "(Initializing|Found|Selected|adapters|GPU|Failed|ERROR)" | head -20
 else
-    echo "⚠ Arx binary not found. Run 'cargo build' first."
+    echo "⚠ Keres binary not found. Run 'cargo build' first."
 fi
 echo ""
 

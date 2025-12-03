@@ -1,7 +1,7 @@
 # Security Summary - Minimax AI Engine Implementation
 
 ## Overview
-This document provides a security analysis of the Minimax AI engine implementation added to the Arx game engine.
+This document provides a security analysis of the Minimax AI engine implementation added to the Keres game engine.
 
 ## Security Review Results
 
