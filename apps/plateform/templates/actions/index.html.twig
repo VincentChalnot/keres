@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+{% set background = '#262a2d' %}
+{% set accent = 'rgb(225 158 91)' %}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keres – The Art of Vertical Strategy</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="icon" type="image/png" href="{{ asset('/favicon-96x96.png') }}" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="{{ asset('/favicon.svg') }}" />
+    <link rel="shortcut icon" href="{{ asset('/favicon.ico') }}" />
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('/apple-touch-icon.png') }}" />
+    <meta name="apple-mobile-web-app-title" content="Keres" />
+    <link rel="manifest" href="{{ asset('/site.webmanifest') }}" />
+    <style>
+        @font-face {
+            font-family: 'Carolingia';
+            src: url('/fonts/carolingia.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        @font-face {
+            font-family: 'RomanSerif';
+            src: url('/fonts/RomanSerif.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        .bg-dark {
+            background-color: {{ background }};
+        }
+        .border-dark {
+            border-color: {{ background }};
+        }
+        .text-dark {
+            color: {{ background }};
+        }
+        .hover\:text-dark:hover {
+            color: {{ background }};
+        }
+
+        .bg-accent {
+            background-color: {{ accent }};
+        }
+        .hover\:bg-accent:hover {
+            background-color: {{ accent }};
+        }
+        .border-accent {
+            border-color: {{ accent }};
+        }
+        .text-accent {
+            color: {{ accent }};
+        }
+        .hover\:text-accent:hover {
+            color: {{ accent }};
+        }
+
+        .bg-blur {
+            backdrop-filter: blur(5px);
+        }
+
+        body {
+            color: #f3f4f6;
+            font-family: 'Inter', 'Roboto', sans-serif;
+        }
+
+        h1 {
+            text-shadow: -2px 2px 10px #0a0a0a;
+        }
+
+        .font-carolingia {
+            font-family: 'Carolingia', serif;
+            letter-spacing: 0.05em;
+        }
+        .font-roman-serif {
+            font-family: 'RomanSerif', serif;
+            letter-spacing: 0.03em;
+        }
+    </style>
+</head>
+<body class="bg-dark text-gray-100">
+<!-- Hero Section -->
+<header class="relative h-screen flex items-center justify-center">
+    <div class="absolute inset-0">
+        <img src="{{ asset('/images/landing-dark.webp') }}" alt="Keres Board" class="w-full h-full object-cover"/>
+    </div>
+    <div class="relative z-10 flex flex-col items-center text-center">
+        <h1 class="font-carolingia text-7xl md:text-9xl text-white m-10">KERES</h1>
+        <p class="text-xl md:text-2xl text-gray-200 mb-8">The art of abstract play in its purest form</p>
+        <a href="#"
+           class="px-8 py-3 border border-white text-white rounded-full bg-transparent hover:bg-white hover:text-dark transition font-semibold text-lg shadow-lg bg-blur">Play
+            for Free</a>
+        <p class="mt-8 max-w-2xl text-gray-300 text-lg">
+            Keres draws from classic strategy games and enriches them with an elegant stacking mechanic.
+            This innovation opens new tactical territory to explore, where every game challenges your intelligence
+            rather than your memory. Fresh playing ground, deep decisions, renewed freedom.
+        </p>
+    </div>
+</header>
+
+<!-- Concept Section -->
+<section class="py-20">
+    <div class="container mx-auto px-6 flex flex-col md:flex-row items-center gap-12">
+        <div class="md:w-1/2">
+            <h2 class="text-3xl md:text-4xl font-roman-serif text-white mb-6">Pure tactics, total freedom</h2>
+            <p class="text-lg text-gray-300 mb-4">A two-player duel, no randomness, no hidden information.
+                Keres gives you a tactical space where stacking your pieces amplifies their movement, while separating
+                them multiplies your threats. No fixed meta, no optimal build. Just you, your opponent, and the
+                satisfaction of seeing your strategies come to life on the board.</p>
+            <ul class="list-disc pl-5 text-gray-400">
+                <li>Zero randomness, complete information</li>
+                <li>Your style, your strategies</li>
+                <li>Games last 30 to 50 minutes</li>
+            </ul>
+        </div>
+        <div class="md:w-1/2 flex justify-center">
+            <div class="w-72 h-72 bg-gray-800 rounded-xl flex items-center justify-center shadow-lg">
+                <!-- Replace src with actual gameplay GIF when available -->
+                <img src="{{ asset('/images/gameplay-preview.webp') }}" alt="Gameplay Preview"
+                     class="w-full h-full object-cover rounded-xl"/>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Author/Vision Section -->
+<section class="bg-[#232629] py-16">
+    <div class="container mx-auto px-6 flex flex-col md:flex-row items-center gap-10">
+        <div class="flex justify-center md:w-1/4 mb-6 md:mb-0">
+            <div class="w-32 h-32 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden shadow-lg">
+                <img src="{{ asset('/images/avatar.webp') }}" alt="Author Avatar"
+                     class="w-full h-full object-cover rounded-full"/>
+            </div>
+        </div>
+        <div class="md:w-3/4">
+            <h3 class="text-2xl font-roman-serif text-white mb-2">Vincent Chalnot
+                - Web Developer & Indie Game Designer</h3>
+            <p class="text-gray-300 text-lg mt-3">
+                A lover of abstract strategy games (Go, Shogi, chess), I created Keres to
+                recapture what fascinates me: simple rules, infinite depth. As a perfectionist developer and maker, I
+                designed every aspect of the project — from game engine to web platform, from engraved pieces to
+                interface design.
+            </p>
+            <p class="text-gray-300 text-lg mt-3">
+                <b>My ambition:</b> build a community around Keres, organize tournaments, and deliver a premium experience
+                that honors the classics while opening new territory. Keres is designed to be played online first,
+                because that's where we actually find time to play.</p>
+        </div>
+    </div>
+</section>
+
+<!-- Pre-order Section -->
+<section class="py-16">
+    <div class="container mx-auto px-6 flex flex-col md:flex-row items-center gap-10">
+        <div class="md:w-1/2 flex justify-center mb-8 md:mb-0">
+            <div class="w-64 h-64 bg-gray-800 rounded-xl flex items-center justify-center shadow-lg">
+                <!-- Replace src with actual box image when available -->
+                <img src="{{ asset('/images/board-preview-sm.webp') }}" alt="Keres Box" class="w-full h-full object-cover rounded-xl"/>
+            </div>
+        </div>
+        <div class="md:w-1/2 text-center md:text-left">
+            <h4 class="text-2xl font-roman-serif text-white mb-4">Collector's Edition</h4>
+            <p class="text-lg text-gray-300 mb-2">Pre-order the physical edition and own a piece of strategy
+                history.</p>
+            <div class="text-3xl font-bold text-white mb-4">45€</div>
+            <a href="#"
+               class="px-8 py-3 border border-400 border-accent text-400 text-accent rounded-full bg-transparent hover:bg-accent hover:text-dark transition font-semibold text-lg shadow-lg">Pre-order
+                Collector's Edition</a>
+        </div>
+    </div>
+</section>
+
+<!-- Newsletter Section -->
+<section class="bg-[#232629] py-12">
+    <div class="container mx-auto px-6 max-w-xl">
+        <h5 class="text-xl font-roman-serif text-white mb-4 text-center">Stay Updated</h5>
+        <form class="flex flex-col sm:flex-row gap-4 mb-2">
+            <label for="newsletter" class="sr-only">Email address</label>
+            <input type="email" id="newsletter" placeholder="Your email address"
+                   class="flex-1 px-4 py-3 rounded-lg bg-gray-800 text-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                   required/>
+            <button type="submit"
+                    class="px-6 py-3 rounded-lg bg-400 bg-accent text-dark font-semibold hover:bg-accent transition">
+                Subscribe
+            </button>
+        </form>
+        <p class="text-xs text-gray-400 text-center">We respect your privacy. Your email will only be used for Keres
+            updates. Unsubscribe anytime.</p>
+    </div>
+</section>
+
+<!-- Footer -->
+<footer class="bg-dark py-8">
+    <div class="container mx-auto px-6 flex flex-col md:flex-row items-center justify-between text-gray-400 text-sm">
+        <div class="mb-4 md:mb-0">&copy; Keres 2025</div>
+        <div class="flex gap-6">
+            <a href="#" class="hover:text-white transition">Legal Notice</a>
+            <a href="#" class="hover:text-white transition">Terms of Sales</a>
+            <a href="#" class="hover:text-white transition">Contact</a>
+        </div>
+    </div>
+</footer>
+</body>
+</html>

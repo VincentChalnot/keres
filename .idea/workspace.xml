@@ -1,0 +1,398 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="ALL" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="e677cc10-da9b-4d42-bdc5-9b87d9746894" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.env" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/keres.iml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/ARCHITECTURE.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/index.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/package-lock.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/package.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/android-chrome-192x192.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/android-chrome-512x512.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/apple-touch-icon.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/config.json.example" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/favicon-16x16.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/favicon-32x32.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/favicon.ico" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/fonts/carolingia.ttf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/ballista-red-reversed.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/ballista-red.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/ballista-white.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/board-v2.webp" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/commander-red-reversed.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/commander-red.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/commander-white-reversed.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/commander-white.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/dragon-red-reversed.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/dragon-red.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/dragon-white-reversed.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/dragon-white.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/guard-red-reversed.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/guard-red.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/guard-white-reversed.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/guard-white.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/jester-red-reversed.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/jester-red.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/jester-white-reversed.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/jester-white.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/king-red-reversed.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/king-red.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/king-white-reversed.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/king-white.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/landing.webp" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/paladin-red-reversed.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/paladin-red.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/paladin-white-reversed.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/shadow.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/soldier-red-reversed.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/soldier-red.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/soldier-white-reversed.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/images/soldier-white.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/landing.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/models/Arx-Batch-Wood-Red.glb" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/models/Arx-Batch-Wood-White.glb" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/models/Board.glb" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/public/site.webmanifest" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/src/app.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/src/controllers/GameController.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/src/models/GameState.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/src/models/types.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/src/network/GameAPI.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/src/utils/boardUtils.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/src/views/IBoardView.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/src/views/ThreeJSBoardView.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/tsconfig.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/client/vite.config.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/.idea/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/.idea/arx-engine.iml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/.idea/copilot.data.migration.agent.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/.idea/copilot.data.migration.ask.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/.idea/copilot.data.migration.ask2agent.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/.idea/copilot.data.migration.edit.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/.idea/dataSources.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/.idea/data_source_mapping.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/.idea/dictionaries/project.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/.idea/modules.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/Cargo.lock" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/Cargo.toml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/Dockerfile" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/examples/analyze_king_safety.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/examples/analyze_moves.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/examples/analyze_response.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/examples/check_g9_moves.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/examples/compare_positions.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/examples/debug_capture.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/examples/engine_demo.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/examples/test_capture.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/examples/test_capture2.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/examples/test_king_capture.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/examples/test_no_tt.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/src/board.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/src/cli_rendering.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/src/debug.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/src/engine/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/src/engine/gpu_batch_sim.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/src/engine/gpu_context.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/src/engine/gpu_move_gen.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/src/engine/minimax.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/src/engine/mod.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/src/engine/shaders/batch_simulation.wgsl" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/src/engine/shaders/move_generation.wgsl" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/src/game.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/src/lib.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/src/main.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/src/server.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/engine/src/tui.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/.dockerignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/.editorconfig" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/.env" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/.env.dev" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/.gitattributes" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/.github/workflows/ci.yml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/.idea/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/.idea/codeStyles/codeStyleConfig.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/.idea/commandlinetools/Symfony_12_9_25__4_03PM.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/.idea/commandlinetools/schemas/frameworkDescriptionVersion1.1.4.xsd" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/.idea/dataSources.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/.idea/jsLibraryMappings.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/.idea/modules.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/.idea/php-docker-settings.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/.idea/php.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/.idea/symfony2.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/Dockerfile" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/LICENSE" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/assets/app.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/assets/styles/app.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/bin/console" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/compose.override.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/compose.prod.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/compose.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/composer.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/composer.lock" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/config/bundles.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/config/packages/asset_mapper.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/config/packages/cache.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/config/packages/framework.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/config/packages/routing.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/config/packages/symfonycasts_tailwind.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/config/packages/templating.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/config/packages/twig.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/config/preload.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/config/routes.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/config/routes/framework.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/config/services.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/docs/alpine.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/docs/digitalocean-dns.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/docs/digitalocean-droplet.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/docs/existing-project.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/docs/extra-services.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/docs/mysql.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/docs/options.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/docs/production.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/docs/tls.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/docs/troubleshooting.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/docs/updating.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/docs/xdebug.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/frankenphp/Caddyfile" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/frankenphp/conf.d/10-app.ini" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/frankenphp/conf.d/20-app.dev.ini" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/frankenphp/conf.d/20-app.prod.ini" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/frankenphp/docker-entrypoint.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/importmap.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/apple-touch-icon.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/favicon-96x96.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/favicon.ico" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/favicon.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/fonts/RomanSerif.ttf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/fonts/carolingia.ttf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/images/IMG_5308.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/images/avatar.webp" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/images/board-art-01.webp" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/images/board-art-02.webp" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/images/board-art-03.webp" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/images/board-art-04.webp" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/images/board-art-05.webp" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/images/board-preview-sm.webp" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/images/board-preview.webp" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/images/full-board.webp" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/images/gameplay-preview.webp" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/images/landing-dark.webp" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/images/landing.webp" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/index.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/landing.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/site.webmanifest" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/web-app-manifest-192x192.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/public/web-app-manifest-512x512.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/src/Action/IndexAction.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/src/Action/NewGameAction.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/src/Action/PlayAction.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/src/Exception/OutOfBoundPositionException.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/src/Kernel.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/symfony.lock" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/templates/actions/index.html.twig" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/apps/plateform/templates/base.html.twig" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/MINIMAX_IMPLEMENTATION.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/MINIMAX_SECURITY.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/OPTIMIZATION_SUMMARY.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/SECURITY_SUMMARY.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/TODO.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/encoding.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/rules.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/server.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/infrastructure/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/infrastructure/compose.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/arx-engine.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dictionaries/project.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/jsLibraryMappings.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.vscode/settings.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Dockerfile" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Dockerfile.gpu" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MINIMAX_IMPLEMENTATION.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MINIMAX_SECURITY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/OPTIMIZATION_SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/SECURITY_SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/TODO.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/check_gpu.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/.vite/deps/_metadata.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/.vite/deps/package.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/ARCHITECTURE.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/index.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/package-lock.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/package.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/android-chrome-192x192.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/android-chrome-512x512.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/apple-touch-icon.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/config.json.example" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/favicon-16x16.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/favicon-32x32.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/favicon.ico" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/fonts/carolingia.ttf" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/ballista-red-reversed.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/ballista-red.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/ballista-white-reversed.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/ballista-white.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/board-v2.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/board.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/commander-red-reversed.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/commander-red.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/commander-white-reversed.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/commander-white.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/dragon-red-reversed.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/dragon-red.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/dragon-white-reversed.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/dragon-white.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/guard-red-reversed.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/guard-red.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/guard-white-reversed.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/guard-white.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/jester-red-reversed.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/jester-red.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/jester-white-reversed.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/jester-white.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/king-red-reversed.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/king-red.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/king-white-reversed.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/king-white.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/landing.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/paladin-red-reversed.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/paladin-red.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/paladin-white-reversed.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/paladin-white.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/shadow.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/soldier-red-reversed.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/soldier-red.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/soldier-white-reversed.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/images/soldier-white.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/landing.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/public/site.webmanifest" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/app.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/controllers/GameController.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/models/GameState.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/models/types.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/network/GameAPI.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/utils/boardUtils.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/views/IBoardView.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/views/ThreeJSBoardView.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/tsconfig.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/vite.config.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/compose.gpu-nvidia.yaml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/compose.yaml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/encoding.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/analyze_king_safety.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/analyze_moves.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/analyze_response.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/check_g9_moves.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/compare_positions.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/debug_capture.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/engine_demo.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/test_capture.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/test_capture2.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/test_king_capture.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/test_no_tt.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/test_weights.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/rules.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/server.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/board.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/cli_rendering.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/debug.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engine/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engine/gpu_batch_sim.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engine/gpu_context.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engine/gpu_move_gen.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engine/minimax.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engine/mod.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engine/shaders/batch_simulation.wgsl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/engine/shaders/move_generation.wgsl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/game.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/lib.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/server.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/tui.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/test_performance.sh" beforeDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ChangesViewManager">
+    <option name="groupingKeys">
+      <option value="directory" />
+      <option value="repository" />
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "VincentChalnot"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "git@github.com:VincentChalnot/keres.git",
+    "accountId": "2c27b40d-ae42-403a-941c-49ddc496dc7a"
+  }
+}]]></component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="4lapmnYF" />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "customColor": "",
+  "associatedIndex": 8
+}]]></component>
+  <component name="ProjectId" id="36kQjdZ0x2J0Ckl5p0bRHPnBypp" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.rust.reset.selective.auto.import": "true",
+    "git-widget-placeholder": "main",
+    "nodejs_package_manager_path": "npm",
+    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
+    "org.rust.first.attach.projects": "true",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="RustProjectSettings">
+    <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="e677cc10-da9b-4d42-bdc5-9b87d9746894" name="Changes" comment="" />
+      <created>1765548229215</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1765548229215</updated>
+      <workItem from="1765548231436" duration="32000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>

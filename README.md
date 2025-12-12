@@ -37,16 +37,10 @@ The engine uses GPU acceleration for move generation and MCTS simulations. For o
 WGPU_BACKEND=VULKAN cargo run --release
 ```
 
-**Docker (AMD/Intel GPU):**
+**Docker:**
 ```sh
 # Run with GPU access
 docker compose up
-```
-
-**Docker (NVIDIA GPU):**
-```sh
-# Requires nvidia-container-toolkit
-docker compose -f compose.yaml -f compose.gpu-nvidia.yaml up
 ```
 
 For detailed GPU setup and troubleshooting, see the [Engine Documentation](src/engine/README.md#gpu-setup-and-troubleshooting).

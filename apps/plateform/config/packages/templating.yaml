@@ -1,0 +1,6 @@
+sidus_template:
+    routes:
+        index:
+            template: 'actions/index.html.twig'
+        play:
+            template: 'base.html.twig'

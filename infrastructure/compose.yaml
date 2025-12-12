@@ -1,0 +1,41 @@
+name: keres
+
+services:
+  frontend:
+    image: node:24-slim
+    working_dir: /app
+    #user: "${UID:-1000}:${GID:-1000}"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../apps/client:/app
+    command: sh -c "npm install && npm run dev"
+    depends_on:
+      - backend
+    environment:
+      - NODE_ENV=development
+
+  backend:
+    build:
+      context: ../apps/engine
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - RUST_LOG=info
+      - XDG_RUNTIME_DIR=/tmp/runtime
+      # Uncomment to force specific GPU backend:
+      # - WGPU_BACKEND=VULKAN
+    # GPU access configuration for AMD/Intel GPUs
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - video
+
+  database:
+    image: postgres:18
+    env_file: .env
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/database:/var/lib/postgresql
