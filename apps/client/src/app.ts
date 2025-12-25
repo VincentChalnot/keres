@@ -1,6 +1,6 @@
 import {GameState} from './models/GameState';
 import {GameAPI} from './network/GameAPI';
-import ThreeJSBoardView from './views/ThreeJSBoardView';
+import SVGBoardView from './views/SVGBoardView';
 import {GameController} from './controllers/GameController';
 
 /**
@@ -9,7 +9,7 @@ import {GameController} from './controllers/GameController';
 class KeresGame {
     private gameState: GameState;
     private api!: GameAPI;
-    private view!: ThreeJSBoardView;
+    private view!: SVGBoardView;
     private controller!: GameController;
 
     // DOM elements
@@ -52,7 +52,7 @@ class KeresGame {
         this.api = new GameAPI(config);
 
         // Initialize view
-        this.view = new ThreeJSBoardView(this.gameState);
+        this.view = new SVGBoardView(this.gameState);
         this.view.initialize(this.boardContainer);
 
         // Initialize controller
