@@ -40,6 +40,12 @@ export default class SVGBoardView implements IBoardView {
     // Cache for overlay rectangles
     private overlayElements: Map<number, SVGRectElement> = new Map();
 
+    // Bound event handler references for proper cleanup
+    private boundHandleClick: ((e: MouseEvent) => void) | null = null;
+    private boundHandleMouseMove: ((e: MouseEvent) => void) | null = null;
+    private boundHandleMouseLeave: (() => void) | null = null;
+    private boundOnResize: (() => void) | null = null;
+
     constructor(gameState: GameState) {
         this.gameState = gameState;
     }
@@ -76,12 +82,17 @@ export default class SVGBoardView implements IBoardView {
         this.createBoard();
         this.createOverlays();
 
-        // Event listeners
-        this.svg.addEventListener('click', (e) => this.handleClick(e));
-        this.svg.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-        this.svg.addEventListener('mouseleave', () => this.handleMouseLeave());
+        // Event listeners - bind and store references for proper cleanup
+        this.boundHandleClick = (e: MouseEvent) => this.handleClick(e);
+        this.boundHandleMouseMove = (e: MouseEvent) => this.handleMouseMove(e);
+        this.boundHandleMouseLeave = () => this.handleMouseLeave();
+        this.boundOnResize = () => this.onResize();
+
+        this.svg.addEventListener('click', this.boundHandleClick);
+        this.svg.addEventListener('mousemove', this.boundHandleMouseMove);
+        this.svg.addEventListener('mouseleave', this.boundHandleMouseLeave);
         
-        window.addEventListener('resize', () => this.onResize());
+        window.addEventListener('resize', this.boundOnResize);
         this.onResize();
     }
 
@@ -212,31 +223,39 @@ export default class SVGBoardView implements IBoardView {
     }
 
     private async createPieceImage(x: number, y: number, svgPath: string, tileIndex: number, isTopPiece: boolean): Promise<void> {
-        // Load the SVG content
-        const response = await fetch(svgPath);
-        const svgText = await response.text();
+        try {
+            // Load the SVG content
+            const response = await fetch(svgPath);
+            if (!response.ok) {
+                console.error(`Failed to load SVG: ${svgPath}, status: ${response.status}`);
+                return;
+            }
+            const svgText = await response.text();
         
-        // Parse the SVG
-        const parser = new DOMParser();
-        const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
-        const svgElement = svgDoc.documentElement;
-        
-        // Create a group to contain the embedded SVG
-        const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        group.setAttribute('transform', `translate(${x}, ${y})`);
-        group.dataset.tileIndex = tileIndex.toString();
-        group.dataset.isTopPiece = isTopPiece.toString();
-        
-        // Set the viewBox and dimensions on the embedded SVG
-        svgElement.setAttribute('width', PIECE_SIZE.toString());
-        svgElement.setAttribute('height', PIECE_SIZE.toString());
-        svgElement.setAttribute('viewBox', '0 0 90 90');
-        
-        // Import the SVG element into our document and add to group
-        const importedSvg = document.importNode(svgElement, true);
-        group.appendChild(importedSvg);
-        
-        this.piecesGroup.appendChild(group);
+            // Parse the SVG
+            const parser = new DOMParser();
+            const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
+            const svgElement = svgDoc.documentElement;
+            
+            // Create a group to contain the embedded SVG
+            const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            group.setAttribute('transform', `translate(${x}, ${y})`);
+            group.dataset.tileIndex = tileIndex.toString();
+            group.dataset.isTopPiece = isTopPiece.toString();
+            
+            // Set the viewBox and dimensions on the embedded SVG
+            svgElement.setAttribute('width', PIECE_SIZE.toString());
+            svgElement.setAttribute('height', PIECE_SIZE.toString());
+            svgElement.setAttribute('viewBox', '0 0 90 90');
+            
+            // Import the SVG element into our document and add to group
+            const importedSvg = document.importNode(svgElement, true);
+            group.appendChild(importedSvg);
+            
+            this.piecesGroup.appendChild(group);
+        } catch (error) {
+            console.error(`Error loading piece image from ${svgPath}:`, error);
+        }
     }
 
     private getPiecePath(pieceName: string, color: boolean, reversed: boolean): string {
@@ -362,8 +381,22 @@ export default class SVGBoardView implements IBoardView {
     }
 
     dispose(): void {
-        // Remove event listeners
-        window.removeEventListener('resize', () => this.onResize());
+        // Remove event listeners using stored references
+        if (this.boundOnResize) {
+            window.removeEventListener('resize', this.boundOnResize);
+        }
+        
+        if (this.svg) {
+            if (this.boundHandleClick) {
+                this.svg.removeEventListener('click', this.boundHandleClick);
+            }
+            if (this.boundHandleMouseMove) {
+                this.svg.removeEventListener('mousemove', this.boundHandleMouseMove);
+            }
+            if (this.boundHandleMouseLeave) {
+                this.svg.removeEventListener('mouseleave', this.boundHandleMouseLeave);
+            }
+        }
         
         // Remove SVG element
         if (this.svg && this.svg.parentNode) {
