@@ -20,6 +20,10 @@
             -webkit-tap-highlight-color: rgba(255, 255, 255, 0); /* mobile webkit */
         }
 
+        #board-container {
+            margin: 0 -40px;
+        }
+
         .move-history {
             min-width: 250px;
             flex-shrink: 0;
@@ -34,32 +38,29 @@
     </style>
 </head>
 <body>
-<section class="section">
-    <div class="container">
-        <h1 class="title">Keres</h1>
-        <div class="game-container">
-            <div class="main-container">
-                <div id="board-container"></div>
-                <div id="status">Loading...</div>
-                <div class="buttons mt-4">
-                    <a href="/" class="button is-warning">Reset board</a>
-                    <button class="button is-primary" id="switch-sides-btn">Switch Sides</button>
-                    <button class="button is-info" id="ask-engine-btn">Ask MCTS Engine</button>
-                    <button class="button is-success" id="ask-minimax-btn">Ask Minimax Engine</button>
-                    <button class="button is-link" id="toggle-threats-btn">Hide Threats</button>
-                </div>
+<div class="container">
+    <div class="game-container">
+        <div class="main-container">
+            <div id="board-container"></div>
+            <div id="status">Loading...</div>
+            <div class="buttons mt-4">
+                <a href="/" class="button is-warning">Reset board</a>
+                <button class="button is-primary" id="switch-sides-btn">Switch Sides</button>
+                <button class="button is-info" id="ask-engine-btn">Ask MCTS Engine</button>
+                <button class="button is-success" id="ask-minimax-btn">Ask Minimax Engine</button>
+                <button class="button is-link" id="toggle-threats-btn">Hide Threats</button>
             </div>
-            <div class="move-history">
-                <label class="label" for="move-history">Move History</label>
-                <textarea class="textarea" id="move-history" placeholder=""></textarea>
-                <div class="buttons mt-2">
-                    <button class="button is-info" id="load-game-btn">Load</button>
-                    <button class="button is-warning" id="undo-btn">Undo</button>
-                </div>
+        </div>
+        <div class="move-history">
+            <label class="label" for="move-history">Move History</label>
+            <textarea class="textarea" id="move-history" placeholder=""></textarea>
+            <div class="buttons mt-2">
+                <button class="button is-info" id="load-game-btn">Load</button>
+                <button class="button is-warning" id="undo-btn">Undo</button>
             </div>
         </div>
     </div>
-</section>
+</div>
 
 <div class="modal" id="unstack-modal">
     <div class="modal-background"></div>

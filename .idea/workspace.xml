@@ -4,59 +4,11 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e677cc10-da9b-4d42-bdc5-9b87d9746894" name="Changes" comment="Major repo reorganisation, switching to mono-repo for client, engine and plateform">
-      <change afterPath="$PROJECT_DIR$/apps/client/public/models/Arx-Batch-Wood-Red.glb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/apps/client/public/models/Arx-Batch-Wood-White.glb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/apps/client/public/models/Board.glb" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/apps/plateform/src/Action/RulesAction.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/apps/plateform/templates/actions/rules.html.twig" afterDir="false" />
+    <list default="true" id="e677cc10-da9b-4d42-bdc5-9b87d9746894" name="Changes" comment="Working on platform, trying to make the TypeScript code to work inside the Symfony app">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/engine/src/server.rs" beforeDir="false" afterPath="$PROJECT_DIR$/apps/engine/src/server.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/.idea/arx.iml" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/.idea/arx.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/.idea/dictionaries/project.xml" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/.idea/dictionaries/project.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/.idea/php.xml" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/.idea/php.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/app.js" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/assets/app.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/apple-touch-icon.png" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/public/apple-touch-icon.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/favicon-96x96.png" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/public/favicon-96x96.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/favicon.svg" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/public/favicon.svg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/fonts/RomanSerif.ttf" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/public/fonts/RomanSerif.ttf" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/fonts/carolingia.ttf" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/public/fonts/carolingia.ttf" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/images/IMG_5308.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/public/images/IMG_5308.jpg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/images/avatar.webp" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/public/images/avatar.webp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/images/board-art-01.webp" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/public/images/board-art-01.webp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/images/board-art-02.webp" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/public/images/board-art-02.webp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/images/board-art-03.webp" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/public/images/board-art-03.webp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/images/board-art-04.webp" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/public/images/board-art-04.webp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/images/board-art-05.webp" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/public/images/board-art-05.webp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/images/board-preview-sm.webp" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/public/images/board-preview-sm.webp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/images/board-preview.webp" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/public/images/board-preview.webp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/images/full-board.webp" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/public/images/full-board.webp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/images/gameplay-preview.webp" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/public/images/gameplay-preview.webp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/images/landing-dark.webp" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/public/images/landing-dark.webp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/images/landing.webp" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/public/images/landing.webp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/site.webmanifest" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/public/site.webmanifest" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/styles/app.css" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/assets/app.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/typescript/app.ts" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/assets/typescript/board.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/typescript/controllers/GameController.ts" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/assets/typescript/controllers/GameController.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/typescript/models/GameState.ts" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/assets/typescript/models/GameState.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/typescript/network/GameAPI.ts" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/assets/typescript/network/GameAPI.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/typescript/utils/boardUtils.ts" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/assets/typescript/utils/boardUtils.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/typescript/views/ThreeJSBoardView.ts" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/assets/typescript/views/ThreeJSBoardView.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/web-app-manifest-192x192.png" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/public/web-app-manifest-192x192.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/assets/web-app-manifest-512x512.png" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/public/web-app-manifest-512x512.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/compose.override.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/compose.override.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/composer.json" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/composer.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/composer.lock" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/composer.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/config/bundles.php" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/config/bundles.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/config/packages/asset_mapper.yaml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/config/packages/templating.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/config/packages/templating.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/importmap.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/symfony.lock" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/symfony.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/templates/actions/index.html.twig" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/templates/actions/index.html.twig" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/templates/actions/play.html.twig" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/templates/actions/play.html.twig" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/plateform/templates/base.html.twig" beforeDir="false" afterPath="$PROJECT_DIR$/apps/plateform/templates/base.html.twig" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/apps/client/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/apps/client/index.html" afterDir="false" />
     </list>
+    <list id="f9dd0b4c-d0bb-4b1c-a4b7-3766cd8094fd" name="NOCOMMIT" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -69,7 +21,13 @@
     </option>
   </component>
   <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="copilot/enable-cpu-parallelization" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RESET_MODE" value="SOFT" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
   &quot;lastFilter&quot;: {
@@ -102,7 +60,7 @@
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.rust.reset.selective.auto.import": "true",
-    "git-widget-placeholder": "wip",
+    "git-widget-placeholder": "main",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -119,13 +77,14 @@
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
       <changelist id="e677cc10-da9b-4d42-bdc5-9b87d9746894" name="Changes" comment="" />
+      <changelist id="f9dd0b4c-d0bb-4b1c-a4b7-3766cd8094fd" name="NOCOMMIT" comment="" />
       <created>1765548229215</created>
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1765548229215</updated>
       <workItem from="1765548231436" duration="32000" />
       <workItem from="1765548272004" duration="1193000" />
-      <workItem from="1766690124349" duration="138000" />
+      <workItem from="1766690124349" duration="1976000" />
     </task>
     <task id="LOCAL-00001" summary="Major repo reorganisation, switching to mono-repo for client, engine and plateform">
       <option name="closed" value="true" />
@@ -135,7 +94,15 @@
       <option name="project" value="LOCAL" />
       <updated>1765548826485</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="Working on platform, trying to make the TypeScript code to work inside the Symfony app">
+      <option name="closed" value="true" />
+      <created>1766690620873</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1766690620873</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -154,7 +121,8 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Major repo reorganisation, switching to mono-repo for client, engine and plateform" />
-    <option name="LAST_COMMIT_MESSAGE" value="Major repo reorganisation, switching to mono-repo for client, engine and plateform" />
+    <MESSAGE value="Working on platform, trying to make the TypeScript code to work inside the Symfony app" />
+    <option name="LAST_COMMIT_MESSAGE" value="Working on platform, trying to make the TypeScript code to work inside the Symfony app" />
   </component>
   <component name="github-copilot-workspace">
     <instructionFileLocations>
