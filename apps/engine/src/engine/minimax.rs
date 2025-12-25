@@ -263,11 +263,12 @@ impl MinimaxEngine {
                 // Spawn a thread for each move
                 let mut handles = Vec::new();
                 
-                for potential_move in ordered_moves.clone() {
+                for potential_move in &ordered_moves {
                     let config = config.clone();
                     let board_clone = board_clone.clone();
                     let shared_stats = Arc::clone(&shared_stats);
                     let shared_results = Arc::clone(&shared_results);
+                    let potential_move = potential_move.clone();
 
                     let handle = thread::spawn(move || {
                         // Check time limit
@@ -317,25 +318,37 @@ impl MinimaxEngine {
 
                 // Wait for all threads to complete
                 for handle in handles {
-                    let _ = handle.join();
+                    if let Err(e) = handle.join() {
+                        eprintln!("Warning: Worker thread panicked: {:?}", e);
+                    }
                 }
 
                 // Find the best move from parallel evaluation
-                let results = shared_results.lock().unwrap();
-                if let Some((best_parallel_move, best_parallel_score)) =
-                    results.iter().max_by_key(|(_, score)| *score)
                 {
-                    best_move = best_parallel_move.clone();
-                    best_score = *best_parallel_score;
+                    let results = shared_results.lock();
+                    if let Ok(results) = results {
+                        if let Some((best_parallel_move, best_parallel_score)) =
+                            results.iter().max_by_key(|(_, score)| *score)
+                        {
+                            best_move = best_parallel_move.clone();
+                            best_score = *best_parallel_score;
+                        }
+                    } else {
+                        eprintln!("Warning: Failed to lock results mutex");
+                    }
                 }
 
                 // Merge statistics
                 {
-                    let stats = shared_stats.lock().unwrap();
-                    self.stats.positions_evaluated += stats.positions_evaluated;
-                    self.stats.tt_hits += stats.tt_hits;
-                    self.stats.ab_cutoffs += stats.ab_cutoffs;
-                    self.stats.quiescence_nodes += stats.quiescence_nodes;
+                    let stats = shared_stats.lock();
+                    if let Ok(stats) = stats {
+                        self.stats.positions_evaluated += stats.positions_evaluated;
+                        self.stats.tt_hits += stats.tt_hits;
+                        self.stats.ab_cutoffs += stats.ab_cutoffs;
+                        self.stats.quiescence_nodes += stats.quiescence_nodes;
+                    } else {
+                        eprintln!("Warning: Failed to lock stats mutex");
+                    }
                 }
             } else {
                 // Sequential evaluation for earlier depths
