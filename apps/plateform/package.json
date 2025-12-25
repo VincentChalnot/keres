@@ -1,0 +1,13 @@
+{
+    "type": "module",
+    "private": true,
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build"
+    },
+    "devDependencies": {
+        "@vitejs/plugin-basic-ssl": "^2.1.0",
+        "vite": "^6.0",
+        "vite-plugin-symfony": "^8.2"
+    }
+}

@@ -9,6 +9,7 @@
         "php": ">=8.4.7",
         "ext-ctype": "*",
         "ext-iconv": "*",
+        "pentatrion/vite-bundle": "^8.2",
         "runtime/frankenphp-symfony": "^0.2.0",
         "sidus/template-bundle": ">=1",
         "symfony/asset": "7.3.*",
@@ -18,8 +19,7 @@
         "symfony/framework-bundle": "7.3.*",
         "symfony/runtime": "7.3.*",
         "symfony/twig-bundle": "7.3.*",
-        "symfony/yaml": "7.3.*",
-        "symfonycasts/tailwind-bundle": "^0.12.0"
+        "symfony/yaml": "7.3.*"
     },
     "config": {
         "allow-plugins": {
@@ -53,8 +53,7 @@
     "scripts": {
         "auto-scripts": {
             "cache:clear": "symfony-cmd",
-            "assets:install %PUBLIC_DIR%": "symfony-cmd",
-            "importmap:install": "symfony-cmd"
+            "assets:install %PUBLIC_DIR%": "symfony-cmd"
         },
         "post-install-cmd": [
             "@auto-scripts"

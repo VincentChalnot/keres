@@ -21,6 +21,16 @@ services:
       # Ensure that host.docker.internal is correctly defined on Linux
       - host.docker.internal:host-gateway
     tty: true
+    
+  node:
+    image: node:24-alpine
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: [ "sh", "-c", "npm install && npm run dev -- --host" ]
+    ports:
+      - "5173:5173"
 
 ###> symfony/mercure-bundle ###
 ###< symfony/mercure-bundle ###

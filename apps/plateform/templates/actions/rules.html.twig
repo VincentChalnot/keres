@@ -1,0 +1,115 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Rules{% endblock %}
+
+{% block body %}
+    <div class="container">
+        <h2>Règles du Jeu Keres</h2>
+        <p class="intro">Jeu combinatoire abstrait sur plateau 9×9 avec des pièces empilables</p>
+
+        <h3>Objectif du Jeu</h3>
+        <div class="warning">
+            <strong>Victoire :</strong> La partie se termine immédiatement lorsqu'un joueur capture le Roi adverse.
+        </div>
+
+        <h3>Principes de Base</h3>
+        <ul>
+            <li>Le plateau est un damier <strong>9×9</strong></li>
+            <li>À chaque tour, un joueur déplace <strong>une seule pièce ou pile</strong></li>
+            <li>Une pièce capture une pièce ennemie en se déplaçant sur sa case</li>
+            <li><strong>Capturer une pile retire la pile entière</strong></li>
+            <li>Les pièces ne peuvent pas traverser d'autres pièces (sauf le Dragon)</li>
+        </ul>
+
+        <h3>Règles d'Empilement</h3>
+        <p>Les pièces peuvent être empilées pour <strong>fusionner leurs capacités de mouvement</strong>. Une pile se
+            déplace en combinant tous les mouvements possibles des pièces qui la composent.</p>
+
+        <h4>Conditions d'empilement :</h4>
+        <ul>
+            <li>La pièce cible doit être accessible selon le mouvement de la pièce qui se déplace</li>
+            <li>La pièce cible <strong>ne doit pas déjà être empilée</strong></li>
+            <li>Le <strong>Roi ne peut jamais être empilé</strong></li>
+        </ul>
+
+        <div class="special-note">
+            <strong>Séparation :</strong> Une pile peut être séparée en déplaçant uniquement la pièce du dessus selon
+            son propre mouvement.
+        </div>
+
+        <h3>♟️ Les Pièces et Leurs Mouvements</h3>
+
+        <div class="piece-grid">
+            <!-- Ballista -->
+            <div class="piece-card">
+                <div class="piece-name"><i class="piece-icon primary ballista"></i> Baliste (B)</div>
+                <img src="{{ asset('/images/movesets/Ballista.svg') }}" alt="Ballista moves"/>
+                <p class="piece-description">Illimité vers l'avant uniquement<br><strong>→ Promotion en
+                        Commandant</strong></p>
+            </div>
+
+            <!-- Commander -->
+            <div class="piece-card">
+                <div class="piece-name"><i class="piece-icon primary commander"></i> Commandant (C)</div>
+                <img src="{{ asset('/images/movesets/Commander.svg') }}" alt="Commander moves"/>
+                <p class="piece-description">Illimité orthogonalement<br>(comme la Tour aux échecs)</p>
+            </div>
+
+            <!-- Jester -->
+            <div class="piece-card">
+                <div class="piece-name"><i class="piece-icon primary jester"></i> Bouffon (J)</div>
+                <img src="{{ asset('/images/movesets/Jester.svg') }}" alt="Jester moves"/>
+                <p class="piece-description">Illimité en diagonale<br>(comme le Fou aux échecs)</p>
+            </div>
+
+            <!-- King -->
+            <div class="piece-card">
+                <div class="piece-name"><i class="piece-icon primary king"></i> Roi (K)</div>
+                <img src="{{ asset('/images/movesets/King.svg') }}" alt="King moves"/>
+                <p class="piece-description">1 case dans toutes les directions<br><strong>Ne peut pas être
+                        empilé</strong></p>
+            </div>
+
+            <!-- Soldat -->
+            <div class="piece-card">
+                <div class="piece-name"><i class="piece-icon primary soldier"></i> Soldat (S)</div>
+                <img src="{{ asset('/images/movesets/Soldier.svg') }}" alt="Soldier moves"/>
+                <p class="piece-description">1 case en diagonale avant<br><strong>→ Promotion en Paladin</strong></p>
+            </div>
+
+            <!-- Paladin -->
+            <div class="piece-card">
+                <div class="piece-name"><i class="piece-icon primary paladin"></i> Paladin (P)</div>
+                <img src="{{ asset('/images/movesets/Paladin.svg') }}" alt="Paladin moves"/>
+                <p class="piece-description">1 ou 2 cases orthogonalement</p>
+            </div>
+
+            <!-- Guard -->
+            <div class="piece-card">
+                <div class="piece-name"><i class="piece-icon primary guard"></i> Garde (G)</div>
+                <img src="{{ asset('/images/movesets/Guard.svg') }}" alt="Guard moves"/>
+                <p class="piece-description">1 ou 2 cases en diagonale</p>
+            </div>
+
+            <!-- Dragon -->
+            <div class="piece-card">
+                <div class="piece-name"><i class="piece-icon primary dragon"></i> Dragon (D)</div>
+                <img src="{{ asset('/images/movesets/Dragon.svg') }}" alt="Dragon moves"/>
+                <p class="piece-description">Mouvement en L (comme le Cavalier)<br><strong>Peut sauter par-dessus les
+                        pièces</strong></p>
+            </div>
+        </div>
+
+        <h3>⭐ Promotions</h3>
+        <p>Lorsqu'une pièce atteint la dernière ligne opposée, une promotion <strong>obligatoire</strong> s'effectue :
+        </p>
+        <ul>
+            <li><strong>Soldat (S) → Paladin (P)</strong></li>
+            <li><strong>Baliste (B) → Commandant (C)</strong></li>
+        </ul>
+
+        <h3>🎲 Disposition Initiale</h3>
+        <img src="{{ asset('/images/movesets/Start.svg') }}" alt="Start position"/>
+    </div>
+
+{% endblock %}

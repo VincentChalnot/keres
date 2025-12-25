@@ -11,12 +11,11 @@ use Symfony\Component\Routing\Attribute\Route;
 class NewGameAction
 {
     #[Route(
-        path: '/',
+        path: '/play',
         name: 'new_game',
     )]
     public function __(): RedirectResponse
     {
-
-        return new RedirectResponse('/');
+        return new RedirectResponse('/play/'.uniqid());
     }
 }

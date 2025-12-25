@@ -3,4 +3,6 @@ sidus_template:
         index:
             template: 'actions/index.html.twig'
         play:
-            template: 'base.html.twig'
+            template: 'actions/play.html.twig'
+        rules:
+            template: 'actions/rules.html.twig'

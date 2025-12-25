@@ -41,10 +41,10 @@ async fn main() {
 
     // Initialize the Minimax engine
     let minimax_config = MinimaxConfig {
-        max_depth: 6,
+        max_depth: 10,
         use_quiescence: true,
         use_transposition_table: false,
-        time_limit_ms: 4000,
+        time_limit_ms: 30000,
         ..Default::default()
     };
     let minimax_engine = MinimaxEngine::with_config(minimax_config);

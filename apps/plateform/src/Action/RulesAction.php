@@ -7,13 +7,13 @@ use Symfony\Component\HttpKernel\Attribute\AsController;
 use Symfony\Component\Routing\Attribute\Route;
 
 #[AsController]
-class PlayAction
+class RulesAction
 {
     #[Route(
-        path: '/play/{uid}',
-        name: 'play',
+        path: '/rules',
+        name: 'rules',
     )]
-    public function __(string $uid): array
+    public function __(): array
     {
         return [];
     }
