@@ -7,6 +7,7 @@
 //! # Features
 //!
 //! - Minimax search with alpha-beta pruning
+//! - CPU parallelization with explicit thread spawning for root move evaluation
 //! - Configurable search depth (recommended: 4-6 ply)
 //! - Multi-criteria position evaluation
 //! - Move ordering for alpha-beta efficiency
@@ -36,9 +37,9 @@
 //! ```
 
 use rand::Rng;
-use rayon::prelude::*;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::board::{Board, Color, PieceType, Position};
@@ -248,22 +249,30 @@ impl MinimaxEngine {
                 break;
             }
 
-            // For the last iteration (max depth), use parallel evaluation at root
-            if depth == self.config.max_depth && ordered_moves.len() > 1 {
-                // Parallel evaluation of root moves
+            // Use parallel evaluation with explicit threads at root
+            if ordered_moves.len() > 1 {
+                // Parallel evaluation of root moves - spawn a thread for each move
                 let config = self.config.clone();
                 let board_clone = board.clone();
                 let start_time = self.search_start.unwrap();
 
-                // Shared statistics accumulator
+                // Shared statistics accumulator and results
                 let shared_stats = Arc::new(Mutex::new(MinimaxStatistics::default()));
+                let shared_results = Arc::new(Mutex::new(Vec::new()));
 
-                let move_scores: Vec<(PotentialMove, i32)> = ordered_moves
-                    .par_iter()
-                    .filter_map(|potential_move| {
+                // Spawn a thread for each move
+                let mut handles = Vec::new();
+                
+                for potential_move in ordered_moves.clone() {
+                    let config = config.clone();
+                    let board_clone = board_clone.clone();
+                    let shared_stats = Arc::clone(&shared_stats);
+                    let shared_results = Arc::clone(&shared_results);
+
+                    let handle = thread::spawn(move || {
                         // Check time limit
                         if start_time.elapsed() > Duration::from_millis(config.time_limit_ms) {
-                            return None;
+                            return;
                         }
 
                         let unstack = potential_move.force_unstack;
@@ -296,19 +305,28 @@ impl MinimaxEngine {
                                 stats.quiescence_nodes += thread_engine.stats.quiescence_nodes;
                             }
 
-                            Some((potential_move.clone(), score))
-                        } else {
-                            None
+                            // Store result
+                            if let Ok(mut results) = shared_results.lock() {
+                                results.push((potential_move.clone(), score));
+                            }
                         }
-                    })
-                    .collect();
+                    });
+
+                    handles.push(handle);
+                }
+
+                // Wait for all threads to complete
+                for handle in handles {
+                    let _ = handle.join();
+                }
 
                 // Find the best move from parallel evaluation
+                let results = shared_results.lock().unwrap();
                 if let Some((best_parallel_move, best_parallel_score)) =
-                    move_scores.into_iter().max_by_key(|(_, score)| *score)
+                    results.iter().max_by_key(|(_, score)| *score)
                 {
-                    best_move = best_parallel_move;
-                    best_score = best_parallel_score;
+                    best_move = best_parallel_move.clone();
+                    best_score = *best_parallel_score;
                 }
 
                 // Merge statistics
