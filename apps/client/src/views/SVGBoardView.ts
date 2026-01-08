@@ -4,10 +4,14 @@ import {GameState} from '../models/GameState';
 import {decodePiece} from "../utils/boardUtils";
 
 // Constants for the SVG board
-const SQUARE_SIZE = 100; // px
-const BOARD_PIXEL_SIZE = BOARD_SIZE * SQUARE_SIZE; // 900px
+const SQUARE_WIDTH = 100; // px
+const SQUARE_HEIGHT = 80; // px
+const BOARD_WIDTH = BOARD_SIZE * SQUARE_WIDTH; // 900px
+const BOARD_HEIGHT = BOARD_SIZE * SQUARE_HEIGHT; // 800px
 const PIECE_SIZE = 90; // px (centered in 100px square)
-const PIECE_OFFSET = (SQUARE_SIZE - PIECE_SIZE) / 2; // 5px offset to center
+const PIECE_X_OFFSET = (SQUARE_WIDTH - PIECE_SIZE) / 2;
+const PIECE_Y_OFFSET = (SQUARE_HEIGHT - PIECE_SIZE) / 2;
+const STACKED_OFFSET = 23;
 
 // Colors
 const BLACK_SQUARE_COLOR = '#e1c499';
@@ -55,9 +59,7 @@ export default class SVGBoardView implements IBoardView {
 
         // Create SVG element
         this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        this.svg.setAttribute('width', BOARD_PIXEL_SIZE.toString());
-        this.svg.setAttribute('height', BOARD_PIXEL_SIZE.toString());
-        this.svg.setAttribute('viewBox', `0 0 ${BOARD_PIXEL_SIZE} ${BOARD_PIXEL_SIZE}`);
+        this.svg.setAttribute('viewBox', `0 0 ${BOARD_WIDTH} ${BOARD_HEIGHT}`);
         this.svg.style.display = 'block';
         this.svg.style.margin = '0 auto';
         this.svg.style.cursor = 'pointer';
@@ -66,15 +68,15 @@ export default class SVGBoardView implements IBoardView {
         this.boardGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         this.boardGroup.setAttribute('id', 'board-layer');
         
-        this.piecesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        this.piecesGroup.setAttribute('id', 'pieces-layer');
-        
         this.overlaysGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         this.overlaysGroup.setAttribute('id', 'overlays-layer');
 
+        this.piecesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        this.piecesGroup.setAttribute('id', 'pieces-layer');
+
         this.svg.appendChild(this.boardGroup);
-        this.svg.appendChild(this.piecesGroup);
         this.svg.appendChild(this.overlaysGroup);
+        this.svg.appendChild(this.piecesGroup);
 
         container.appendChild(this.svg);
 
@@ -100,8 +102,8 @@ export default class SVGBoardView implements IBoardView {
         // Create checkerboard pattern
         for (let row = 0; row < BOARD_SIZE; row++) {
             for (let col = 0; col < BOARD_SIZE; col++) {
-                const x = col * SQUARE_SIZE;
-                const y = row * SQUARE_SIZE;
+                const x = col * SQUARE_WIDTH;
+                const y = row * SQUARE_HEIGHT;
                 
                 // Determine square color (checkerboard pattern)
                 const isBlackSquare = (row + col) % 2 === 1;
@@ -111,8 +113,8 @@ export default class SVGBoardView implements IBoardView {
                 const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
                 rect.setAttribute('x', x.toString());
                 rect.setAttribute('y', y.toString());
-                rect.setAttribute('width', SQUARE_SIZE.toString());
-                rect.setAttribute('height', SQUARE_SIZE.toString());
+                rect.setAttribute('width', SQUARE_WIDTH.toString());
+                rect.setAttribute('height', SQUARE_HEIGHT.toString());
                 rect.setAttribute('fill', fillColor);
                 rect.setAttribute('stroke', BORDER_COLOR);
                 rect.setAttribute('stroke-width', '1');
@@ -130,8 +132,8 @@ export default class SVGBoardView implements IBoardView {
             const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
             rect.setAttribute('x', x.toString());
             rect.setAttribute('y', y.toString());
-            rect.setAttribute('width', SQUARE_SIZE.toString());
-            rect.setAttribute('height', SQUARE_SIZE.toString());
+            rect.setAttribute('width', SQUARE_WIDTH.toString());
+            rect.setAttribute('height', SQUARE_HEIGHT.toString());
             rect.setAttribute('fill', 'transparent');
             rect.setAttribute('opacity', '0');
             rect.setAttribute('pointer-events', 'all');
@@ -148,8 +150,8 @@ export default class SVGBoardView implements IBoardView {
         const row = Math.floor(actualIndex / BOARD_SIZE);
         
         return {
-            x: col * SQUARE_SIZE,
-            y: row * SQUARE_SIZE
+            x: col * SQUARE_WIDTH,
+            y: row * SQUARE_HEIGHT
         };
     }
 
@@ -206,8 +208,8 @@ export default class SVGBoardView implements IBoardView {
         if (!piece) return;
 
         const {x, y} = this.getTilePosition(index);
-        const pieceX = x + PIECE_OFFSET;
-        const pieceY = y + PIECE_OFFSET;
+        const pieceX = x + PIECE_X_OFFSET;
+        const pieceY = y + PIECE_Y_OFFSET;
 
         // Load bottom piece
         const bottomPath = this.getPiecePath(piece.bottom, piece.color, flipped);
@@ -217,7 +219,7 @@ export default class SVGBoardView implements IBoardView {
         if (piece.top) {
             const topPath = this.getPiecePath(piece.top, piece.color, flipped);
             // Offset the top piece slightly
-            const topOffset = 15; // pixels
+            const topOffset = STACKED_OFFSET; // pixels
             await this.createPieceImage(pieceX, pieceY - topOffset, topPath, index, true);
         }
     }
@@ -353,15 +355,15 @@ export default class SVGBoardView implements IBoardView {
         const y = event.clientY - rect.top;
 
         // Convert from screen coordinates to SVG coordinates
-        const scaleX = BOARD_PIXEL_SIZE / rect.width;
-        const scaleY = BOARD_PIXEL_SIZE / rect.height;
+        const scaleX = BOARD_WIDTH / rect.width;
+        const scaleY = BOARD_HEIGHT / rect.height;
         
         const svgX = x * scaleX;
         const svgY = y * scaleY;
 
         // Calculate which square was clicked
-        const col = Math.floor(svgX / SQUARE_SIZE);
-        const row = Math.floor(svgY / SQUARE_SIZE);
+        const col = Math.floor(svgX / SQUARE_WIDTH);
+        const row = Math.floor(svgY / SQUARE_HEIGHT);
 
         if (col < 0 || col >= BOARD_SIZE || row < 0 || row >= BOARD_SIZE) {
             return null;

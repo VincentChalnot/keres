@@ -107,6 +107,7 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
+    margin-bottom: 2em;
     .btn {
         box-shadow: 1px 1px 12px #000;
     }
@@ -213,13 +214,31 @@ p {
     margin-bottom: 1em;
 }
 
+.float-right {
+    float: right;
+}
+
 section {
     padding: 1em;
     max-width: 900px;
     margin: 0 auto;
     display: flex;
+    gap: 2rem;
     h2, h3, h4, h5, h6 {
         margin-top: 0;
+    }
+    .section-img {
+        min-width: 30%;
+        text-align: center;
+        img {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 1em;
+        }
+        .btn {
+            margin: 1em auto 0;
+        }
     }
 }
 
