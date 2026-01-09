@@ -243,6 +243,10 @@ export default class ThreeJSBoardView implements IBoardView {
                     overlay.material.color.setHex(0xff4444);
                     overlay.material.opacity = 0.5;
                     break;
+                case 'last_move':
+                    overlay.material.color.setHex(0xe89038);
+                    overlay.material.opacity = 0.5;
+                    break;
             }
         }
 
