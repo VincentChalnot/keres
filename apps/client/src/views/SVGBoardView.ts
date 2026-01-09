@@ -311,6 +311,10 @@ export default class SVGBoardView implements IBoardView {
                     color = '#ff4444';
                     opacity = '0.5';
                     break;
+                case 'last_move':
+                    color = '#e89038';
+                    opacity = '0.5';
+                    break;
             }
 
             overlay.setAttribute('fill', color);
