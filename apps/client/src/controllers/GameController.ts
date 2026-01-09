@@ -114,7 +114,8 @@ export class GameController {
         // Update URL hash (set flag to prevent hashchange handler from triggering)
         this.updatingHashProgrammatically = true;
         window.location.hash = encodeBoardToHash(encodeBoardToBinary(newBoard));
-        // Don't clear the flag immediately - wait for next tick to ensure hashchange handler sees it
+        // setTimeout with 0ms ensures hashchange event handler runs before flag is cleared
+        // This is necessary because hashchange events fire asynchronously
         setTimeout(() => {
             this.updatingHashProgrammatically = false;
         }, 0);
@@ -170,7 +171,8 @@ export class GameController {
         // Update URL hash (set flag to prevent hashchange handler from triggering)
         this.updatingHashProgrammatically = true;
         window.location.hash = encodeBoardToHash(encodeBoardToBinary(previousState));
-        // Don't clear the flag immediately - wait for next tick to ensure hashchange handler sees it
+        // setTimeout with 0ms ensures hashchange event handler runs before flag is cleared
+        // This is necessary because hashchange events fire asynchronously
         setTimeout(() => {
             this.updatingHashProgrammatically = false;
         }, 0);
