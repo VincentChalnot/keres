@@ -19,8 +19,9 @@ class KeresGame {
     private moveStackBtn: HTMLButtonElement;
     private moveUnstackBtn: HTMLButtonElement;
     private switchSidesBtn: HTMLButtonElement;
-    private moveHistoryTextarea: HTMLTextAreaElement;
-    private loadGameBtn: HTMLButtonElement;
+    private moveHistoryBody: HTMLTableSectionElement;
+    private prevMoveBtn: HTMLButtonElement;
+    private nextMoveBtn: HTMLButtonElement;
     private undoBtn: HTMLButtonElement;
     private askEngineBtn: HTMLButtonElement;
     private askMinimaxBtn: HTMLButtonElement;
@@ -36,8 +37,9 @@ class KeresGame {
         this.moveStackBtn = document.getElementById('move-stack') as HTMLButtonElement;
         this.moveUnstackBtn = document.getElementById('move-unstack') as HTMLButtonElement;
         this.switchSidesBtn = document.getElementById('switch-sides-btn') as HTMLButtonElement;
-        this.moveHistoryTextarea = document.getElementById('move-history') as HTMLTextAreaElement;
-        this.loadGameBtn = document.getElementById('load-game-btn') as HTMLButtonElement;
+        this.moveHistoryBody = document.getElementById('move-history-body') as HTMLTableSectionElement;
+        this.prevMoveBtn = document.getElementById('prev-move-btn') as HTMLButtonElement;
+        this.nextMoveBtn = document.getElementById('next-move-btn') as HTMLButtonElement;
         this.undoBtn = document.getElementById('undo-btn') as HTMLButtonElement;
         this.askEngineBtn = document.getElementById('ask-engine-btn') as HTMLButtonElement;
         this.askMinimaxBtn = document.getElementById('ask-minimax-btn') as HTMLButtonElement;
@@ -65,6 +67,7 @@ class KeresGame {
         // Update UI
         this.updateStatus();
         this.updateMoveHistoryDisplay();
+        this.updateNavigationButtons();
         this.updateToggleThreatsButton();
     }
 
@@ -82,7 +85,8 @@ class KeresGame {
         this.askEngineBtn.addEventListener('click', () => this.handleAskEngine());
         this.askMinimaxBtn.addEventListener('click', () => this.handleAskMinimax());
         this.undoBtn.addEventListener('click', () => this.handleUndo());
-        this.loadGameBtn.addEventListener('click', () => this.handleLoadGame());
+        this.prevMoveBtn.addEventListener('click', () => this.handlePrevMove());
+        this.nextMoveBtn.addEventListener('click', () => this.handleNextMove());
         this.toggleThreatsBtn.addEventListener('click', () => this.handleToggleThreats());
 
         // Custom event for unstack modal
@@ -94,6 +98,7 @@ class KeresGame {
         window.addEventListener('boardStateChanged', () => {
             this.updateStatus();
             this.updateMoveHistoryDisplay();
+            this.updateNavigationButtons();
         });
     }
 
@@ -105,6 +110,7 @@ class KeresGame {
             await this.controller.playMove(selectedPosition, clickedDestination, fullStack);
             this.updateStatus();
             this.updateMoveHistoryDisplay();
+            this.updateNavigationButtons();
         }
     }
 
@@ -157,38 +163,15 @@ class KeresGame {
         await this.controller.undoMove();
         this.updateStatus();
         this.updateMoveHistoryDisplay();
+        this.updateNavigationButtons();
     }
 
-    private async handleLoadGame(): Promise<void> {
-        const text = this.moveHistoryTextarea.value.trim();
-        if (!text) {
-            alert('Please enter moves to load');
-            return;
-        }
+    private async handlePrevMove(): Promise<void> {
+        await this.controller.previousMove();
+    }
 
-        const lines = text.split('\n');
-        const moves: string[] = [];
-        for (const line of lines) {
-            const parts = line.trim().split(/\s+/);
-            for (const part of parts) {
-                if (part.includes('-')) {
-                    moves.push(part);
-                }
-            }
-        }
-
-        if (moves.length === 0) {
-            alert('No valid moves found');
-            return;
-        }
-
-        try {
-            await this.controller.loadGameFromMoves(moves);
-            this.updateStatus();
-            this.updateMoveHistoryDisplay();
-        } catch (error) {
-            alert((error as Error).message);
-        }
+    private async handleNextMove(): Promise<void> {
+        await this.controller.nextMove();
     }
 
     private handleToggleThreats(): void {
@@ -220,6 +203,14 @@ class KeresGame {
             return;
         }
 
+        // Check if board is locked (viewing history)
+        if (this.controller.isBoardLocked()) {
+            this.statusDiv.innerText = `Viewing history - Navigate to latest move to continue playing`;
+            this.askEngineBtn.disabled = true;
+            this.askMinimaxBtn.disabled = true;
+            return;
+        }
+
         // Normal turn display
         const turn = this.controller.getCurrentTurn();
         this.statusDiv.innerText = `${turn}'s turn to play.`;
@@ -231,15 +222,36 @@ class KeresGame {
 
     private updateMoveHistoryDisplay(): void {
         const history = this.controller.getMoveHistory();
-        let text = '';
+        
+        // Clear the table body
+        this.moveHistoryBody.innerHTML = '';
+        
+        // Build rows with white and black moves
         for (let i = 0; i < history.length; i += 2) {
-            text += history[i];
-            if (i + 1 < history.length) {
-                text += ' ' + history[i + 1];
-            }
-            text += '\n';
+            const row = document.createElement('tr');
+            
+            // Move number
+            const numCell = document.createElement('td');
+            numCell.textContent = `${Math.floor(i / 2) + 1}.`;
+            row.appendChild(numCell);
+            
+            // White move
+            const whiteCell = document.createElement('td');
+            whiteCell.textContent = history[i] || '';
+            row.appendChild(whiteCell);
+            
+            // Black move
+            const blackCell = document.createElement('td');
+            blackCell.textContent = history[i + 1] || '';
+            row.appendChild(blackCell);
+            
+            this.moveHistoryBody.appendChild(row);
         }
-        this.moveHistoryTextarea.value = text;
+    }
+
+    private updateNavigationButtons(): void {
+        this.prevMoveBtn.disabled = !this.controller.canNavigateToPrevious();
+        this.nextMoveBtn.disabled = !this.controller.canNavigateToNext();
     }
 }
 

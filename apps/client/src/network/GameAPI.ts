@@ -134,6 +134,28 @@ export class GameAPI {
     }
 
     /**
+     * Replay a list of moves and get the final board state
+     */
+    async replayMoves(moves: Move[]): Promise<Board> {
+        // Import the encoding function
+        const {encodeMoveListToBinary} = await import('../utils/boardUtils');
+        const binary = encodeMoveListToBinary(moves);
+        
+        const response = await fetch(`${this.config.backendUrl}/replay-moves`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/octet-stream'},
+            body: binary as BodyInit,
+        });
+
+        if (!response.ok) {
+            throw new Error(`Server returned ${response.status}`);
+        }
+
+        const boardBuffer = await response.arrayBuffer();
+        return decodeBoardFromBinary(new Uint8Array(boardBuffer));
+    }
+
+    /**
      * Load configuration
      */
     static async loadConfig(): Promise<Config> {

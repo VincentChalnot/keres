@@ -4,12 +4,12 @@ import {IBoardView, TileHighlight} from '../views/IBoardView';
 import {
     posToAlgebraic,
     algebraicToPos,
-    encodeBoardToHash,
-    decodeBoardFromHash,
+    encodeMoveListToHash,
+    decodeMoveListFromHash,
     decodeBoardFromBinary,
     encodeBoardToBinary
 } from '../utils/boardUtils';
-import {Board} from '../models/types';
+import {Board, Move} from '../models/types';
 
 /**
  * Main game controller - handles game logic and coordinates between model, view, and network
@@ -38,14 +38,12 @@ export class GameController {
      */
     async initialize(): Promise<void> {
         if (window.location.hash) {
-            const boardBinary = decodeBoardFromHash(window.location.hash);
-            if (boardBinary) {
-                const board = decodeBoardFromBinary(boardBinary);
-                this.gameState.setBoard(board);
-                this.gameState.clearMoveHistory();
-                this.gameState.clearGameHistory();
-                this.gameState.setLastMove(null);
+            const moves = decodeMoveListFromHash(window.location.hash);
+            if (moves && moves.length > 0) {
+                // Load from move list
+                await this.loadFromMoveList(moves);
             } else {
+                // Invalid or empty hash, start new game
                 await this.startNewGame();
             }
         } else {
@@ -57,6 +55,78 @@ export class GameController {
     }
 
     /**
+     * Load game from a move list
+     */
+    private async loadFromMoveList(moves: Move[]): Promise<void> {
+        // Start with a new board
+        const initialBoard = await this.api.getNewGame();
+        
+        // Store the move list
+        this.gameState.setMoveList(moves);
+        this.gameState.clearMoveHistory();
+        this.gameState.clearGameHistory();
+        
+        // Replay moves locally
+        const localBoard = new Board(
+            [...initialBoard.cells],
+            initialBoard.whiteToMove,
+            initialBoard.gameOver,
+            initialBoard.whiteWins,
+            initialBoard.draw,
+            initialBoard.movesWithoutCapture
+        );
+        
+        for (const move of moves) {
+            localBoard.applyMoveLocally(move);
+            // Add to move history in algebraic notation
+            const moveNotation = posToAlgebraic(move.from) + '-' + posToAlgebraic(move.to);
+            this.gameState.addMove(moveNotation);
+        }
+        
+        // Set the board from local replay
+        this.gameState.setBoard(localBoard);
+        this.gameState.setCurrentMoveIndex(moves.length - 1);
+        this.gameState.setBoardLocked(false);
+        
+        // Set last move
+        if (moves.length > 0) {
+            const lastMove = moves[moves.length - 1];
+            this.gameState.setLastMove({from: lastMove.from, to: lastMove.to});
+        }
+        
+        // Asynchronously verify with server
+        this.api.replayMoves(moves).then(serverBoard => {
+            // Compare local board with server board
+            const localBinary = encodeBoardToBinary(localBoard);
+            const serverBinary = encodeBoardToBinary(serverBoard);
+            
+            // Check if they match
+            let match = true;
+            if (localBinary.length !== serverBinary.length) {
+                match = false;
+            } else {
+                for (let i = 0; i < localBinary.length; i++) {
+                    if (localBinary[i] !== serverBinary[i]) {
+                        match = false;
+                        break;
+                    }
+                }
+            }
+            
+            if (!match) {
+                console.error("Board state mismatch between client and server!");
+                // Use server board as source of truth
+                this.gameState.setBoard(serverBoard);
+                this.renderBoard();
+            } else {
+                console.log("Board state verified with server ✓");
+            }
+        }).catch(error => {
+            console.error("Failed to verify board state with server:", error);
+        });
+    }
+
+    /**
      * Start a new game
      */
     async startNewGame(): Promise<void> {
@@ -64,7 +134,17 @@ export class GameController {
         this.gameState.setBoard(board);
         this.gameState.clearMoveHistory();
         this.gameState.clearGameHistory();
+        this.gameState.clearMoveList();
+        this.gameState.setCurrentMoveIndex(-1);
+        this.gameState.setBoardLocked(false);
         this.gameState.setLastMove(null);
+        
+        // Clear URL hash
+        this.updatingHashProgrammatically = true;
+        window.location.hash = '';
+        setTimeout(() => {
+            this.updatingHashProgrammatically = false;
+        }, 0);
     }
 
     /**
@@ -86,6 +166,12 @@ export class GameController {
     async playMove(from: number, to: number, unstack = false): Promise<void> {
         const board = this.gameState.getBoard();
         if (!board) return;
+
+        // Don't allow moves if board is locked (viewing history)
+        if (this.gameState.isBoardLocked()) {
+            console.log('Board is locked - navigate to latest move first');
+            return;
+        }
 
         // Check if game is over
         if (board.isGameOver()) {
@@ -111,11 +197,16 @@ export class GameController {
         // Record last move IMMEDIATELY after setting board
         this.gameState.setLastMove({from, to});
 
-        // Update URL hash (set flag to prevent hashchange handler from triggering)
+        // Add move to move list
+        const move: Move = {from, to, unstack};
+        this.gameState.addMoveToList(move);
+        this.gameState.setCurrentMoveIndex(this.gameState.getMoveList().length - 1);
+
+        // Update URL hash with move list (use replaceState to avoid history pollution)
         this.updatingHashProgrammatically = true;
-        window.location.hash = encodeBoardToHash(encodeBoardToBinary(newBoard));
+        const newHash = encodeMoveListToHash(this.gameState.getMoveList());
+        window.history.replaceState(null, '', '#' + newHash);
         // setTimeout with 0ms ensures hashchange event handler runs before flag is cleared
-        // This is necessary because hashchange events fire asynchronously
         setTimeout(() => {
             this.updatingHashProgrammatically = false;
         }, 0);
@@ -158,27 +249,125 @@ export class GameController {
      * Undo last move
      */
     async undoMove(): Promise<void> {
-        const previousState = this.gameState.popGameState();
-        if (!previousState) {
+        const moveList = this.gameState.getMoveList();
+        if (moveList.length === 0) {
             alert('No moves to undo');
             return;
         }
 
-        this.gameState.setBoard(previousState);
+        // Remove the last move from the move list
+        moveList.pop();
+        this.gameState.setMoveList(moveList);
         this.gameState.popMove();
-        this.gameState.setLastMove(null); // Clear last move on undo
 
-        // Update URL hash (set flag to prevent hashchange handler from triggering)
+        // Replay all remaining moves from the start
+        const initialBoard = await this.api.getNewGame();
+        const board = new Board(
+            [...initialBoard.cells],
+            initialBoard.whiteToMove,
+            initialBoard.gameOver,
+            initialBoard.whiteWins,
+            initialBoard.draw,
+            initialBoard.movesWithoutCapture
+        );
+
+        let lastMove = null;
+        for (const move of moveList) {
+            board.applyMoveLocally(move);
+            lastMove = move;
+        }
+
+        this.gameState.setBoard(board);
+        this.gameState.setCurrentMoveIndex(moveList.length - 1);
+        this.gameState.setBoardLocked(false);
+        this.gameState.setLastMove(lastMove ? {from: lastMove.from, to: lastMove.to} : null);
+
+        // Update URL hash (use replaceState)
         this.updatingHashProgrammatically = true;
-        window.location.hash = encodeBoardToHash(encodeBoardToBinary(previousState));
-        // setTimeout with 0ms ensures hashchange event handler runs before flag is cleared
-        // This is necessary because hashchange events fire asynchronously
+        const newHash = moveList.length > 0 ? encodeMoveListToHash(moveList) : '';
+        window.history.replaceState(null, '', newHash ? '#' + newHash : window.location.pathname);
         setTimeout(() => {
             this.updatingHashProgrammatically = false;
         }, 0);
 
+        // Clear game history since we're using move list now
+        this.gameState.clearGameHistory();
         this.gameState.setSelectedPosition(null);
         await this.updatePotentialMoves();
+        await this.renderBoard();
+    }
+
+    /**
+     * Navigate to previous move
+     */
+    async navigateToPreviousMove(): Promise<void> {
+        const currentIndex = this.gameState.getCurrentMoveIndex();
+        if (currentIndex < 0) {
+            return; // Already at start
+        }
+
+        // Replay moves up to the previous position
+        const targetIndex = currentIndex - 1;
+        await this.navigateToMoveIndex(targetIndex);
+    }
+
+    /**
+     * Navigate to next move
+     */
+    async navigateToNextMove(): Promise<void> {
+        const currentIndex = this.gameState.getCurrentMoveIndex();
+        const moveList = this.gameState.getMoveList();
+        
+        if (currentIndex >= moveList.length - 1) {
+            return; // Already at end
+        }
+
+        // Replay moves up to the next position
+        const targetIndex = currentIndex + 1;
+        await this.navigateToMoveIndex(targetIndex);
+    }
+
+    /**
+     * Navigate to a specific move index
+     */
+    private async navigateToMoveIndex(targetIndex: number): Promise<void> {
+        const moveList = this.gameState.getMoveList();
+        
+        // Start with initial board
+        const initialBoard = await this.api.getNewGame();
+        const board = new Board(
+            [...initialBoard.cells],
+            initialBoard.whiteToMove,
+            initialBoard.gameOver,
+            initialBoard.whiteWins,
+            initialBoard.draw,
+            initialBoard.movesWithoutCapture
+        );
+
+        // Replay moves up to targetIndex
+        let lastMove = null;
+        for (let i = 0; i <= targetIndex; i++) {
+            const move = moveList[i];
+            board.applyMoveLocally(move);
+            lastMove = move;
+        }
+
+        this.gameState.setBoard(board);
+        this.gameState.setCurrentMoveIndex(targetIndex);
+        this.gameState.setLastMove(lastMove ? {from: lastMove.from, to: lastMove.to} : null);
+        
+        // Lock board if not at latest move
+        const isAtLatest = targetIndex === moveList.length - 1;
+        this.gameState.setBoardLocked(!isAtLatest);
+
+        this.gameState.setSelectedPosition(null);
+        if (isAtLatest) {
+            await this.updatePotentialMoves();
+        } else {
+            // Clear potential moves when viewing history
+            this.gameState.setPotentialMoves([]);
+            this.gameState.setOpponentThreats([]);
+        }
         await this.renderBoard();
     }
 
@@ -222,6 +411,12 @@ export class GameController {
     private handleTileClick(pos: number): void {
         const board = this.gameState.getBoard();
         if (!board) return;
+
+        // Don't allow clicks if board is locked
+        if (this.gameState.isBoardLocked()) {
+            console.log('Board is locked - navigate to latest move to make moves');
+            return;
+        }
 
         // Check if game is over - don't allow any clicks
         if (board.isGameOver()) {
@@ -368,25 +563,13 @@ export class GameController {
             return;
         }
 
-        // Load board state from the new hash
+        // Load board state from the new hash (now contains move list)
         if (window.location.hash) {
-            const boardBinary = decodeBoardFromHash(window.location.hash);
-            if (boardBinary) {
-                const board = decodeBoardFromBinary(boardBinary);
-                this.gameState.setBoard(board);
-
-                // Clear move history since we're loading a specific board state
-                // without knowing the move sequence that led to it
-                this.gameState.clearMoveHistory();
-                this.gameState.clearGameHistory();
-                this.gameState.setLastMove(null); // Clear last move when loading from hash
-
-                // Clear selection and update the view
-                this.gameState.setSelectedPosition(null);
+            const moves = decodeMoveListFromHash(window.location.hash);
+            if (moves && moves.length > 0) {
+                await this.loadFromMoveList(moves);
                 await this.updatePotentialMoves();
                 await this.renderBoard();
-
-                // Dispatch event to notify UI to update status and move history display
                 window.dispatchEvent(new CustomEvent('boardStateChanged'));
             }
         } else {
@@ -394,8 +577,6 @@ export class GameController {
             await this.startNewGame();
             await this.updatePotentialMoves();
             await this.renderBoard();
-
-            // Dispatch event to notify UI to update
             window.dispatchEvent(new CustomEvent('boardStateChanged'));
         }
     }
@@ -435,5 +616,43 @@ export class GameController {
      */
     isShowThreats(): boolean {
         return this.gameState.isShowThreats();
+    }
+
+    /**
+     * Navigate to previous move in history
+     */
+    async previousMove(): Promise<void> {
+        await this.navigateToPreviousMove();
+        window.dispatchEvent(new CustomEvent('boardStateChanged'));
+    }
+
+    /**
+     * Navigate to next move in history
+     */
+    async nextMove(): Promise<void> {
+        await this.navigateToNextMove();
+        window.dispatchEvent(new CustomEvent('boardStateChanged'));
+    }
+
+    /**
+     * Check if board is locked (viewing history)
+     */
+    isBoardLocked(): boolean {
+        return this.gameState.isBoardLocked();
+    }
+
+    /**
+     * Check if can navigate to previous move
+     */
+    canNavigateToPrevious(): boolean {
+        return this.gameState.getCurrentMoveIndex() >= 0;
+    }
+
+    /**
+     * Check if can navigate to next move
+     */
+    canNavigateToNext(): boolean {
+        const moveList = this.gameState.getMoveList();
+        return this.gameState.getCurrentMoveIndex() < moveList.length - 1;
     }
 }

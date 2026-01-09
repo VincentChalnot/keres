@@ -190,3 +190,59 @@ export function encodeMove(move: Move): number {
     }
     return moveBits;
 }
+
+/**
+ * Encode a list of moves to base64 for URL hash
+ */
+export function encodeMoveListToHash(moves: Move[]): string {
+    const bytes = new Uint8Array(moves.length * 2);
+    for (let i = 0; i < moves.length; i++) {
+        const moveU16 = encodeMove(moves[i]);
+        bytes[i * 2] = moveU16 & 0xFF;
+        bytes[i * 2 + 1] = (moveU16 >> 8) & 0xFF;
+    }
+    return btoa(String.fromCharCode.apply(null, Array.from(bytes)));
+}
+
+/**
+ * Decode a list of moves from base64 URL hash
+ */
+export function decodeMoveListFromHash(hash: string): Move[] | null {
+    try {
+        const base64Moves = hash.substring(1); // Remove '#'
+        const binaryString = atob(base64Moves);
+        const len = binaryString.length;
+        
+        if (len % 2 !== 0) {
+            console.error("Invalid move list: length must be even");
+            return null;
+        }
+        
+        const moves: Move[] = [];
+        for (let i = 0; i < len; i += 2) {
+            const moveU16 = binaryString.charCodeAt(i) | (binaryString.charCodeAt(i + 1) << 8);
+            const from = moveU16 & 0x7F;
+            const to = (moveU16 >> 7) & 0x7F;
+            const unstack = ((moveU16 >> 14) & 0x1) === 1;
+            moves.push({from, to, unstack});
+        }
+        
+        return moves;
+    } catch (e) {
+        console.error("Failed to decode move list from hash", e);
+        return null;
+    }
+}
+
+/**
+ * Encode a list of moves to binary format for API
+ */
+export function encodeMoveListToBinary(moves: Move[]): Uint8Array {
+    const bytes = new Uint8Array(moves.length * 2);
+    for (let i = 0; i < moves.length; i++) {
+        const moveU16 = encodeMove(moves[i]);
+        bytes[i * 2] = moveU16 & 0xFF;
+        bytes[i * 2 + 1] = (moveU16 >> 8) & 0xFF;
+    }
+    return bytes;
+}

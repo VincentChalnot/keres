@@ -1,4 +1,4 @@
-import {Board, PotentialMove} from './types';
+import {Board, Move, PotentialMove} from './types';
 
 /**
  * Game state model
@@ -15,6 +15,9 @@ export class GameState {
     private moveHistory: string[] = [];
     private gameHistory: Board[] = [];
     private lastMove: {from: number, to: number} | null = null;
+    private moveList: Move[] = []; // List of all moves played
+    private currentMoveIndex: number = -1; // -1 means at initial position, 0+ is after that move
+    private boardLocked: boolean = false; // True when viewing history, not at latest move
 
     getBoard(): Board | null {
         return this.board;
@@ -159,5 +162,42 @@ export class GameState {
 
     setLastMove(move: {from: number, to: number} | null): void {
         this.lastMove = move;
+    }
+
+    // Move list management
+    getMoveList(): Move[] {
+        return this.moveList;
+    }
+
+    setMoveList(moves: Move[]): void {
+        this.moveList = moves;
+    }
+
+    addMoveToList(move: Move): void {
+        this.moveList.push(move);
+    }
+
+    clearMoveList(): void {
+        this.moveList = [];
+    }
+
+    getCurrentMoveIndex(): number {
+        return this.currentMoveIndex;
+    }
+
+    setCurrentMoveIndex(index: number): void {
+        this.currentMoveIndex = index;
+    }
+
+    isBoardLocked(): boolean {
+        return this.boardLocked;
+    }
+
+    setBoardLocked(locked: boolean): void {
+        this.boardLocked = locked;
+    }
+
+    isAtLatestMove(): boolean {
+        return this.currentMoveIndex === this.moveList.length - 1;
     }
 }
