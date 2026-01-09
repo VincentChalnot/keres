@@ -64,6 +64,7 @@ async fn main() {
         .route("/new", get(new_game))
         .route("/moves", post(post_moves))
         .route("/play", post(play_move))
+        .route("/replay-moves", post(replay_moves))
         .route("/engine-move", post(engine_move))
         .route("/minimax-move", post(minimax_move))
         .with_state(state)
@@ -113,6 +114,32 @@ async fn play_move(payload: Bytes) -> Result<Vec<u8>, StatusCode> {
     game.apply_move(mv).map_err(|_| StatusCode::BAD_REQUEST)?;
     let new_binary_board = game.to_binary();
     Ok(new_binary_board.to_vec())
+}
+
+async fn replay_moves(payload: Bytes) -> Result<Vec<u8>, StatusCode> {
+    // Payload is a binary list of moves, each move is 2 bytes (u16 little-endian)
+    let move_bytes = payload;
+    
+    // Validate that the payload length is a multiple of 2
+    if move_bytes.len() % 2 != 0 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    
+    // Start with a new game
+    let mut game = Game::new();
+    
+    // Replay each move
+    for i in (0..move_bytes.len()).step_by(2) {
+        let move_u16 = u16::from_le_bytes([move_bytes[i], move_bytes[i + 1]]);
+        let mv = Move::from_u16(move_u16);
+        
+        // Apply the move and return error if it's invalid
+        game.apply_move(mv).map_err(|_| StatusCode::BAD_REQUEST)?;
+    }
+    
+    // Return the final board state
+    let final_board = game.to_binary();
+    Ok(final_board.to_vec())
 }
 
 async fn engine_move(
