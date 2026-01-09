@@ -14,6 +14,7 @@ export class GameState {
     private hoveredPosition: number | null = null;
     private moveHistory: string[] = [];
     private gameHistory: Board[] = [];
+    private lastMove: {from: number, to: number} | null = null;
 
     getBoard(): Board | null {
         return this.board;
@@ -150,5 +151,13 @@ export class GameState {
     getCurrentTurn(): 'White' | 'Red' {
         if (!this.board) return 'White';
         return this.board.getCurrentTurn();
+    }
+
+    getLastMove(): {from: number, to: number} | null {
+        return this.lastMove;
+    }
+
+    setLastMove(move: {from: number, to: number} | null): void {
+        this.lastMove = move;
     }
 }

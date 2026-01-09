@@ -44,6 +44,7 @@ export class GameController {
                 this.gameState.setBoard(board);
                 this.gameState.clearMoveHistory();
                 this.gameState.clearGameHistory();
+                this.gameState.setLastMove(null);
             } else {
                 await this.startNewGame();
             }
@@ -63,6 +64,7 @@ export class GameController {
         this.gameState.setBoard(board);
         this.gameState.clearMoveHistory();
         this.gameState.clearGameHistory();
+        this.gameState.setLastMove(null);
     }
 
     /**
@@ -105,6 +107,9 @@ export class GameController {
         // Play move on server
         const newBoard = await this.api.playMove(board, {from, to, unstack});
         this.gameState.setBoard(newBoard);
+
+        // Record last move
+        this.gameState.setLastMove({from, to});
 
         // Update URL hash (set flag to prevent hashchange handler from triggering)
         this.updatingHashProgrammatically = true;
@@ -157,6 +162,7 @@ export class GameController {
 
         this.gameState.setBoard(previousState);
         this.gameState.popMove();
+        this.gameState.setLastMove(null); // Clear last move on undo
 
         // Update URL hash (set flag to prevent hashchange handler from triggering)
         this.updatingHashProgrammatically = true;
@@ -290,6 +296,13 @@ export class GameController {
         const highlights: TileHighlight[] = [];
         const selectedPosition = this.gameState.getSelectedPosition();
 
+        // Add last move highlights (show these even when a piece is selected)
+        const lastMove = this.gameState.getLastMove();
+        if (lastMove) {
+            highlights.push({position: lastMove.from, type: 'last_move'});
+            highlights.push({position: lastMove.to, type: 'last_move'});
+        }
+
         // Selected piece
         if (selectedPosition != null) {
             highlights.push({position: selectedPosition, type: 'selected'});
@@ -358,6 +371,7 @@ export class GameController {
                 // without knowing the move sequence that led to it
                 this.gameState.clearMoveHistory();
                 this.gameState.clearGameHistory();
+                this.gameState.setLastMove(null); // Clear last move when loading from hash
 
                 // Clear selection and update the view
                 this.gameState.setSelectedPosition(null);
