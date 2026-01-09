@@ -107,14 +107,17 @@ export class GameController {
         // Play move on server
         const newBoard = await this.api.playMove(board, {from, to, unstack});
         this.gameState.setBoard(newBoard);
-
-        // Record last move
+        
+        // Record last move IMMEDIATELY after setting board
         this.gameState.setLastMove({from, to});
 
         // Update URL hash (set flag to prevent hashchange handler from triggering)
         this.updatingHashProgrammatically = true;
         window.location.hash = encodeBoardToHash(encodeBoardToBinary(newBoard));
-        this.updatingHashProgrammatically = false;
+        // Don't clear the flag immediately - wait for next tick to ensure hashchange handler sees it
+        setTimeout(() => {
+            this.updatingHashProgrammatically = false;
+        }, 0);
 
         // Record move in algebraic notation
         const moveNotation = posToAlgebraic(from) + '-' + posToAlgebraic(to);
@@ -167,7 +170,10 @@ export class GameController {
         // Update URL hash (set flag to prevent hashchange handler from triggering)
         this.updatingHashProgrammatically = true;
         window.location.hash = encodeBoardToHash(encodeBoardToBinary(previousState));
-        this.updatingHashProgrammatically = false;
+        // Don't clear the flag immediately - wait for next tick to ensure hashchange handler sees it
+        setTimeout(() => {
+            this.updatingHashProgrammatically = false;
+        }, 0);
 
         this.gameState.setSelectedPosition(null);
         await this.updatePotentialMoves();
