@@ -6,7 +6,6 @@ import {
     algebraicToPos,
     encodeMoveListToHash,
     decodeMoveListFromHash,
-    decodeBoardFromBinary,
     encodeBoardToBinary
 } from '../utils/boardUtils';
 import {Board, Move} from '../models/types';
@@ -221,6 +220,8 @@ export class GameController {
         // Update game state
         await this.updatePotentialMoves();
         await this.renderBoard();
+        // Dispatch event to update move list and status in UI
+        window.dispatchEvent(new CustomEvent('boardStateChanged'));
     }
 
     /**
