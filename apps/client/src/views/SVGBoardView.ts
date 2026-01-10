@@ -18,11 +18,6 @@ const BLACK_SQUARE_COLOR = '#e1c499';
 const WHITE_SQUARE_COLOR = '#f8f0e6';
 const BORDER_COLOR = '#55442d';
 
-// Z-index layers
-const Z_BOARD = 1;
-const Z_PIECES = 10;
-const Z_OVERLAY = 20;
-
 /**
  * SVG-based board renderer
  */
@@ -60,8 +55,6 @@ export default class SVGBoardView implements IBoardView {
         // Create SVG element
         this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         this.svg.setAttribute('viewBox', `0 0 ${BOARD_WIDTH} ${BOARD_HEIGHT}`);
-        this.svg.style.display = 'block';
-        this.svg.style.margin = '0 auto';
         this.svg.style.cursor = 'pointer';
         
         // Create groups for layering
@@ -219,8 +212,7 @@ export default class SVGBoardView implements IBoardView {
         if (piece.top) {
             const topPath = this.getPiecePath(piece.top, piece.color, flipped);
             // Offset the top piece slightly
-            const topOffset = STACKED_OFFSET; // pixels
-            await this.createPieceImage(pieceX, pieceY - topOffset, topPath, index, true);
+            await this.createPieceImage(pieceX, pieceY - STACKED_OFFSET, topPath, index, true);
         }
     }
 

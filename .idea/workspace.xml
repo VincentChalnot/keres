@@ -4,11 +4,12 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e677cc10-da9b-4d42-bdc5-9b87d9746894" name="Changes" comment="Adding SVG for all pieces">
+    <list default="true" id="e677cc10-da9b-4d42-bdc5-9b87d9746894" name="Changes" comment="Add move list endpoint and update game state handling in GameController">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/apps/client/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/apps/client/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/apps/client/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/apps/client/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/apps/client/src/controllers/GameController.ts" beforeDir="false" afterPath="$PROJECT_DIR$/apps/client/src/controllers/GameController.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/apps/client/src/views/SVGBoardView.ts" beforeDir="false" afterPath="$PROJECT_DIR$/apps/client/src/views/SVGBoardView.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/apps/engine/src/server.rs" beforeDir="false" afterPath="$PROJECT_DIR$/apps/engine/src/server.rs" afterDir="false" />
     </list>
     <list id="f9dd0b4c-d0bb-4b1c-a4b7-3766cd8094fd" name="NOCOMMIT" comment="" />
     <option name="SHOW_DIALOG" value="false" />
@@ -25,7 +26,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="copilot/enable-cpu-parallelization" />
+        <entry key="$PROJECT_DIR$" value="copilot/highlight-last-played-move" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -55,25 +56,25 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.rust.reset.selective.auto.import": "true",
-    "git-widget-placeholder": "#41 on copilot/create-svg-rendering-engine",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
-    "org.rust.first.attach.projects": "true",
-    "ts.external.directory.path": "/home/vincent/www/keres/apps/client/node_modules/typescript/lib",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;#43 on copilot/add-move-list-endpoint&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
+    &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;/home/vincent/www/keres/apps/client/node_modules/typescript/lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RustProjectSettings">
     <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
   </component>
@@ -88,6 +89,9 @@
       <workItem from="1765548231436" duration="32000" />
       <workItem from="1765548272004" duration="1193000" />
       <workItem from="1766690124349" duration="1976000" />
+      <workItem from="1767961173610" duration="4953000" />
+      <workItem from="1767998460761" duration="516000" />
+      <workItem from="1768072108712" duration="1461000" />
     </task>
     <task id="LOCAL-00001" summary="Major repo reorganisation, switching to mono-repo for client, engine and plateform">
       <option name="closed" value="true" />
@@ -125,7 +129,8 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Major repo reorganisation, switching to mono-repo for client, engine and plateform" />
     <MESSAGE value="Working on platform, trying to make the TypeScript code to work inside the Symfony app" />
-    <option name="LAST_COMMIT_MESSAGE" value="Working on platform, trying to make the TypeScript code to work inside the Symfony app" />
+    <MESSAGE value="Add move list endpoint and update game state handling in GameController" />
+    <option name="LAST_COMMIT_MESSAGE" value="Add move list endpoint and update game state handling in GameController" />
   </component>
   <component name="github-copilot-workspace">
     <instructionFileLocations>
