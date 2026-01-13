@@ -1,19 +1,25 @@
 import {defineConfig} from "vite";
 import symfonyPlugin from "vite-plugin-symfony";
-import basicSsl from '@vitejs/plugin-basic-ssl';
+import fs from 'fs';
 
 export default defineConfig({
   plugins: [
     symfonyPlugin(),
-    basicSsl(),
   ],
   server: {
-    host: true,
+    host: 'local.playkeres.com',
     port: 5173,
-    https: true,
+    https: {
+      key: fs.readFileSync('/app/frankenphp/certs/privkey.pem'),
+      cert: fs.readFileSync('/app/frankenphp/certs/fullchain.pem'),
+    },
     hmr: {
-      host: 'localhost',
-    }
+      host: 'local.playkeres.com',
+    },
+    cors: {
+      origin: 'https://local.playkeres.com',
+      credentials: true,
+    },
   },
   build: {
     rollupOptions: {
