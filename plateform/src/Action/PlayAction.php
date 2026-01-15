@@ -38,7 +38,8 @@ class PlayAction extends AbstractController
         }
         $movesBase64 = base64_encode($binaryMoves);
 
-        // For now, we'll use empty board data. In the next phase, we'll compute the board state
+        // Board data is computed client-side by replaying moves
+        // This allows the client to use the Rust backend directly for move generation
         $boardBase64 = '';
 
         return $this->render('actions/play.html.twig', [

@@ -14,7 +14,7 @@ final class Version20260115163223 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return '';
+        return 'Create game and move tables for Keres game persistence';
     }
 
     public function up(Schema $schema): void
