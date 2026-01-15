@@ -7,6 +7,7 @@ import {decodeBoardFromBinary, encodeBoardToBinary, decodePotentialMove, encodeM
  */
 export class GameAPI {
     private readonly backendUrl: string;
+    private gameUuid: string | null = null;
 
     constructor() {
         // Set backend URL from current location
@@ -15,6 +16,12 @@ export class GameAPI {
             this.backendUrl += `:${window.location.port}`;
         }
         this.backendUrl += '/api';
+        
+        // Get game UUID from board container data attribute
+        const boardContainer = document.getElementById('board-container');
+        if (boardContainer) {
+            this.gameUuid = boardContainer.getAttribute('data-game-uuid');
+        }
     }
 
     /**
@@ -58,25 +65,30 @@ export class GameAPI {
     }
 
     /**
-     * Play a move and get the new board state
+     * Submit a move to the game and get the new board state
+     * This submits to Symfony which validates and may add an AI response
      */
-    async playMove(board: Board, move: Move): Promise<Board> {
-        const boardBinary = encodeBoardToBinary(board);
+    async submitMove(move: Move): Promise<Board> {
+        if (!this.gameUuid) {
+            throw new Error('No game UUID available');
+        }
+
         const moveU16 = encodeMove(move);
         const moveBuffer = new Uint16Array([moveU16]).buffer;
 
-        const payload = new Uint8Array(boardBinary.length + 2);
-        payload.set(boardBinary, 0);
-        payload.set(new Uint8Array(moveBuffer), boardBinary.length);
-
-        const response = await fetch(`${this.backendUrl}/play`, {
+        const response = await fetch(`/play/${this.gameUuid}/move`, {
             method: 'POST',
             headers: {'Content-Type': 'application/octet-stream'},
-            body: payload as BodyInit,
+            body: moveBuffer as BodyInit,
         });
 
-        const newBoardBuffer = await response.arrayBuffer();
-        return decodeBoardFromBinary(new Uint8Array(newBoardBuffer));
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to submit move: ${errorText}`);
+        }
+
+        const boardBuffer = await response.arrayBuffer();
+        return decodeBoardFromBinary(new Uint8Array(boardBuffer));
     }
 
     /**

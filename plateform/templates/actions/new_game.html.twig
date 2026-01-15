@@ -1,0 +1,40 @@
+{% extends 'base.html.twig' %}
+
+{% block body %}
+    <div class="container">
+        <div class="columns is-centered">
+            <div class="column is-half">
+                <div class="box">
+                    <h1 class="title">New Game</h1>
+                    <p class="subtitle">Configure your game settings</p>
+                    
+                    {{ form_start(form) }}
+                    
+                    <div class="field">
+                        <label class="label">{{ form_label(form.playerSide) }}</label>
+                        <div class="control">
+                            {{ form_widget(form.playerSide) }}
+                        </div>
+                        {{ form_errors(form.playerSide) }}
+                    </div>
+                    
+                    <div class="field">
+                        <label class="label">{{ form_label(form.opponentType) }}</label>
+                        <div class="control">
+                            {{ form_widget(form.opponentType) }}
+                        </div>
+                        {{ form_errors(form.opponentType) }}
+                    </div>
+                    
+                    <div class="field">
+                        <div class="control">
+                            {{ form_widget(form.submit) }}
+                        </div>
+                    </div>
+                    
+                    {{ form_end(form) }}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
