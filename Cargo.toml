@@ -1,0 +1,36 @@
+[package]
+name = "keres"
+version = "0.1.0"
+edition = "2021"
+authors = ["Vincent Chalnot"]
+description = "A library for the abstract game Keres"
+
+[dependencies]
+clap = { version = "4.4", features = ["derive"] }
+crossterm = "0.29.0"
+ratatui = "0.29.0"
+base64 = "0.22"
+tokio = { version = "1.0", features = ["full"] }
+axum = "0.7"
+tower-http = { version = "0.5", features = ["cors"] }
+wgpu = "23.0"
+pollster = "0.3"
+bytemuck = { version = "1.14", features = ["derive"] }
+rand = "0.8"
+rayon = "1.10"
+
+[lib]
+name = "keres_engine"
+path = "src/lib.rs"
+
+[[bin]]
+name = "keres"
+path = "src/main.rs"
+
+[[bin]]
+name = "server"
+path = "src/server.rs"
+
+[[bin]]
+name = "debug"
+path = "src/debug.rs"
