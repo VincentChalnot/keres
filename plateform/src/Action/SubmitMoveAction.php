@@ -17,6 +17,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 #[AsController]
 class SubmitMoveAction extends AbstractController
 {
+    private const BOARD_DATA_SIZE = 74; // 9 u64s (72 bytes) + flags (2 bytes)
+    
     public function __construct(
         private readonly GameRepository $gameRepository,
         private readonly EntityManagerInterface $entityManager,
@@ -77,10 +79,9 @@ class SubmitMoveAction extends AbstractController
 
             $boardData = $response->getContent();
             
-            // The board data is 74 bytes: 9 u64s (72 bytes) + flags (2 bytes)
             // Extract game state flags from the last bytes
             $boardLength = strlen($boardData);
-            if ($boardLength >= 74) {
+            if ($boardLength >= self::BOARD_DATA_SIZE) {
                 // Last 2 bytes contain flags
                 $flagsData = substr($boardData, 72, 2);
                 $flags = unpack('v', $flagsData)[1];
@@ -132,7 +133,7 @@ class SubmitMoveAction extends AbstractController
                             $boardData = $aiResponse->getContent();
                             
                             // Extract flags again for AI move result
-                            if (strlen($boardData) >= 74) {
+                            if (strlen($boardData) >= self::BOARD_DATA_SIZE) {
                                 $flagsData = substr($boardData, 72, 2);
                                 $flags = unpack('v', $flagsData)[1];
                                 

@@ -69,14 +69,18 @@ class Move
 
     /**
      * Get move as u16 integer
+     * @throws \RuntimeException if move data is not set
      */
     public function getMoveAsU16(): int
     {
         if ($this->move === null) {
-            return 0;
+            throw new \RuntimeException('Move data is not set');
         }
         // Unpack 2 bytes as little endian u16
         $unpacked = unpack('v', $this->move);
+        if ($unpacked === false) {
+            throw new \RuntimeException('Failed to unpack move data');
+        }
         return $unpacked[1] ?? 0;
     }
 
