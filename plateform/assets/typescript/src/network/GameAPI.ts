@@ -67,8 +67,9 @@ export class GameAPI {
     /**
      * Submit a move to the game and get the new board state
      * This submits to Symfony which validates and may add an AI response
+     * Returns both the board and the updated moves list
      */
-    async submitMove(move: Move): Promise<Board> {
+    async submitMove(move: Move): Promise<{board: Board, moves: number[]}> {
         if (!this.gameUuid) {
             throw new Error('No game UUID available');
         }
@@ -97,7 +98,8 @@ export class GameAPI {
             bytes[i] = binaryString.charCodeAt(i);
         }
         
-        return decodeBoardFromBinary(bytes);
+        const board = decodeBoardFromBinary(bytes);
+        return {board, moves: data.moves};
     }
 
     /**
@@ -172,5 +174,26 @@ export class GameAPI {
 
         const boardBuffer = await response.arrayBuffer();
         return decodeBoardFromBinary(new Uint8Array(boardBuffer));
+    }
+
+    /**
+     * Undo move by calling server endpoint
+     */
+    async undoMove(): Promise<number[]> {
+        if (!this.gameUuid) {
+            throw new Error('No game UUID available');
+        }
+
+        const response = await fetch(`/play/${this.gameUuid}/undo`, {
+            method: 'POST',
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to undo move');
+        }
+
+        const data = await response.json();
+        return data.moves;
     }
 }

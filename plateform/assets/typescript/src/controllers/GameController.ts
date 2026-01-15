@@ -28,6 +28,16 @@ export class GameController {
         this.gameState.setMoveList(moves);
         this.gameState.clearMoveHistory();
         this.gameState.clearGameHistory();
+        
+        // Build move history from moves using algebraic notation
+        const {posToAlgebraic} = await import('../utils/boardUtils');
+        for (const move of moves) {
+            const fromPos = posToAlgebraic(move.from);
+            const toPos = posToAlgebraic(move.to);
+            const notation = `${fromPos}-${toPos}${move.unstack ? '*' : ''}`;
+            this.gameState.addMove(notation);
+        }
+        
         const board = await this.api.replayMoves(moves);
         this.gameState.setBoard(board);
         this.gameState.setCurrentMoveIndex(moves.length - 1);
@@ -61,22 +71,53 @@ export class GameController {
         if (this.gameState.isBoardLocked()) return;
         if (board.isGameOver()) return;
         
+        // Lock board while waiting for server response (especially for AI moves)
+        this.gameState.setBoardLocked(true);
+        
         // Submit move to server
         const move: Move = {from, to, unstack};
         try {
-            const newBoard = await this.api.submitMove(move);
-            this.gameState.setBoard(newBoard);
+            const result = await this.api.submitMove(move);
+            this.gameState.setBoard(result.board);
             
-            // Update move list
-            const moves = [...this.gameState.getMoveList(), move];
+            // Convert u16 moves to Move objects
+            const moves: Move[] = [];
+            for (const moveU16 of result.moves) {
+                const fromPos = moveU16 & 0x7F;
+                const toPos = (moveU16 >> 7) & 0x7F;
+                const unstackFlag = ((moveU16 >> 14) & 0x1) === 1;
+                moves.push({from: fromPos, to: toPos, unstack: unstackFlag});
+            }
+            
+            // Update move list with all moves (including AI response if any)
             this.gameState.setMoveList(moves);
             this.gameState.setCurrentMoveIndex(moves.length - 1);
-            this.gameState.setLastMove({from, to});
+            
+            // Update move history
+            this.gameState.clearMoveHistory();
+            const {posToAlgebraic} = await import('../utils/boardUtils');
+            for (const mv of moves) {
+                const fromPos = posToAlgebraic(mv.from);
+                const toPos = posToAlgebraic(mv.to);
+                const notation = `${fromPos}-${toPos}${mv.unstack ? '*' : ''}`;
+                this.gameState.addMove(notation);
+            }
+            
+            // Set last move
+            if (moves.length > 0) {
+                const lastMove = moves[moves.length - 1];
+                this.gameState.setLastMove({from: lastMove.from, to: lastMove.to});
+            }
+            
+            // Unlock board after successful move
+            this.gameState.setBoardLocked(false);
             
             await this.updatePotentialMoves();
             await this.renderBoard();
             window.dispatchEvent(new CustomEvent('boardStateChanged'));
         } catch (error) {
+            // Unlock board on error
+            this.gameState.setBoardLocked(false);
             console.error('Failed to play move:', error);
             alert('Failed to play move: ' + (error as Error).message);
         }
@@ -97,11 +138,24 @@ export class GameController {
     }
 
     async undoMove(): Promise<void> {
-        const moveList = this.gameState.getMoveList();
-        if (moveList.length === 0) return;
-        const newMoves = moveList.slice(0, -1);
-        await this.setMoves(newMoves);
-        window.dispatchEvent(new CustomEvent('boardStateChanged'));
+        try {
+            const movesU16 = await this.api.undoMove();
+            
+            // Convert u16 moves to Move objects
+            const moves: Move[] = [];
+            for (const moveU16 of movesU16) {
+                const from = moveU16 & 0x7F;
+                const to = (moveU16 >> 7) & 0x7F;
+                const unstack = ((moveU16 >> 14) & 0x1) === 1;
+                moves.push({from, to, unstack});
+            }
+            
+            await this.setMoves(moves);
+            window.dispatchEvent(new CustomEvent('boardStateChanged'));
+        } catch (error) {
+            console.error('Failed to undo move:', error);
+            alert('Failed to undo move: ' + (error as Error).message);
+        }
     }
 
     async navigateToPreviousMove(): Promise<void> {

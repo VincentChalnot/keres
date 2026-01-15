@@ -12,7 +12,6 @@
                      data-player-side="{{ game.playerSide }}"></div>
                 <div id="status">Loading...</div>
                 <div class="buttons mt-4">
-                    <a href="{{ path('new_game') }}" class="button is-warning">Reset board</a>
                     {% if game.opponentType == 'hotseat' %}
                         <button class="button is-primary" id="switch-sides-btn">Switch Sides</button>
                     {% endif %}

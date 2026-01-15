@@ -50,9 +50,28 @@ class SubmitMoveAction extends AbstractController
         }
 
         $moveU16 = unpack('v', $content)[1];
+        
+        // Extract move details for validation
+        $from = $moveU16 & 0x7F;
+        $to = ($moveU16 >> 7) & 0x7F;
+        $unstack = (($moveU16 >> 14) & 0x1) === 1;
 
         // Build the move list including all existing moves + the new one
         $existingMoves = $game->getMoves();
+        
+        // In AI mode, validate that it's the player's turn
+        if ($game->getOpponentType() === 'ai') {
+            $moveCount = count($existingMoves);
+            // Even number of moves = white's turn, odd = black's turn
+            $isWhiteTurn = ($moveCount % 2) === 0;
+            $playerIsWhite = ($game->getPlayerSide() === 'white');
+            
+            // Check if it's the player's turn
+            if ($isWhiteTurn !== $playerIsWhite) {
+                return $this->json(['error' => 'Not your turn'], Response::HTTP_BAD_REQUEST);
+            }
+        }
+        
         $movesData = '';
         foreach ($existingMoves as $move) {
             $movesData .= $move->getMove();

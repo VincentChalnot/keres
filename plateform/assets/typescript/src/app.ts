@@ -258,9 +258,14 @@ class KeresGame {
             return;
         }
 
-        // Check if board is locked (viewing history)
+        // Check if board is locked
         if (this.controller.isBoardLocked()) {
-            this.statusDiv.innerText = `Viewing history - Navigate to latest move to continue playing`;
+            // In AI mode, show "Waiting for AI..." message
+            if (this.gameMode === 'ai') {
+                this.statusDiv.innerText = 'Waiting for AI...';
+            } else {
+                this.statusDiv.innerText = `Viewing history - Navigate to latest move to continue playing`;
+            }
             if (this.askEngineBtn) this.askEngineBtn.disabled = true;
             if (this.askMinimaxBtn) this.askMinimaxBtn.disabled = true;
             return;
