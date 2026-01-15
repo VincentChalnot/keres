@@ -60,11 +60,26 @@ export class GameController {
         if (!board) return;
         if (this.gameState.isBoardLocked()) return;
         if (board.isGameOver()) return;
-        // Play move on server
+        
+        // Submit move to server
         const move: Move = {from, to, unstack};
-        const moves = [...this.gameState.getMoveList(), move];
-        await this.setMoves(moves);
-        window.dispatchEvent(new CustomEvent('boardStateChanged'));
+        try {
+            const newBoard = await this.api.submitMove(move);
+            this.gameState.setBoard(newBoard);
+            
+            // Update move list
+            const moves = [...this.gameState.getMoveList(), move];
+            this.gameState.setMoveList(moves);
+            this.gameState.setCurrentMoveIndex(moves.length - 1);
+            this.gameState.setLastMove({from, to});
+            
+            await this.updatePotentialMoves();
+            await this.renderBoard();
+            window.dispatchEvent(new CustomEvent('boardStateChanged'));
+        } catch (error) {
+            console.error('Failed to play move:', error);
+            alert('Failed to play move: ' + (error as Error).message);
+        }
     }
 
     async requestEngineMove(): Promise<void> {

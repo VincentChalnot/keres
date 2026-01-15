@@ -4,13 +4,13 @@
     <div class="container">
         <div class="game-container">
             <div class="main-container">
-                <div id="board-container" data-moves="{{ moves }}"></div>
+                <div id="board-container" data-moves="{{ moves }}" data-board="{{ board }}" data-game-uuid="{{ game.uuid }}"></div>
                 <div id="status">Loading...</div>
                 <div class="buttons mt-4">
                     <a href="{{ path('new_game') }}" class="button is-warning">Reset board</a>
-                    <button class="button is-primary" id="switch-sides-btn">Switch Sides</button>
-                    <button class="button is-info" id="ask-engine-btn">Ask MCTS Engine</button>
-                    <button class="button is-success" id="ask-minimax-btn">Ask Minimax Engine</button>
+                    {% if game.opponentType == 'hotseat' %}
+                        <button class="button is-primary" id="switch-sides-btn">Switch Sides</button>
+                    {% endif %}
                     <button class="button is-link" id="toggle-threats-btn">Hide Threats</button>
                 </div>
             </div>
