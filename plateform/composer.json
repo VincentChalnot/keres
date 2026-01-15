@@ -6,9 +6,12 @@
     "minimum-stability": "stable",
     "prefer-stable": true,
     "require": {
-        "php": ">=8.4.7",
+        "php": ">=8.3",
         "ext-ctype": "*",
         "ext-iconv": "*",
+        "doctrine/doctrine-bundle": "^2.18",
+        "doctrine/doctrine-migrations-bundle": "^3.7",
+        "doctrine/orm": "^3.6",
         "pentatrion/vite-bundle": "^8.2",
         "runtime/frankenphp-symfony": "^0.2.0",
         "sidus/template-bundle": ">=1",
@@ -19,6 +22,7 @@
         "symfony/framework-bundle": "7.3.*",
         "symfony/runtime": "7.3.*",
         "symfony/twig-bundle": "7.3.*",
+        "symfony/uid": "7.3.*",
         "symfony/yaml": "7.3.*"
     },
     "config": {
