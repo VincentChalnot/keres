@@ -4,7 +4,12 @@
     <div class="container">
         <div class="game-container">
             <div class="main-container">
-                <div id="board-container" data-moves="{{ moves }}" data-board="{{ board }}" data-game-uuid="{{ game.uuid }}"></div>
+                <div id="board-container" 
+                     data-moves="{{ moves }}" 
+                     data-board="{{ board }}" 
+                     data-game-uuid="{{ game.uuid }}"
+                     data-opponent-type="{{ game.opponentType }}"
+                     data-player-side="{{ game.playerSide }}"></div>
                 <div id="status">Loading...</div>
                 <div class="buttons mt-4">
                     <a href="{{ path('new_game') }}" class="button is-warning">Reset board</a>
