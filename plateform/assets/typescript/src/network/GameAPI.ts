@@ -83,12 +83,21 @@ export class GameAPI {
         });
 
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Failed to submit move: ${errorText}`);
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to submit move');
         }
 
-        const boardBuffer = await response.arrayBuffer();
-        return decodeBoardFromBinary(new Uint8Array(boardBuffer));
+        const data = await response.json();
+        
+        // Decode board from base64
+        const boardBase64 = data.board;
+        const binaryString = atob(boardBase64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        
+        return decodeBoardFromBinary(bytes);
     }
 
     /**

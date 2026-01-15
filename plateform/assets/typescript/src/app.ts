@@ -41,14 +41,16 @@ class KeresGame {
     private unstackModal: HTMLDivElement;
     private moveStackBtn: HTMLButtonElement;
     private moveUnstackBtn: HTMLButtonElement;
-    private switchSidesBtn: HTMLButtonElement;
+    private switchSidesBtn: HTMLButtonElement | null;
     private moveHistoryBody: HTMLTableSectionElement;
     private prevMoveBtn: HTMLButtonElement;
     private nextMoveBtn: HTMLButtonElement;
     private undoBtn: HTMLButtonElement;
-    private askEngineBtn: HTMLButtonElement;
-    private askMinimaxBtn: HTMLButtonElement;
+    private askEngineBtn: HTMLButtonElement | null;
+    private askMinimaxBtn: HTMLButtonElement | null;
     private toggleThreatsBtn: HTMLButtonElement;
+    private gameMode: string = 'hotseat'; // 'hotseat' or 'ai'
+    private playerSide: string = 'white'; // 'white' or 'black'
 
     constructor() {
         this.gameState = new GameState();
@@ -59,14 +61,18 @@ class KeresGame {
         this.unstackModal = document.getElementById('unstack-modal') as HTMLDivElement;
         this.moveStackBtn = document.getElementById('move-stack') as HTMLButtonElement;
         this.moveUnstackBtn = document.getElementById('move-unstack') as HTMLButtonElement;
-        this.switchSidesBtn = document.getElementById('switch-sides-btn') as HTMLButtonElement;
+        this.switchSidesBtn = document.getElementById('switch-sides-btn') as HTMLButtonElement | null;
         this.moveHistoryBody = document.getElementById('move-history-body') as HTMLTableSectionElement;
         this.prevMoveBtn = document.getElementById('prev-move-btn') as HTMLButtonElement;
         this.nextMoveBtn = document.getElementById('next-move-btn') as HTMLButtonElement;
         this.undoBtn = document.getElementById('undo-btn') as HTMLButtonElement;
-        this.askEngineBtn = document.getElementById('ask-engine-btn') as HTMLButtonElement;
-        this.askMinimaxBtn = document.getElementById('ask-minimax-btn') as HTMLButtonElement;
+        this.askEngineBtn = document.getElementById('ask-engine-btn') as HTMLButtonElement | null;
+        this.askMinimaxBtn = document.getElementById('ask-minimax-btn') as HTMLButtonElement | null;
         this.toggleThreatsBtn = document.getElementById('toggle-threats-btn') as HTMLButtonElement;
+        
+        // Read game mode and player side from data attributes
+        this.gameMode = this.boardContainer.getAttribute('data-opponent-type') || 'hotseat';
+        this.playerSide = this.boardContainer.getAttribute('data-player-side') || 'white';
     }
 
     async initialize(): Promise<void> {
@@ -86,6 +92,17 @@ class KeresGame {
         const movesBase64 = this.boardContainer.getAttribute('data-moves') || '';
         const moves = decodeMoveListFromBase64(movesBase64);
         await this.controller.setMoves(moves);
+
+        // In AI mode, set board orientation based on player side
+        if (this.gameMode === 'ai' && this.playerSide === 'black') {
+            // If player is black, flip the board so blacks are at the bottom
+            await this.controller.flipBoard();
+        }
+        // In hotseat mode, determine orientation based on last move
+        else if (this.gameMode === 'hotseat' && moves.length % 2 === 1) {
+            // Odd number of moves means black just played, so show white's perspective
+            await this.controller.flipBoard();
+        }
 
         // Setup UI event listeners
         this.setupEventListeners();
@@ -107,9 +124,15 @@ class KeresGame {
         modalBackground?.addEventListener('click', () => this.handleModalClose());
 
         // Game controls
-        this.switchSidesBtn.addEventListener('click', () => this.handleSwitchSides());
-        this.askEngineBtn.addEventListener('click', () => this.handleAskEngine());
-        this.askMinimaxBtn.addEventListener('click', () => this.handleAskMinimax());
+        if (this.switchSidesBtn) {
+            this.switchSidesBtn.addEventListener('click', () => this.handleSwitchSides());
+        }
+        if (this.askEngineBtn) {
+            this.askEngineBtn.addEventListener('click', () => this.handleAskEngine());
+        }
+        if (this.askMinimaxBtn) {
+            this.askMinimaxBtn.addEventListener('click', () => this.handleAskMinimax());
+        }
         this.undoBtn.addEventListener('click', () => this.handleUndo());
         this.prevMoveBtn.addEventListener('click', () => this.handlePrevMove());
         this.nextMoveBtn.addEventListener('click', () => this.handleNextMove());
@@ -134,6 +157,12 @@ class KeresGame {
         const clickedDestination = this.gameState.getClickedDestination();
         if (selectedPosition !== null && clickedDestination !== null) {
             await this.controller.playMove(selectedPosition, clickedDestination, fullStack);
+            
+            // Auto-rotate board in hotseat mode after each move
+            if (this.gameMode === 'hotseat') {
+                await this.controller.flipBoard();
+            }
+            
             this.updateStatus();
             this.updateMoveHistoryDisplay();
             this.updateNavigationButtons();
@@ -224,16 +253,16 @@ class KeresGame {
         if (board.isGameOver()) {
             this.statusDiv.innerText = board.getGameResult();
             // Disable engine buttons when game is over
-            this.askEngineBtn.disabled = true;
-            this.askMinimaxBtn.disabled = true;
+            if (this.askEngineBtn) this.askEngineBtn.disabled = true;
+            if (this.askMinimaxBtn) this.askMinimaxBtn.disabled = true;
             return;
         }
 
         // Check if board is locked (viewing history)
         if (this.controller.isBoardLocked()) {
             this.statusDiv.innerText = `Viewing history - Navigate to latest move to continue playing`;
-            this.askEngineBtn.disabled = true;
-            this.askMinimaxBtn.disabled = true;
+            if (this.askEngineBtn) this.askEngineBtn.disabled = true;
+            if (this.askMinimaxBtn) this.askMinimaxBtn.disabled = true;
             return;
         }
 
@@ -242,8 +271,8 @@ class KeresGame {
         this.statusDiv.innerText = `${turn}'s turn to play.`;
 
         // Re-enable engine buttons if they were disabled
-        this.askEngineBtn.disabled = false;
-        this.askMinimaxBtn.disabled = false;
+        if (this.askEngineBtn) this.askEngineBtn.disabled = false;
+        if (this.askMinimaxBtn) this.askMinimaxBtn.disabled = false;
     }
 
     private updateMoveHistoryDisplay(): void {

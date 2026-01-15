@@ -160,12 +160,20 @@ class SubmitMoveAction extends AbstractController
                     }
                 }
 
-                // Return the board data as binary
-                return new Response(
-                    $boardData,
-                    Response::HTTP_OK,
-                    ['Content-Type' => 'application/octet-stream']
-                );
+                // Return the board data and move information
+                $movesData = [];
+                foreach ($game->getMoves() as $moveEntity) {
+                    $movesData[] = $moveEntity->getMoveAsU16();
+                }
+                
+                return $this->json([
+                    'success' => true,
+                    'board' => base64_encode($boardData),
+                    'moves' => $movesData,
+                    'gameOver' => $gameOver,
+                    'whiteWins' => $whiteWins,
+                    'draw' => $draw,
+                ]);
             }
 
             return $this->json(['error' => 'Invalid board data'], Response::HTTP_INTERNAL_SERVER_ERROR);
