@@ -1,32 +1,42 @@
 {% extends 'base.html.twig' %}
 
 {% block body %}
-    <section class="section">
-        <div class="container">
-            <h2 class="title">Keres</h2>
-            <div class="game-container">
-                <div class="main-container">
-                    <div id="board-container"></div>
-                    <div id="status">Loading...</div>
-                    <div class="buttons mt-4">
-                        <a href="/" class="button is-warning">Reset board</a>
-                        <button class="button is-primary" id="switch-sides-btn">Switch Sides</button>
-                        <button class="button is-info" id="ask-engine-btn">Ask MCTS Engine</button>
-                        <button class="button is-success" id="ask-minimax-btn">Ask Minimax Engine</button>
-                        <button class="button is-link" id="toggle-threats-btn">Hide Threats</button>
-                    </div>
+    <div class="container">
+        <div class="game-container">
+            <div class="main-container">
+                <div id="board-container"></div>
+                <div id="status">Loading...</div>
+                <div class="buttons mt-4">
+                    <a href="{{ path('new_game') }}" class="button is-warning">Reset board</a>
+                    <button class="button is-primary" id="switch-sides-btn">Switch Sides</button>
+                    <button class="button is-info" id="ask-engine-btn">Ask MCTS Engine</button>
+                    <button class="button is-success" id="ask-minimax-btn">Ask Minimax Engine</button>
+                    <button class="button is-link" id="toggle-threats-btn">Hide Threats</button>
                 </div>
-                <div class="move-history">
-                    <label class="label" for="move-history">Move History</label>
-                    <textarea class="textarea" id="move-history" placeholder=""></textarea>
-                    <div class="buttons mt-2">
-                        <button class="button is-info" id="load-game-btn">Load</button>
-                        <button class="button is-warning" id="undo-btn">Undo</button>
-                    </div>
+            </div>
+            <div class="move-history">
+                <label class="label">Move History</label>
+                <div class="buttons mt-2">
+                    <button class="button is-info" id="prev-move-btn" title="Previous Move">◄ Prev</button>
+                    <button class="button is-info" id="next-move-btn" title="Next Move">Next ►</button>
+                    <button class="button is-warning" id="undo-btn">Undo</button>
+                </div>
+                <div id="move-history-display" class="move-history-box">
+                    <table class="table is-fullwidth move-history-table has-background-dark has-text-white">
+                        <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>White</th>
+                            <th>Black</th>
+                        </tr>
+                        </thead>
+                        <tbody id="move-history-body">
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
-    </section>
+    </div>
 
     <div class="modal" id="unstack-modal">
         <div class="modal-background"></div>
@@ -46,5 +56,5 @@
 {% endblock %}
 
 {% block end_javascripts %}
-    {{ vite_entry_script_tags('board') }}
+    {{ vite_entry_script_tags('play') }}
 {% endblock %}

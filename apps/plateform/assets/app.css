@@ -252,6 +252,26 @@ section {
     -webkit-tap-highlight-color: rgba(255, 255, 255, 0); /* mobile webkit */
 }
 
+.game-container {
+    max-width: 1200px;
+    margin: auto;
+}
+
+.move-history {
+    max-width: 300px;
+    flex-shrink: 0;
+    margin-bottom: 1em;
+}
+.move-history-table {
+    font-family: monospace;
+}
+
+.move-history-table th,
+.move-history-table thead th {
+    color: white !important;
+    background: transparent !important;
+}
+
 /* Specific styles for the rules page */
 .container {
     max-width: 1000px;

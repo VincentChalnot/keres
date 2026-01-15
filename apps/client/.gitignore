@@ -1,9 +1,0 @@
-
-public/config.json
-
-# Node modules for three.js
-node_modules/
-
-# Vite build output
-dist/
-.vite/
