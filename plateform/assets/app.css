@@ -402,21 +402,21 @@ strong {
         -webkit-mask-image: url('../public/images/pieces/ballista.svg');
         mask-image: url('../public/images/pieces/ballista.svg');
     }
-    &.commander {
-        -webkit-mask-image: url('../public/images/pieces/commander.svg');
-        mask-image: url('../public/images/pieces/commander.svg');
+    &.rook {
+        -webkit-mask-image: url('../public/images/pieces/rook.svg');
+        mask-image: url('../public/images/pieces/rook.svg');
     }
-    &.dragon {
-        -webkit-mask-image: url('../public/images/pieces/dragon.svg');
-        mask-image: url('../public/images/pieces/dragon.svg');
+    &.knight {
+        -webkit-mask-image: url('../public/images/pieces/knight.svg');
+        mask-image: url('../public/images/pieces/knight.svg');
     }
     &.guard {
         -webkit-mask-image: url('../public/images/pieces/guard.svg');
         mask-image: url('../public/images/pieces/guard.svg');
     }
-    &.jester {
-        -webkit-mask-image: url('../public/images/pieces/jester.svg');
-        mask-image: url('../public/images/pieces/jester.svg');
+    &.bishop {
+        -webkit-mask-image: url('../public/images/pieces/bishop.svg');
+        mask-image: url('../public/images/pieces/bishop.svg');
     }
     &.king {
         -webkit-mask-image: url('../public/images/pieces/king.svg');
@@ -432,4 +432,79 @@ strong {
     }
 }
 
+.piece--white {
+    --piece-bg: #fff;
+    --piece-fg: #000;
+}
 
+.piece--black {
+    --piece-bg: #000;
+    --piece-fg: #fff;
+}
+
+.piece--reversed .piece-icon {
+    transform-origin: 45px 35.2px;
+    transform: rotate(180deg);
+}
+
+@media print {
+    body, html {
+        background: #fff !important;
+        color: #000 !important;
+    }
+
+    /* Invert main theme colors for print */
+    :root {
+        --primary-color: #b36b00;
+        --secondary-color: #7a5c2e;
+        --light-color: #222;
+        --dark-color: #fff;
+    }
+
+    /* Remove box shadows and backgrounds that may waste ink */
+    .container, .hero-header, .piece-card, .warning, .special-note, section {
+        background: none !important;
+        box-shadow: none !important;
+        color: #000 !important;
+        border-color: #888 !important;
+    }
+    .container {
+        max-width: none;
+    }
+    .board-start {
+        max-width: 500px;
+    }
+
+    /* Ensure all text is visible and readable */
+    h1, h2, h3, h4, h5, h6, p, li, strong, .piece-name {
+        color: #000 !important;
+        text-shadow: none !important;
+    }
+
+    /* Invert piece icons for print */
+    .piece-icon {
+        background-color: #000 !important;
+    }
+    .piece-icon.dark {
+        background-color: #fff !important;
+    }
+    .piece-icon.primary {
+        background-color: #b36b00 !important;
+    }
+
+    /* Hide elements not needed for print */
+    nav, .btn, .hero-img, .move-history, .game-container, .section-img, .no-print {
+        display: none !important;
+    }
+
+    /* Remove link styling */
+    a, a:visited, a:hover {
+        color: #000 !important;
+        text-decoration: underline !important;
+    }
+
+    /* Remove page margins for full-bleed print */
+    @page {
+        margin: 1cm;
+    }
+}

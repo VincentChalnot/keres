@@ -269,7 +269,7 @@ mod tests {
 
     #[test]
     fn test_capture_evaluation() {
-        // Test board from issue: Black Dragon+Soldier in G7, White Soldier in H6
+        // Test board from issue: Black Knight+Soldier in G7, White Soldier in H6
         // Black to move, capturing H6 should show positive score
         let board_str = "BwYEBTglAAAHAAADAAAAAgAAAQEBAQEBMQEBAAAAAAAAAEEAAAAAAAAAAAAAAAAAAAAAAAAAQUFBQUFBAEFBAABCAAAAQwAAR0ZERXhFREZHAAU=";
 
@@ -291,7 +291,7 @@ mod tests {
         let piece_g7 = piece_g7.unwrap();
         assert_eq!(piece_g7.color, keres_engine::board::Color::Black);
         assert_eq!(piece_g7.bottom, keres_engine::board::PieceType::Soldier);
-        assert_eq!(piece_g7.top, Some(keres_engine::board::PieceType::Dragon));
+        assert_eq!(piece_g7.top, Some(keres_engine::board::PieceType::Knight));
 
         let piece_h6 = board.get_piece(&h6);
         assert!(piece_h6.is_some(), "Should have piece at H6");

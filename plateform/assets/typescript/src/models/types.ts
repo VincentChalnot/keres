@@ -41,11 +41,11 @@ export const LAST_BOARD_INDEX = (BOARD_SIZE * BOARD_SIZE) - 1;
 
 export const PIECE_CODE: Record<number, string> = {
     0b001: 'soldier',
-    0b010: 'jester',
-    0b011: 'commander',
+    0b010: 'bishop',
+    0b011: 'rook',
     0b100: 'paladin',
     0b101: 'guard',
-    0b110: 'dragon',
+    0b110: 'knight',
     0b111: 'ballista',
 };
 
@@ -93,8 +93,8 @@ export class Board {
     /**
      * Get the current turn color
      */
-    getCurrentTurn(): 'White' | 'Red' {
-        return this.whiteToMove ? 'White' : 'Red';
+    getCurrentTurn(): 'White' | 'Black' {
+        return this.whiteToMove ? 'White' : 'Black';
     }
 
     /**
@@ -117,7 +117,7 @@ export class Board {
         if (this.whiteWins) {
             return 'Game Over - White Wins!';
         }
-        return 'Game Over - Red Wins!';
+        return 'Game Over - Black Wins!';
     }
 
     /**
@@ -190,9 +190,9 @@ export class Board {
                 if (piece.bottom === 'soldier') {
                     piece.bottom = 'paladin';
                 }
-                // Promote ballista to commander
+                // Promote ballista to rook
                 if (piece.bottom === 'ballista') {
-                    piece.bottom = 'commander';
+                    piece.bottom = 'rook';
                 }
             }
         }

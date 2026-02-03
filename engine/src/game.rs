@@ -156,7 +156,7 @@ impl Game {
             }
         }
 
-        // Check for promotion: Soldier → Paladin, Ballista → Commander on opposite side
+        // Check for promotion: Soldier → Paladin, Ballista → Rook on opposite side
         let promote_piece = Self::check_promotion(&final_piece, &mv.to);
         if let Some(promoted) = promote_piece {
             new_board.set_piece(&mv.to, Some(promoted));
@@ -235,7 +235,7 @@ impl Game {
             PieceType::Soldier => {
                 self.compute_soldier_moves(position, color, is_top, has_top, &mut moves)
             }
-            PieceType::Jester => self.compute_generic_moves(
+            PieceType::Bishop => self.compute_generic_moves(
                 position,
                 color,
                 is_top,
@@ -244,7 +244,7 @@ impl Game {
                 &Position::DIAGONAL_MOVES,
                 BOARD_DIMENSION as isize,
             ),
-            PieceType::Commander => self.compute_generic_moves(
+            PieceType::Rook => self.compute_generic_moves(
                 position,
                 color,
                 is_top,
@@ -271,8 +271,8 @@ impl Game {
                 &Position::DIAGONAL_MOVES,
                 2,
             ),
-            PieceType::Dragon => {
-                self.compute_dragon_moves(position, color, is_top, has_top, &mut moves)
+            PieceType::Knight => {
+                self.compute_knight_moves(position, color, is_top, has_top, &mut moves)
             }
             PieceType::Ballista => {
                 self.compute_ballista_moves(position, color, is_top, has_top, &mut moves)
@@ -360,8 +360,8 @@ impl Game {
     /// 1. King capture (win condition)
     /// 2. Draw conditions:
     ///    - Both sides have only kings left
-    ///    - Color lock: Jester and/or guards all on the same color for both sides
-    ///    - Single dragon for both sides
+    ///    - Color lock: Bishop and/or guards all on the same color for both sides
+    ///    - Single knight for both sides
     ///    - 40 moves without capture
     fn check_game_over(board: &mut Board) {
         // Check for king captures
@@ -421,8 +421,8 @@ impl Game {
 
     /// Check if a side satisfies draw conditions:
     /// - Only king remaining
-    /// - Only jesters/guards on same color square (color lock)
-    /// - Single dragon (plus king)
+    /// - Only bishops/guards on same color square (color lock)
+    /// - Single knight (plus king)
     fn check_draw_condition_for_side(pieces: &[(Piece, Position)]) -> bool {
         let mut non_king_pieces = Vec::new();
 
@@ -437,28 +437,28 @@ impl Game {
             return true;
         }
 
-        // Single Dragon
+        // Single Knight
         if non_king_pieces.len() == 1 {
             let (piece, _) = &non_king_pieces[0];
-            // Check if it's a single dragon (not stacked)
-            if piece.bottom == PieceType::Dragon && piece.top.is_none() {
+            // Check if it's a single knight (not stacked)
+            if piece.bottom == PieceType::Knight && piece.top.is_none() {
                 return true;
             }
         }
 
-        // Check for color lock: all jesters and/or guards on same color square
-        let mut all_jesters_or_guards = true;
+        // Check for color lock: all bishops and/or guards on same color square
+        let mut all_bishops_or_guards = true;
         let mut first_square_color: Option<bool> = None; // true for white square, false for black square
 
         for (piece, pos) in &non_king_pieces {
-            // Check if piece is a jester or guard (consider both bottom and top)
-            let is_jester_or_guard = piece.bottom == PieceType::Jester
+            // Check if piece is a bishop or guard (consider both bottom and top)
+            let is_bishop_or_guard = piece.bottom == PieceType::Bishop
                 || piece.bottom == PieceType::Guard
-                || piece.top == Some(PieceType::Jester)
+                || piece.top == Some(PieceType::Bishop)
                 || piece.top == Some(PieceType::Guard);
 
-            if !is_jester_or_guard {
-                all_jesters_or_guards = false;
+            if !is_bishop_or_guard {
+                all_bishops_or_guards = false;
                 break;
             }
 
@@ -469,14 +469,14 @@ impl Game {
                 None => first_square_color = Some(square_is_white),
                 Some(color) => {
                     if color != square_is_white {
-                        all_jesters_or_guards = false;
+                        all_bishops_or_guards = false;
                         break;
                     }
                 }
             }
         }
 
-        if all_jesters_or_guards && first_square_color.is_some() {
+        if all_bishops_or_guards && first_square_color.is_some() {
             return true;
         }
 
@@ -484,7 +484,7 @@ impl Game {
     }
 
     /// Check if a piece needs to be promoted when it reaches the opposite side
-    /// Soldier → Paladin, Ballista → Commander
+    /// Soldier → Paladin, Ballista → Rook
     /// Returns Some(promoted_piece) if promotion is needed, None otherwise
     fn check_promotion(piece: &Piece, position: &Position) -> Option<Piece> {
         // Check if the piece reached the opposite side
@@ -501,7 +501,7 @@ impl Game {
         let promote_piece_type = |piece_type: PieceType| -> PieceType {
             match piece_type {
                 PieceType::Soldier => PieceType::Paladin,
-                PieceType::Ballista => PieceType::Commander,
+                PieceType::Ballista => PieceType::Rook,
                 _ => piece_type, // No promotion for other pieces
             }
         };
@@ -563,7 +563,7 @@ impl Game {
         );
     }
 
-    fn compute_dragon_moves(
+    fn compute_knight_moves(
         &self,
         position: &Position,
         color: Color,
@@ -571,7 +571,7 @@ impl Game {
         has_top: bool,
         moves: &mut Vec<PotentialMove>,
     ) {
-        // Dragon move like a knight in chess
+        // Knight move like a knight in chess
         let directions = [
             (2, 1),
             (2, -1),
@@ -689,7 +689,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ballista_promotion_to_commander_white() {
+    fn test_ballista_promotion_to_rook_white() {
         let mut game = Game::new();
 
         // Place a white ballista at position (4, 1) - near the top
@@ -717,14 +717,14 @@ mod tests {
         assert_eq!(piece.color, Color::White);
         assert_eq!(
             piece.bottom,
-            PieceType::Commander,
-            "Ballista should be promoted to Commander"
+            PieceType::Rook,
+            "Ballista should be promoted to Rook"
         );
         assert_eq!(piece.top, None);
     }
 
     #[test]
-    fn test_ballista_promotion_to_commander_black() {
+    fn test_ballista_promotion_to_rook_black() {
         let mut game = Game::new();
 
         // Place a black ballista at position (4, 7) - near the bottom
@@ -752,8 +752,8 @@ mod tests {
         assert_eq!(piece.color, Color::Black);
         assert_eq!(
             piece.bottom,
-            PieceType::Commander,
-            "Ballista should be promoted to Commander"
+            PieceType::Rook,
+            "Ballista should be promoted to Rook"
         );
         assert_eq!(piece.top, None);
     }
@@ -985,13 +985,13 @@ mod tests {
         assert_eq!(piece.color, Color::White);
         assert_eq!(
             piece.bottom,
-            PieceType::Commander,
-            "Bottom Ballista should be promoted to Commander"
+            PieceType::Rook,
+            "Bottom Ballista should be promoted to Rook"
         );
         assert_eq!(
             piece.top,
-            Some(PieceType::Commander),
-            "Top Ballista should be promoted to Commander"
+            Some(PieceType::Rook),
+            "Top Ballista should be promoted to Rook"
         );
     }
 
@@ -1028,13 +1028,13 @@ mod tests {
         assert_eq!(piece.color, Color::Black);
         assert_eq!(
             piece.bottom,
-            PieceType::Commander,
-            "Bottom Ballista should be promoted to Commander"
+            PieceType::Rook,
+            "Bottom Ballista should be promoted to Rook"
         );
         assert_eq!(
             piece.top,
-            Some(PieceType::Commander),
-            "Top Ballista should be promoted to Commander"
+            Some(PieceType::Rook),
+            "Top Ballista should be promoted to Rook"
         );
     }
 
@@ -1162,8 +1162,8 @@ mod tests {
         );
         assert_eq!(
             piece.top,
-            Some(PieceType::Commander),
-            "Ballista should be promoted to Commander"
+            Some(PieceType::Rook),
+            "Ballista should be promoted to Rook"
         );
     }
 
@@ -1326,7 +1326,7 @@ mod tests {
     }
 
     #[test]
-    fn test_draw_single_dragon() {
+    fn test_draw_single_knight() {
         let mut game = Game::new();
 
         // Clear the board
@@ -1337,14 +1337,14 @@ mod tests {
             }
         }
 
-        // Place kings and single dragons
+        // Place kings and single knights
         game.board.set_piece(
             &Position::new(4, 0),
             Some(Piece::new(Color::White, PieceType::King, None)),
         );
         game.board.set_piece(
             &Position::new(3, 0),
-            Some(Piece::new(Color::White, PieceType::Dragon, None)),
+            Some(Piece::new(Color::White, PieceType::Knight, None)),
         );
 
         game.board.set_piece(
@@ -1353,7 +1353,7 @@ mod tests {
         );
         game.board.set_piece(
             &Position::new(5, 8),
-            Some(Piece::new(Color::Black, PieceType::Dragon, None)),
+            Some(Piece::new(Color::Black, PieceType::Knight, None)),
         );
 
         // Place a white soldier to be captured
@@ -1364,7 +1364,7 @@ mod tests {
 
         game.board.set_white_to_move(false);
 
-        // Black dragon captures soldier
+        // Black knight captures soldier
         let mv = Move {
             from: Position::new(5, 8),
             to: Position::new(4, 4),
@@ -1377,7 +1377,7 @@ mod tests {
         let new_board = result.unwrap();
         assert!(
             new_board.is_game_over(),
-            "Game should be over (single dragon rule)"
+            "Game should be over (single knight rule)"
         );
         assert!(new_board.is_draw(), "Should be a draw");
     }
@@ -1551,15 +1551,15 @@ mod tests {
             Some(Piece::new(Color::Black, PieceType::King, None)),
         );
 
-        // Place white jesters on white squares (color lock)
+        // Place white bishops on white squares (color lock)
         // White squares: (x + y) % 2 == 0
         game.board.set_piece(
             &Position::new(0, 0),
-            Some(Piece::new(Color::White, PieceType::Jester, None)),
+            Some(Piece::new(Color::White, PieceType::Bishop, None)),
         );
         game.board.set_piece(
             &Position::new(2, 0),
-            Some(Piece::new(Color::White, PieceType::Jester, None)),
+            Some(Piece::new(Color::White, PieceType::Bishop, None)),
         );
 
         // Place black guards on black squares (color lock)

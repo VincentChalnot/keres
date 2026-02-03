@@ -70,11 +70,11 @@ The engine includes several optimizations to maximize GPU utilization and minimi
 The engine uses the following piece values for evaluation:
 
 - Soldier: 1 point
-- Jester: 3 points (like Bishop in chess)
-- Commander: 5 points (like Rook in chess)
+- Bishop: 3 points (like Bishop in chess)
+- Rook: 5 points (like Rook in chess)
 - Paladin: 3 points
 - Guard: 3 points
-- Dragon: 3 points (like Knight in chess)
+- Knight: 3 points (like Knight in chess)
 - Ballista: 5 points
 - King: 1000 points (invaluable)
 
@@ -190,7 +190,7 @@ Bits 6-0: from position (0-80)
 
 Implements:
 
-- All piece movement patterns (Soldier, Jester, Commander, Paladin, Guard, Dragon, Ballista, King)
+- All piece movement patterns (Soldier, Bishop, Rook, Paladin, Guard, Knight, Ballista, King)
 - Stacking rules
 - Capture mechanics
 - Move validation

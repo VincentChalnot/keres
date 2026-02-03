@@ -1,43 +1,38 @@
 {% extends 'base.html.twig' %}
 
+{% block title %}Play Game - Keres{% endblock %}
+
 {% block body %}
-    <div class="container">
-        <div class="game-container">
-            <div class="main-container">
-                <div id="board-container" 
-                     data-moves="{{ moves }}" 
-                     data-board="{{ board }}" 
-                     data-game-uuid="{{ game.uuid }}"
-                     data-opponent-type="{{ game.opponentType }}"
-                     data-player-side="{{ game.playerSide }}"></div>
-                <div id="status">Loading...</div>
-                <div class="buttons mt-4">
-                    {% if game.opponentType == 'hotseat' %}
-                        <button class="button is-primary" id="switch-sides-btn">Switch Sides</button>
-                    {% endif %}
-                    <button class="button is-link" id="toggle-threats-btn">Hide Threats</button>
-                </div>
+    <div class="game-container">
+        <div id="board-container"
+             data-moves="{{ moves }}"
+             data-game-uuid="{{ game.uuid }}"
+             data-opponent-type="{{ game.opponentType.value }}"
+             data-player-white="{{ game.white ? 'true' : 'false' }}"></div>
+        <div id="status" class="float-right">Loading...</div>
+        {% if game.opponentType == enum('App\\Model\\OpponentType').AI %}
+            <button class="btn btn-outline" id="switch-sides-btn">Switch Sides</button>
+        {% endif %}
+        <button class="btn btn-outline" id="toggle-threats-btn">Hide Threats</button>
+        <button class="btn" id="undo-btn">Undo</button>
+        <div class="move-history">
+            <label class="label">Move History</label>
+            <div class="buttons">
+                <button class="btn btn-outline" id="prev-move-btn" title="Previous Move">◄ Prev</button>
+                <button class="btn btn-outline" id="next-move-btn" title="Next Move">Next ►</button>
             </div>
-            <div class="move-history">
-                <label class="label">Move History</label>
-                <div class="buttons mt-2">
-                    <button class="button is-info" id="prev-move-btn" title="Previous Move">◄ Prev</button>
-                    <button class="button is-info" id="next-move-btn" title="Next Move">Next ►</button>
-                    <button class="button is-warning" id="undo-btn">Undo</button>
-                </div>
-                <div id="move-history-display" class="move-history-box">
-                    <table class="table is-fullwidth move-history-table has-background-dark has-text-white">
-                        <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>White</th>
-                            <th>Black</th>
-                        </tr>
-                        </thead>
-                        <tbody id="move-history-body">
-                        </tbody>
-                    </table>
-                </div>
+            <div id="move-history-display" class="move-history-box">
+                <table class="table is-fullwidth move-history-table has-background-dark has-text-white">
+                    <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>White</th>
+                        <th>Black</th>
+                    </tr>
+                    </thead>
+                    <tbody id="move-history-body">
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>

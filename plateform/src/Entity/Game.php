@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\Model\MovesData;
+use App\Model\OpponentType;
 use App\Repository\GameRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -21,16 +23,16 @@ class Game
     private ?int $id = null;
 
     #[ORM\Column(type: UuidType::NAME, unique: true)]
-    private ?Uuid $uuid = null;
+    private ?Uuid $uuid;
 
-    #[ORM\Column(type: Types::STRING, length: 10)]
-    private ?string $playerSide = null; // 'white', 'black', 'random'
+    #[ORM\Column(type: Types::INTEGER)]
+    private int $opponentTypeValue;
 
-    #[ORM\Column(type: Types::STRING, length: 10)]
-    private ?string $opponentType = null; // 'ai', 'hotseat'
+    #[ORM\Column(type: Types::BOOLEAN)]
+    private bool $isWhite;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
-    private ?\DateTimeImmutable $createdAt = null;
+    private \DateTimeImmutable $createdAt;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $gameOverAt = null;
@@ -41,15 +43,31 @@ class Game
     #[ORM\Column(type: Types::BOOLEAN)]
     private bool $draw = false;
 
-    #[ORM\OneToMany(targetEntity: Move::class, mappedBy: 'game', cascade: ['persist'], orphanRemoval: true)]
+    /**
+     * @var Collection<int, GameMove>
+     */
+    #[ORM\OneToMany(targetEntity: GameMove::class, mappedBy: 'game', cascade: [
+        'persist',
+        'remove',
+    ], orphanRemoval: true)]
     #[ORM\OrderBy(['id' => 'ASC'])]
-    private Collection $moves;
+    private Collection $gameMoves;
 
-    public function __construct()
+    /**
+     * @param OpponentType $opponentType
+     * @param bool|null $isWhite If null, will be chosen randomly
+     */
+    public function __construct(OpponentType $opponentType = OpponentType::AI, ?bool $isWhite = null)
     {
         $this->uuid = Uuid::v4();
         $this->createdAt = new \DateTimeImmutable();
-        $this->moves = new ArrayCollection();
+        $this->gameMoves = new ArrayCollection();
+        $this->opponentTypeValue = $opponentType->value;
+        if ($isWhite === null) {
+            $this->isWhite = (bool) random_int(0, 1);
+        } else {
+            $this->isWhite = $isWhite;
+        }
     }
 
     public function getId(): ?int
@@ -65,28 +83,31 @@ class Game
     public function setUuid(Uuid $uuid): self
     {
         $this->uuid = $uuid;
+
         return $this;
     }
 
-    public function getPlayerSide(): ?string
+    public function isWhite(): bool
     {
-        return $this->playerSide;
+        return $this->isWhite;
     }
 
-    public function setPlayerSide(string $playerSide): self
+    public function setIsWhite(bool $isWhite): self
     {
-        $this->playerSide = $playerSide;
+        $this->isWhite = $isWhite;
+
         return $this;
     }
 
-    public function getOpponentType(): ?string
+    public function getOpponentType(): OpponentType
     {
-        return $this->opponentType;
+        return OpponentType::from($this->opponentTypeValue);
     }
 
-    public function setOpponentType(string $opponentType): self
+    public function setOpponentType(OpponentType $opponentType): self
     {
-        $this->opponentType = $opponentType;
+        $this->opponentTypeValue = $opponentType->value;
+
         return $this;
     }
 
@@ -98,6 +119,7 @@ class Game
     public function setCreatedAt(\DateTimeImmutable $createdAt): self
     {
         $this->createdAt = $createdAt;
+
         return $this;
     }
 
@@ -109,6 +131,7 @@ class Game
     public function setGameOverAt(?\DateTimeImmutable $gameOverAt): self
     {
         $this->gameOverAt = $gameOverAt;
+
         return $this;
     }
 
@@ -120,6 +143,7 @@ class Game
     public function setWhiteWins(bool $whiteWins): self
     {
         $this->whiteWins = $whiteWins;
+
         return $this;
     }
 
@@ -131,6 +155,7 @@ class Game
     public function setDraw(bool $draw): self
     {
         $this->draw = $draw;
+
         return $this;
     }
 
@@ -140,32 +165,33 @@ class Game
     }
 
     /**
-     * @return Collection<int, Move>
+     * @return Collection<int, GameMove>
      */
-    public function getMoves(): Collection
+    public function getGameMoves(): Collection
     {
-        return $this->moves;
+        return $this->gameMoves;
     }
 
-    public function addMove(Move $move): self
+    public function isWhiteTurn(): bool
     {
-        if (!$this->moves->contains($move)) {
-            $this->moves->add($move);
-            $move->setGame($this);
-        }
-
-        return $this;
+        return $this->gameMoves->count() % 2 === 0;
     }
 
-    public function removeMove(Move $move): self
+    public function addMove(Move $move): GameMove
     {
-        if ($this->moves->removeElement($move)) {
-            // set the owning side to null (unless already changed)
-            if ($move->getGame() === $this) {
-                $move->setGame(null);
-            }
+        $moveEntity = new GameMove($this, $move);
+        $this->gameMoves->add($moveEntity);
+
+        return $moveEntity;
+    }
+
+    public function getMovesData(): MovesData
+    {
+        $data = new MovesData();
+        foreach ($this->gameMoves as $moveEntity) {
+            $data->addMove($moveEntity->getMove()->getMoveData());
         }
 
-        return $this;
+        return $data;
     }
 }

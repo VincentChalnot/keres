@@ -26,7 +26,7 @@ fn main() {
         to: i9,
         unstack: false,
     }) {
-        println!("After Black G9->I9 (captured Dragon+Commander):");
+        println!("After Black G9->I9 (captured Knight+Rook):");
         println!("Now it's White's turn.\n");
 
         // What does White do?
@@ -71,7 +71,7 @@ fn main() {
         to: e6,
         unstack: false,
     }) {
-        println!("After Black D7->E6 (stacked Soldier on Dragon):");
+        println!("After Black D7->E6 (stacked Soldier on Knight):");
         println!("Now it's White's turn.\n");
 
         let mut engine = MinimaxEngine::with_config(MinimaxConfig {

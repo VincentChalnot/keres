@@ -1,0 +1,42 @@
+.p-w {
+    --piece-bg: #fff;
+    --piece-fg: #000;
+}
+
+.p-b {
+    --piece-bg: #000;
+    --piece-fg: #fff;
+}
+
+.p-r {
+    --icon-rotation: 180deg;
+}
+
+.piece-icon {
+    transform-origin: 45px 35px;
+    transform: rotate(var(--icon-rotation, 0deg));
+}
+
+.tile {
+    width: 100px;
+    height: 80px;
+    stroke: #55442d;
+    stroke-width: 1;
+}
+
+#board-row-odd .tile {
+    fill: #d2b48c;
+}
+
+#board-row-odd .tile:nth-child(even) {
+    fill: #f5f5dc;
+}
+
+#board-row-even .tile {
+    fill: #f5f5dc;
+}
+
+#board-row-even .tile:nth-child(even) {
+    fill: #d2b48c;
+}
+

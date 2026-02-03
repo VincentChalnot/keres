@@ -32,15 +32,15 @@ class NewGameAction extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $data = $form->getData();
-            
-            // Resolve random side
-            $playerSide = $data['playerSide'];
-            if ($playerSide === 'random') {
-                $playerSide = random_int(0, 1) === 0 ? 'white' : 'black';
-            }
 
             $game = new Game();
-            $game->setPlayerSide($playerSide);
+            $game->setIsWhite(
+                match ($data['playerSide']) {
+                    'white' => true,
+                    'black' => false,
+                    'random' => (bool) random_int(0, 1),
+                }
+            );
             $game->setOpponentType($data['opponentType']);
 
             $this->entityManager->persist($game);

@@ -85,11 +85,11 @@ impl Position {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PieceType {
     Soldier = 0b001,   // 1
-    Jester = 0b010,    // 2
-    Commander = 0b011, // 3
+    Bishop = 0b010,    // 2
+    Rook = 0b011, // 3
     Paladin = 0b100,   // 4
     Guard = 0b101,     // 5
-    Dragon = 0b110,    // 6
+    Knight = 0b110,    // 6
     Ballista = 0b111,  // 7
     King,              // Handled specially, its discriminant (8) is not used in 3-bit piece codes
 }
@@ -226,11 +226,11 @@ impl Piece {
     fn code_to_piece_type(code: u8) -> Option<PieceType> {
         match code {
             0b001 => Some(PieceType::Soldier),
-            0b010 => Some(PieceType::Jester),
-            0b011 => Some(PieceType::Commander),
+            0b010 => Some(PieceType::Bishop),
+            0b011 => Some(PieceType::Rook),
             0b100 => Some(PieceType::Paladin),
             0b101 => Some(PieceType::Guard),
-            0b110 => Some(PieceType::Dragon),
+            0b110 => Some(PieceType::Knight),
             0b111 => Some(PieceType::Ballista),
             _ => None, // Covers 0b000 and any other invalid 3-bit patterns for non-King pieces
         }
@@ -255,22 +255,22 @@ impl Board {
         const HALF_BOARD_SETUP: [Option<PieceType>; 27] = [
             // Row 0
             Some(PieceType::Ballista),
-            Some(PieceType::Dragon),
+            Some(PieceType::Knight),
             Some(PieceType::Paladin),
             Some(PieceType::Guard),
             Some(PieceType::King),
             Some(PieceType::Guard),
             Some(PieceType::Paladin),
-            Some(PieceType::Dragon),
+            Some(PieceType::Knight),
             Some(PieceType::Ballista),
             // Row 1
             None,
             None,
-            Some(PieceType::Commander),
+            Some(PieceType::Rook),
             None,
             None,
             None,
-            Some(PieceType::Jester),
+            Some(PieceType::Bishop),
             None,
             None,
             // Row 2

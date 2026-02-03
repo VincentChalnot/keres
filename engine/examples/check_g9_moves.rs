@@ -28,7 +28,7 @@ fn main() {
         let game_after = Game::from_board(board_after_guard_move.clone());
 
         let g9_moves = game_after.get_moves(&g9);
-        println!("White Dragon+Commander at G9 can move to:");
+        println!("White Knight+Rook at G9 can move to:");
         for m in &g9_moves {
             println!("  {} -> {}", m.from.to_string(), m.to.to_string());
             let e9 = Position::new(4, 0);

@@ -8,15 +8,11 @@ const SQUARE_WIDTH = 100; // px
 const SQUARE_HEIGHT = 80; // px
 const BOARD_WIDTH = BOARD_SIZE * SQUARE_WIDTH; // 900px
 const BOARD_HEIGHT = BOARD_SIZE * SQUARE_HEIGHT; // 800px
-const PIECE_SIZE = 90; // px (centered in 100px square)
-const PIECE_X_OFFSET = (SQUARE_WIDTH - PIECE_SIZE) / 2;
-const PIECE_Y_OFFSET = (SQUARE_HEIGHT - PIECE_SIZE) / 2;
 const STACKED_OFFSET = 23;
 
-// Colors
-const BLACK_SQUARE_COLOR = '#e1c499';
-const WHITE_SQUARE_COLOR = '#f8f0e6';
-const BORDER_COLOR = '#55442d';
+const SPRITE_URL = '/build/pieces-sprite.svg';
+// Use Vite's asset handling to get the correct URL for board.css
+const BOARD_CSS_URL = new URL('/assets/board.css', import.meta.url).href;
 
 /**
  * SVG-based board renderer
@@ -49,26 +45,27 @@ export default class SVGBoardView implements IBoardView {
         this.gameState = gameState;
     }
 
-    initialize(container: HTMLElement): void {
+    async initialize(container: HTMLElement): Promise<void> {
         this.container = container;
-
-        // Create SVG element
+        await this.injectBoardCSS();
         this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         this.svg.setAttribute('viewBox', `0 0 ${BOARD_WIDTH} ${BOARD_HEIGHT}`);
         this.svg.style.cursor = 'pointer';
-        
-        // Create groups for layering
+
+        // Inline the sprite sheet symbols/defs directly into the SVG
+        await this.inlineSpriteDefs(this.svg);
+
+        // Create groups for layering as in board.svg
         this.boardGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         this.boardGroup.setAttribute('id', 'board-layer');
-        
+        this.svg.appendChild(this.boardGroup);
+
         this.overlaysGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         this.overlaysGroup.setAttribute('id', 'overlays-layer');
+        this.svg.appendChild(this.overlaysGroup);
 
         this.piecesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         this.piecesGroup.setAttribute('id', 'pieces-layer');
-
-        this.svg.appendChild(this.boardGroup);
-        this.svg.appendChild(this.overlaysGroup);
         this.svg.appendChild(this.piecesGroup);
 
         container.appendChild(this.svg);
@@ -86,34 +83,44 @@ export default class SVGBoardView implements IBoardView {
         this.svg.addEventListener('click', this.boundHandleClick);
         this.svg.addEventListener('mousemove', this.boundHandleMouseMove);
         this.svg.addEventListener('mouseleave', this.boundHandleMouseLeave);
-        
+
         window.addEventListener('resize', this.boundOnResize);
         this.onResize();
     }
 
-    private createBoard(): void {
-        // Create checkerboard pattern
-        for (let row = 0; row < BOARD_SIZE; row++) {
-            for (let col = 0; col < BOARD_SIZE; col++) {
-                const x = col * SQUARE_WIDTH;
-                const y = row * SQUARE_HEIGHT;
-                
-                // Determine square color (checkerboard pattern)
-                const isBlackSquare = (row + col) % 2 === 1;
-                const fillColor = isBlackSquare ? BLACK_SQUARE_COLOR : WHITE_SQUARE_COLOR;
-                
-                // Create square
-                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                rect.setAttribute('x', x.toString());
-                rect.setAttribute('y', y.toString());
-                rect.setAttribute('width', SQUARE_WIDTH.toString());
-                rect.setAttribute('height', SQUARE_HEIGHT.toString());
-                rect.setAttribute('fill', fillColor);
-                rect.setAttribute('stroke', BORDER_COLOR);
-                rect.setAttribute('stroke-width', '1');
-                
-                this.boardGroup.appendChild(rect);
+    private async injectBoardCSS() {
+        if (!document.querySelector(`link[data-board-css]`)) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = BOARD_CSS_URL;
+            link.setAttribute('data-board-css', 'true');
+            document.head.appendChild(link);
+        }
+    }
+
+    private async inlineSpriteDefs(targetSvg: SVGSVGElement) {
+        // Fetch the sprite SVG and insert its <defs> or <symbol> content into the main SVG
+        const response = await fetch(SPRITE_URL);
+        const svgText = await response.text();
+        const parser = new DOMParser();
+        const spriteDoc = parser.parseFromString(svgText, 'image/svg+xml');
+        // Move all <defs> and <symbol> children into our SVG
+        const spriteSvg = spriteDoc.documentElement;
+        for (const child of Array.from(spriteSvg.children)) {
+            if (child.tagName === 'defs' || child.tagName === 'symbol') {
+                targetSvg.appendChild(targetSvg.ownerDocument.importNode(child, true));
             }
+        }
+    }
+
+    private createBoard(): void {
+        // Use <use> elements to build the board as in board.svg
+        // 9 rows, alternating odd/even
+        for (let row = 0; row < BOARD_SIZE; row++) {
+            const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+            use.setAttribute('href', row % 2 === 0 ? '#board-row-odd' : '#board-row-even');
+            use.setAttribute('y', String(row * SQUARE_HEIGHT));
+            this.boardGroup.appendChild(use);
         }
     }
 
@@ -141,11 +148,23 @@ export default class SVGBoardView implements IBoardView {
         const actualIndex = this.gameState.isBoardFlipped() ? (LAST_BOARD_INDEX - index) : index;
         const col = actualIndex % BOARD_SIZE;
         const row = Math.floor(actualIndex / BOARD_SIZE);
-        
+
         return {
             x: col * SQUARE_WIDTH,
             y: row * SQUARE_HEIGHT
         };
+    }
+
+    private getTileIndex(x: number, y: number): number | null {
+        // Given board coordinates (x, y), return the tile index, respecting board flip
+        const col = Math.floor(x / SQUARE_WIDTH);
+        const row = Math.floor(y / SQUARE_HEIGHT);
+        if (col < 0 || col >= BOARD_SIZE || row < 0 || row >= BOARD_SIZE) {
+            return null;
+        }
+        const visualIndex = row * BOARD_SIZE + col;
+        const flipped = this.gameState.isBoardFlipped();
+        return flipped ? (LAST_BOARD_INDEX - visualIndex) : visualIndex;
     }
 
     async render(boardData: Uint8Array, flipped: boolean): Promise<void> {
@@ -192,6 +211,20 @@ export default class SVGBoardView implements IBoardView {
         }
     }
 
+    private async createPieceUse(x: number, y: number, pieceType: string, color: boolean, reversed: boolean, tileIndex: number, isTopPiece: boolean): Promise<void> {
+        // Use <use> referencing the inlined sprite symbol
+        const colorClass = color ? 'p-w' : 'p-b';
+        const reversedClass = color ^ reversed ? '' : 'p-r';
+        const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+        use.setAttribute('href', `#piece-${pieceType}`);
+        use.setAttribute('class', `piece ${colorClass} ${reversedClass}`);
+        use.setAttribute('x', x.toString());
+        use.setAttribute('y', y.toString());
+        use.dataset.tileIndex = tileIndex.toString();
+        use.dataset.isTopPiece = isTopPiece.toString();
+        this.piecesGroup.appendChild(use);
+    }
+
     private async updatePieceAtIndex(index: number, pieceVal: number, flipped: boolean): Promise<void> {
         // Remove existing pieces at this position
         this.removePiecesAtIndex(index);
@@ -201,61 +234,30 @@ export default class SVGBoardView implements IBoardView {
         if (!piece) return;
 
         const {x, y} = this.getTilePosition(index);
-        const pieceX = x + PIECE_X_OFFSET;
-        const pieceY = y + PIECE_Y_OFFSET;
+        // Use raw x/y, no PIECE_X_OFFSET or PIECE_Y_OFFSET
+        // Render bottom piece
+        await this.createPieceUse(
+            x,
+            y,
+            piece.bottom,
+            piece.color,
+            flipped,
+            index,
+            false
+        );
 
-        // Load bottom piece
-        const bottomPath = this.getPiecePath(piece.bottom, piece.color, flipped);
-        await this.createPieceImage(pieceX, pieceY, bottomPath, index, false);
-
-        // Load top piece if stacked
+        // Render top piece if stacked
         if (piece.top) {
-            const topPath = this.getPiecePath(piece.top, piece.color, flipped);
-            // Offset the top piece slightly
-            await this.createPieceImage(pieceX, pieceY - STACKED_OFFSET, topPath, index, true);
+            await this.createPieceUse(
+                x,
+                y - STACKED_OFFSET,
+                piece.top,
+                piece.color,
+                flipped,
+                index,
+                true
+            );
         }
-    }
-
-    private async createPieceImage(x: number, y: number, svgPath: string, tileIndex: number, isTopPiece: boolean): Promise<void> {
-        try {
-            // Load the SVG content
-            const response = await fetch(svgPath);
-            if (!response.ok) {
-                console.error(`Failed to load SVG: ${svgPath}, status: ${response.status}`);
-                return;
-            }
-            const svgText = await response.text();
-        
-            // Parse the SVG
-            const parser = new DOMParser();
-            const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
-            const svgElement = svgDoc.documentElement;
-            
-            // Create a group to contain the embedded SVG
-            const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            group.setAttribute('transform', `translate(${x}, ${y})`);
-            group.dataset.tileIndex = tileIndex.toString();
-            group.dataset.isTopPiece = isTopPiece.toString();
-            
-            // Set the viewBox and dimensions on the embedded SVG
-            svgElement.setAttribute('width', PIECE_SIZE.toString());
-            svgElement.setAttribute('height', PIECE_SIZE.toString());
-            svgElement.setAttribute('viewBox', '0 0 90 90');
-            
-            // Import the SVG element into our document and add to group
-            const importedSvg = document.importNode(svgElement, true);
-            group.appendChild(importedSvg);
-            
-            this.piecesGroup.appendChild(group);
-        } catch (error) {
-            console.error(`Error loading piece image from ${svgPath}:`, error);
-        }
-    }
-
-    private getPiecePath(pieceName: string, color: boolean, reversed: boolean): string {
-        const colorName = color ? 'white' : 'black';
-        const reversedSuffix = color === reversed ? '-reversed' : '';
-        return `/images/vector/${pieceName}-${colorName}${reversedSuffix}.svg`;
     }
 
     private removePiecesAtIndex(index: number): void {
@@ -285,7 +287,6 @@ export default class SVGBoardView implements IBoardView {
 
             let color: string;
             let opacity: string;
-
             switch (highlight.type) {
                 case 'selected':
                     color = '#7fa0dd';
@@ -308,7 +309,6 @@ export default class SVGBoardView implements IBoardView {
                     opacity = '0.5';
                     break;
             }
-
             overlay.setAttribute('fill', color);
             overlay.setAttribute('opacity', opacity);
         }
@@ -351,23 +351,10 @@ export default class SVGBoardView implements IBoardView {
         const y = event.clientY - rect.top;
 
         // Convert from screen coordinates to SVG coordinates
-        const scaleX = BOARD_WIDTH / rect.width;
-        const scaleY = BOARD_HEIGHT / rect.height;
-        
-        const svgX = x * scaleX;
-        const svgY = y * scaleY;
+        const svgX = x * BOARD_WIDTH / rect.width;
+        const svgY = y * BOARD_HEIGHT / rect.height;
 
-        // Calculate which square was clicked
-        const col = Math.floor(svgX / SQUARE_WIDTH);
-        const row = Math.floor(svgY / SQUARE_HEIGHT);
-
-        if (col < 0 || col >= BOARD_SIZE || row < 0 || row >= BOARD_SIZE) {
-            return null;
-        }
-
-        const visualIndex = row * BOARD_SIZE + col;
-        const flipped = this.gameState.isBoardFlipped();
-        return flipped ? (LAST_BOARD_INDEX - visualIndex) : visualIndex;
+        return this.getTileIndex(svgX, svgY);
     }
 
     onTileClick(handler: (tileIndex: number) => void): void {
@@ -383,7 +370,7 @@ export default class SVGBoardView implements IBoardView {
         if (this.boundOnResize) {
             window.removeEventListener('resize', this.boundOnResize);
         }
-        
+
         if (this.svg) {
             if (this.boundHandleClick) {
                 this.svg.removeEventListener('click', this.boundHandleClick);
@@ -395,7 +382,7 @@ export default class SVGBoardView implements IBoardView {
                 this.svg.removeEventListener('mouseleave', this.boundHandleMouseLeave);
             }
         }
-        
+
         // Remove SVG element
         if (this.svg && this.svg.parentNode) {
             this.svg.parentNode.removeChild(this.svg);

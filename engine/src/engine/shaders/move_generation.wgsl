@@ -33,11 +33,11 @@ struct MoveBuffer {
 
 // Piece type codes
 const PIECE_SOLDIER: u32 = 1u;
-const PIECE_JESTER: u32 = 2u;
-const PIECE_COMMANDER: u32 = 3u;
+const PIECE_BISHOP: u32 = 2u;
+const PIECE_ROOK: u32 = 3u;
 const PIECE_PALADIN: u32 = 4u;
 const PIECE_GUARD: u32 = 5u;
-const PIECE_DRAGON: u32 = 6u;
+const PIECE_KNIGHT: u32 = 6u;
 const PIECE_BALLISTA: u32 = 7u;
 
 // Special encoding for King
@@ -185,8 +185,8 @@ fn generate_directional_moves(pos: vec2<i32>, idx: u32, color: u32, is_top: bool
     }
 }
 
-// Generate moves for jester (diagonal, unlimited)
-fn generate_jester_moves(pos: vec2<i32>, idx: u32, color: u32, is_top: bool, has_top: bool) {
+// Generate moves for bishop (diagonal, unlimited)
+fn generate_bishop_moves(pos: vec2<i32>, idx: u32, color: u32, is_top: bool, has_top: bool) {
     var directions = array<vec2<i32>, 8>(
         vec2<i32>(1, 1), vec2<i32>(1, -1), vec2<i32>(-1, 1), vec2<i32>(-1, -1),
         vec2<i32>(0, 0), vec2<i32>(0, 0), vec2<i32>(0, 0), vec2<i32>(0, 0)
@@ -194,8 +194,8 @@ fn generate_jester_moves(pos: vec2<i32>, idx: u32, color: u32, is_top: bool, has
     generate_directional_moves(pos, idx, color, is_top, has_top, &directions, 4u, BOARD_DIM);
 }
 
-// Generate moves for commander (orthogonal, unlimited)
-fn generate_commander_moves(pos: vec2<i32>, idx: u32, color: u32, is_top: bool, has_top: bool) {
+// Generate moves for rook (orthogonal, unlimited)
+fn generate_rook_moves(pos: vec2<i32>, idx: u32, color: u32, is_top: bool, has_top: bool) {
     var directions = array<vec2<i32>, 8>(
         vec2<i32>(1, 0), vec2<i32>(0, 1), vec2<i32>(-1, 0), vec2<i32>(0, -1),
         vec2<i32>(0, 0), vec2<i32>(0, 0), vec2<i32>(0, 0), vec2<i32>(0, 0)
@@ -221,8 +221,8 @@ fn generate_guard_moves(pos: vec2<i32>, idx: u32, color: u32, is_top: bool, has_
     generate_directional_moves(pos, idx, color, is_top, has_top, &directions, 4u, 2);
 }
 
-// Generate moves for dragon (knight moves)
-fn generate_dragon_moves(pos: vec2<i32>, idx: u32, color: u32, is_top: bool, has_top: bool) {
+// Generate moves for knight (knight moves)
+fn generate_knight_moves(pos: vec2<i32>, idx: u32, color: u32, is_top: bool, has_top: bool) {
     var directions = array<vec2<i32>, 8>(
         vec2<i32>(2, 1), vec2<i32>(2, -1), vec2<i32>(-2, 1), vec2<i32>(-2, -1),
         vec2<i32>(1, 2), vec2<i32>(1, -2), vec2<i32>(-1, 2), vec2<i32>(-1, -2)
@@ -258,11 +258,11 @@ fn generate_moves_for_piece_type(pos: vec2<i32>, idx: u32, color: u32,
         case PIECE_SOLDIER: {
             generate_soldier_moves(pos, idx, color, is_top, has_top);
         }
-        case PIECE_JESTER: {
-            generate_jester_moves(pos, idx, color, is_top, has_top);
+        case PIECE_BISHOP: {
+            generate_bishop_moves(pos, idx, color, is_top, has_top);
         }
-        case PIECE_COMMANDER: {
-            generate_commander_moves(pos, idx, color, is_top, has_top);
+        case PIECE_ROOK: {
+            generate_rook_moves(pos, idx, color, is_top, has_top);
         }
         case PIECE_PALADIN: {
             generate_paladin_moves(pos, idx, color, is_top, has_top);
@@ -270,8 +270,8 @@ fn generate_moves_for_piece_type(pos: vec2<i32>, idx: u32, color: u32,
         case PIECE_GUARD: {
             generate_guard_moves(pos, idx, color, is_top, has_top);
         }
-        case PIECE_DRAGON: {
-            generate_dragon_moves(pos, idx, color, is_top, has_top);
+        case PIECE_KNIGHT: {
+            generate_knight_moves(pos, idx, color, is_top, has_top);
         }
         case PIECE_BALLISTA: {
             generate_ballista_moves(pos, idx, color, is_top, has_top);
