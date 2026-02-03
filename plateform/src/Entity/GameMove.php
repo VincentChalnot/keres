@@ -14,7 +14,7 @@ class GameMove
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: Types::BIGINT)]
-    private readonly ?string $id;
+    private ?string $id;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private readonly \DateTimeImmutable $createdAt;

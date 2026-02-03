@@ -2,6 +2,7 @@ import {GameState} from '../models/GameState';
 import {GameAPI} from '../network/GameAPI';
 import {IBoardView, TileHighlight} from '../views/IBoardView';
 import {Move} from '../models/types';
+import {decodeMoveListFromBase64} from '../utils/boardUtils';
 
 /**
  * Main game controller - handles game logic and coordinates between model, view, and network
@@ -118,17 +119,15 @@ export class GameController {
 
     async undoMove(): Promise<void> {
         try {
-            const movesU16 = await this.api.undoMove();
-            
-            // Convert u16 moves to Move objects
-            const moves: Move[] = [];
-            for (const moveU16 of movesU16) {
-                const from = moveU16 & 0x7F;
-                const to = (moveU16 >> 7) & 0x7F;
-                const unstack = ((moveU16 >> 14) & 0x1) === 1;
-                moves.push({from, to, unstack});
+            const movesBase64 = await this.api.undoMove();
+            let moves: Move[];
+            try {
+                moves = decodeMoveListFromBase64(movesBase64);
+            } catch (error) {
+                console.error('Failed to decode move stack:', error);
+                alert('Failed to decode move stack: ' + (error as Error).message);
+                moves = [];
             }
-            
             await this.setMoves(moves);
             window.dispatchEvent(new CustomEvent('boardStateChanged'));
         } catch (error) {

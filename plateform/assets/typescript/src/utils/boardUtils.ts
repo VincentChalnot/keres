@@ -203,3 +203,38 @@ export function encodeMoveListToBinary(moves: Move[]): Uint8Array {
     }
     return bytes;
 }
+
+/**
+ * Decode a base64-encoded move stack into Move[]
+ */
+export function decodeMoveListFromBase64(base64Moves: string): Move[] {
+    if (!base64Moves || base64Moves.length === 0) {
+        return [];
+    }
+    const binaryString = atob(base64Moves);
+
+    let movesBuffer: ArrayBuffer;
+    try {
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        movesBuffer = bytes.buffer;
+    } catch {
+        console.error('Failed to decode move stack binary response');
+        return [];
+    }
+    if (movesBuffer.byteLength % 2 !== 0) {
+        console.error('Corrupted move stack data: invalid length');
+        return [];
+    }
+    const movesU16 = new Uint16Array(movesBuffer);
+    const moves: Move[] = [];
+    for (const moveU16 of movesU16) {
+        const from = moveU16 & 0x7F;
+        const to = (moveU16 >> 7) & 0x7F;
+        const unstack = ((moveU16 >> 14) & 0x1) === 1;
+        moves.push({from, to, unstack});
+    }
+    return moves;
+}

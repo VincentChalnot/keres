@@ -179,7 +179,7 @@ export class GameAPI {
     /**
      * Undo move by calling server endpoint
      */
-    async undoMove(): Promise<number[]> {
+    async undoMove(): Promise<string> {
         if (!this.gameUuid) {
             throw new Error('No game UUID available');
         }
@@ -193,7 +193,6 @@ export class GameAPI {
             throw new Error(errorData.error || 'Failed to undo move');
         }
 
-        const data = await response.json();
-        return data.moves;
+        return response.text();
     }
 }

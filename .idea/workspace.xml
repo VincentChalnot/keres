@@ -5,32 +5,13 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e677cc10-da9b-4d42-bdc5-9b87d9746894" name="Changes" comment="TMP">
-      <change afterPath="$PROJECT_DIR$/plateform/migrations/Version20260203141243.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/plateform/src/Engine/BoardTreeManager.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/plateform/src/Engine/EngineApi.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/plateform/src/Entity/BoardPosition.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/plateform/src/Entity/GameMove.php" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/plateform/src/Model/BoardMovesData.php" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/plateform/assets/typescript/src/app.ts" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/assets/typescript/src/app.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/plateform/assets/typescript/src/controllers/GameController.ts" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/assets/typescript/src/controllers/GameController.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/assets/typescript/src/views/SVGBoardView.ts" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/assets/typescript/src/views/SVGBoardView.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/migrations/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/migrations/Version20260202160056.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/migrations/Version20260202161617.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/src/Action/PlayAction.php" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/src/Action/PlayAction.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/src/Action/SubmitMoveAction.php" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/src/Action/SubmitMoveAction.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/plateform/assets/typescript/src/network/GameAPI.ts" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/assets/typescript/src/network/GameAPI.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/plateform/assets/typescript/src/utils/boardUtils.ts" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/assets/typescript/src/utils/boardUtils.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/plateform/src/Action/UndoMoveAction.php" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/src/Action/UndoMoveAction.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/src/Engine/EngineClient.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/src/Engine/Model/BoardData.php" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/src/Model/BoardData.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/src/Engine/Model/MoveData.php" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/src/Model/MoveData.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/src/Engine/Model/MovesData.php" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/src/Model/MovesData.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/src/Engine/Model/OpponentType.php" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/src/Model/OpponentType.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/src/Entity/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/src/Entity/Game.php" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/src/Entity/Game.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/src/Entity/Move.php" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/src/Entity/Move.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/src/Form/NewGameType.php" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/src/Form/NewGameType.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/templates/actions/play.html.twig" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/templates/actions/play.html.twig" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/plateform/src/Entity/GameMove.php" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/src/Entity/GameMove.php" afterDir="false" />
     </list>
     <list id="f9dd0b4c-d0bb-4b1c-a4b7-3766cd8094fd" name="NOCOMMIT" comment="" />
     <option name="SHOW_DIALOG" value="false" />
@@ -88,32 +69,32 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;#44 on copilot/install-doctrine-orm-postgres&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
-    &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;/home/vincent/www/keres/apps/client/node_modules/typescript/lib&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.rust.reset.selective.auto.import": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "git-widget-placeholder": "main",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
+    "org.rust.first.attach.projects": "true",
+    "settings.editor.selected.configurable": "preferences.pluginManager",
+    "ts.external.directory.path": "/home/vincent/www/keres/apps/client/node_modules/typescript/lib",
+    "vue.rearranger.settings.migration": "true"
   },
-  &quot;keyToStringList&quot;: {
-    &quot;com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File&quot;: [
-      &quot;Markdown&quot;
+  "keyToStringList": {
+    "com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File": [
+      "Markdown"
     ]
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$" />
@@ -142,6 +123,7 @@
       <workItem from="1768509136033" duration="893000" />
       <workItem from="1770046943583" duration="255000" />
       <workItem from="1770119381427" duration="1420000" />
+      <workItem from="1770131291746" duration="2245000" />
     </task>
     <task id="LOCAL-00001" summary="Major repo reorganisation, switching to mono-repo for client, engine and plateform">
       <option name="closed" value="true" />

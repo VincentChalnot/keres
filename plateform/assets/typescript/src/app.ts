@@ -2,30 +2,8 @@ import {GameState} from './models/GameState';
 import {GameAPI} from './network/GameAPI';
 import SVGBoardView from './views/SVGBoardView';
 import {GameController} from './controllers/GameController';
-import {Move} from './models/types';
 import {IBoardView} from './views/IBoardView';
-
-function decodeMoveListFromBase64(base64Moves: string): Move[] {
-    try {
-        const binaryString = atob(base64Moves);
-        const len = binaryString.length;
-        if (len % 2 !== 0) {
-            throw new Error('Invalid move list: length must be even');
-        }
-        const moves: Move[] = [];
-        for (let i = 0; i < len; i += 2) {
-            const moveU16 = binaryString.charCodeAt(i) | (binaryString.charCodeAt(i + 1) << 8);
-            const from = moveU16 & 0x7F;
-            const to = (moveU16 >> 7) & 0x7F;
-            const unstack = ((moveU16 >> 14) & 0x1) === 1;
-            moves.push({from, to, unstack});
-        }
-        return moves;
-    } catch (e) {
-        console.error('Failed to decode move list from base64', e);
-        return [];
-    }
-}
+import {decodeMoveListFromBase64} from './utils/boardUtils';
 
 /**
  * Main application entry point
