@@ -30,11 +30,11 @@ struct MoveApplication {
 
 // Piece type codes
 const PIECE_SOLDIER: u32 = 1u;
-const PIECE_JESTER: u32 = 2u;
-const PIECE_COMMANDER: u32 = 3u;
+const PIECE_BISHOP: u32 = 2u;
+const PIECE_ROOK: u32 = 3u;
 const PIECE_PALADIN: u32 = 4u;
 const PIECE_GUARD: u32 = 5u;
-const PIECE_DRAGON: u32 = 6u;
+const PIECE_KNIGHT: u32 = 6u;
 const PIECE_BALLISTA: u32 = 7u;
 
 // Special encoding for King
@@ -44,11 +44,11 @@ const KING_PAYLOAD: u32 = 0x38u; // 0b111000
 const PIECE_VALUES: array<i32, 8> = array<i32, 8>(
     0,  // Index 0: unused
     1,  // Soldier
-    3,  // Jester
-    5,  // Commander
+    3,  // Bishop
+    5,  // Rook
     3,  // Paladin
     3,  // Guard
-    3,  // Dragon
+    3,  // Knight
     5,  // Ballista
 );
 const KING_VALUE: i32 = 1000;
@@ -76,7 +76,7 @@ fn is_king(piece: u32) -> bool {
 }
 
 // Check if a piece needs promotion and return the promoted piece
-// Soldier (1) → Paladin (4), Ballista (7) → Commander (3) on opposite side
+// Soldier (1) → Paladin (4), Ballista (7) → Rook (3) on opposite side
 fn check_promotion(piece: u32, to_idx: u32) -> u32 {
     if piece == 0u {
         return piece;
@@ -108,7 +108,7 @@ fn check_promotion(piece: u32, to_idx: u32) -> u32 {
         if top_code == PIECE_SOLDIER {
             promoted_top = PIECE_PALADIN;
         } else if top_code == PIECE_BALLISTA {
-            promoted_top = PIECE_COMMANDER;
+            promoted_top = PIECE_ROOK;
         }
         if promoted_top != top_code {
             return color_bit | (promoted_top << 3u) | bottom_code;
@@ -121,7 +121,7 @@ fn check_promotion(piece: u32, to_idx: u32) -> u32 {
     if bottom_code == PIECE_SOLDIER {
         promoted_bottom = PIECE_PALADIN;
     } else if bottom_code == PIECE_BALLISTA {
-        promoted_bottom = PIECE_COMMANDER;
+        promoted_bottom = PIECE_ROOK;
     }
     if promoted_bottom != bottom_code {
         return color_bit | promoted_bottom;

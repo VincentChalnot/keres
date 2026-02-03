@@ -49,11 +49,11 @@ use crate::game::{Game, Move, PotentialMove};
 const PIECE_VALUES: [i32; 9] = [
     0,  // Index 0: unused
     10, // Soldier
-    45, // Jester
-    60, // Commander
+    45, // Bishop
+    60, // Rook
     30, // Paladin
     20, // Guard
-    35, // Dragon
+    35, // Knight
     20, // Ballista
     0,  // King (invaluable)
 ];
@@ -191,11 +191,11 @@ impl ZobristKeys {
     fn piece_type_to_idx(&self, piece_type: PieceType) -> usize {
         match piece_type {
             PieceType::Soldier => 0,
-            PieceType::Jester => 1,
-            PieceType::Commander => 2,
+            PieceType::Bishop => 1,
+            PieceType::Rook => 2,
             PieceType::Paladin => 3,
             PieceType::Guard => 4,
-            PieceType::Dragon => 5,
+            PieceType::Knight => 5,
             PieceType::Ballista => 6,
             PieceType::King => 7,
         }
@@ -639,9 +639,9 @@ impl MinimaxEngine {
 
                     score += target_value * 10 - attacker_value;
 
-                    // Bonus for capturing commander (including when stacked)
-                    if target_piece.bottom == PieceType::Commander
-                        || target_piece.top == Some(PieceType::Commander)
+                    // Bonus for capturing rook (including when stacked)
+                    if target_piece.bottom == PieceType::Rook
+                        || target_piece.top == Some(PieceType::Rook)
                     {
                         score += 500;
                     }
@@ -783,7 +783,7 @@ impl MinimaxEngine {
                 let mut mobility_value = 1;
 
                 // Bonus for mobile pieces
-                if piece.bottom == PieceType::Dragon || piece.bottom == PieceType::Commander {
+                if piece.bottom == PieceType::Knight || piece.bottom == PieceType::Rook {
                     mobility_value = (mobility_value as f32 * 1.5) as i32;
                 }
 
@@ -864,9 +864,9 @@ impl MinimaxEngine {
             for x in 0..9 {
                 let pos = Position::new(x, y);
                 if let Some(piece) = board.get_piece(&pos) {
-                    // Commander stacked unnecessarily (if on top of another piece)
+                    // Rook stacked unnecessarily (if on top of another piece)
                     if let Some(top_type) = piece.top {
-                        if top_type == PieceType::Commander {
+                        if top_type == PieceType::Rook {
                             if piece.color == Color::White {
                                 penalty -= 50;
                             } else {
@@ -980,11 +980,11 @@ impl MinimaxEngine {
     fn piece_value(&self, piece_type: PieceType) -> i32 {
         match piece_type {
             PieceType::Soldier => PIECE_VALUES[1],
-            PieceType::Jester => PIECE_VALUES[2],
-            PieceType::Commander => PIECE_VALUES[3],
+            PieceType::Bishop => PIECE_VALUES[2],
+            PieceType::Rook => PIECE_VALUES[3],
             PieceType::Paladin => PIECE_VALUES[4],
             PieceType::Guard => PIECE_VALUES[5],
-            PieceType::Dragon => PIECE_VALUES[6],
+            PieceType::Knight => PIECE_VALUES[6],
             PieceType::Ballista => PIECE_VALUES[7],
             PieceType::King => PIECE_VALUES[8],
         }
@@ -1108,14 +1108,14 @@ mod tests {
     }
 
     #[test]
-    fn test_avoid_losing_commander() {
+    fn test_avoid_losing_rook() {
         let mut engine = MinimaxEngine::with_config(MinimaxConfig {
             max_depth: 3,
             time_limit_ms: 2000,
             ..Default::default()
         });
 
-        // Create a position where the commander is under attack
+        // Create a position where the rook is under attack
         let mut board = Board::new();
 
         // Clear the board for a simple test
@@ -1127,11 +1127,11 @@ mod tests {
         }
 
         // Set up a simple position
-        // White king at E1, White commander at D4
+        // White king at E1, White rook at D4
         let white_king_pos = Position::new(4, 0);
-        let white_commander_pos = Position::new(3, 3);
+        let white_rook_pos = Position::new(3, 3);
 
-        // Black king at E9, Black piece threatening commander at D5
+        // Black king at E9, Black piece threatening rook at D5
         let black_king_pos = Position::new(4, 8);
         let black_attacker_pos = Position::new(3, 4);
 
@@ -1147,10 +1147,10 @@ mod tests {
         );
 
         board.set_piece(
-            &white_commander_pos,
+            &white_rook_pos,
             Some(Piece {
                 color: Color::White,
-                bottom: PieceType::Commander,
+                bottom: PieceType::Rook,
                 top: None,
             }),
         );
@@ -1173,10 +1173,10 @@ mod tests {
             }),
         );
 
-        // White to move - should try to save or move the commander
+        // White to move - should try to save or move the rook
         let result = engine.find_best_move(&board);
 
-        assert!(result.is_ok(), "Should find a move to protect commander");
+        assert!(result.is_ok(), "Should find a move to protect rook");
     }
 
     #[test]
@@ -1187,7 +1187,7 @@ mod tests {
             ..Default::default()
         });
 
-        // Create a position where we can capture an enemy commander
+        // Create a position where we can capture an enemy rook
         let mut board = Board::new();
 
         // Clear the board
@@ -1206,7 +1206,7 @@ mod tests {
 
         // Black pieces
         let black_king_pos = Position::new(8, 8);
-        let black_commander_pos = Position::new(4, 4); // Adjacent to white guard
+        let black_rook_pos = Position::new(4, 4); // Adjacent to white guard
 
         board.set_piece(
             &white_king_pos,
@@ -1236,27 +1236,27 @@ mod tests {
         );
 
         board.set_piece(
-            &black_commander_pos,
+            &black_rook_pos,
             Some(Piece {
                 color: Color::Black,
-                bottom: PieceType::Commander,
+                bottom: PieceType::Rook,
                 top: None,
             }),
         );
 
-        // White to move - should capture the commander if possible
+        // White to move - should capture the rook if possible
         let result = engine.find_best_move(&board);
 
         assert!(result.is_ok(), "Should find a move");
         let mv = result.unwrap();
 
-        // Check if the move captures the commander
-        let captures_commander = mv.from == white_guard_pos && mv.to == black_commander_pos;
+        // Check if the move captures the rook
+        let captures_rook = mv.from == white_guard_pos && mv.to == black_rook_pos;
 
         // The engine should prefer capturing high-value pieces
         // Note: This might not always be true due to tactical considerations
         assert!(
-            captures_commander || mv.from == white_guard_pos,
+            captures_rook || mv.from == white_guard_pos,
             "Should consider capturing or moving the guard"
         );
     }
@@ -1289,9 +1289,9 @@ mod tests {
     }
 
     #[test]
-    fn test_capture_dragon_commander_stack() {
+    fn test_capture_knight_rook_stack() {
         // This test is based on the issue report where the engine should capture
-        // a Dragon+Commander stack with a Paladin
+        // a Knight+Rook stack with a Paladin
         use base64::{engine::general_purpose, Engine as _};
 
         // Load the board from the provided base64 hash
@@ -1310,7 +1310,7 @@ mod tests {
 
         // Verify pieces at key squares
         let g9 = Position::new(6, 0); // Black Paladin
-        let i9 = Position::new(8, 0); // White Dragon+Commander
+        let i9 = Position::new(8, 0); // White Knight+Rook
 
         let paladin = board.get_piece(&g9).expect("Should have piece at G9");
         assert_eq!(paladin.color, Color::Black);
@@ -1318,8 +1318,8 @@ mod tests {
 
         let target = board.get_piece(&i9).expect("Should have piece at I9");
         assert_eq!(target.color, Color::White);
-        assert_eq!(target.bottom, PieceType::Dragon);
-        assert_eq!(target.top, Some(PieceType::Commander));
+        assert_eq!(target.bottom, PieceType::Knight);
+        assert_eq!(target.top, Some(PieceType::Rook));
 
         // Engine should find the capture move
         let mut engine = MinimaxEngine::with_config(MinimaxConfig {
@@ -1330,7 +1330,7 @@ mod tests {
 
         let best_move = engine.find_best_move(&board).expect("Should find a move");
 
-        // The best move should be G9->I9, capturing the Dragon+Commander
+        // The best move should be G9->I9, capturing the Knight+Rook
         assert_eq!(
             best_move.from,
             g9,
@@ -1341,7 +1341,7 @@ mod tests {
         assert_eq!(
             best_move.to,
             i9,
-            "Best move should capture at I9 (White Dragon+Commander), but got {} -> {}",
+            "Best move should capture at I9 (White Knight+Rook), but got {} -> {}",
             best_move.from.to_string(),
             best_move.to.to_string()
         );
@@ -1369,7 +1369,7 @@ mod tests {
         // Key positions
         let f9 = Position::new(5, 0); // Black Guard protecting the king
         let e9 = Position::new(4, 0); // Black King
-        let g9 = Position::new(6, 0); // White Dragon+Commander that can capture king
+        let g9 = Position::new(6, 0); // White Knight+Rook that can capture king
 
         // Verify pieces
         let guard = board.get_piece(&f9).expect("Should have piece at F9");

@@ -76,7 +76,7 @@ fn main() {
     for m in &g9_moves {
         println!("  {} -> {}", m.from.to_string(), m.to.to_string());
         if m.to == i9 {
-            println!("    ^^^ This captures the White Dragon+Commander!");
+            println!("    ^^^ This captures the White Knight+Rook!");
         }
     }
 
@@ -99,7 +99,7 @@ fn main() {
     if best_move.from == g9 && best_move.to == i9 {
         println!("✓ Minimax correctly found the capture!");
     } else {
-        println!("✗ Minimax missed the capture of Dragon+Commander!");
+        println!("✗ Minimax missed the capture of Knight+Rook!");
     }
 
     let stats = engine.get_statistics();
