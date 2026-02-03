@@ -37,7 +37,7 @@ class UndoMoveAction extends AbstractController
             return $this->json(['error' => 'Game is already over'], Response::HTTP_BAD_REQUEST);
         }
 
-        $moves = $game->getMoves();
+        $moves = $game->getGameMoves();
         $moveCount = count($moves);
         
         if ($moveCount === 0) {
@@ -71,7 +71,7 @@ class UndoMoveAction extends AbstractController
 
         // Return the updated moves list
         $movesData = [];
-        foreach ($game->getMoves() as $moveEntity) {
+        foreach ($game->getGameMoves() as $moveEntity) {
             $movesData[] = $moveEntity->getMoveAsU16();
         }
 

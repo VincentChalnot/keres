@@ -42,12 +42,6 @@ export class GameController {
         this.gameState.setBoard(board);
         this.gameState.setCurrentMoveIndex(moves.length - 1);
         this.gameState.setBoardLocked(false);
-        if (moves.length > 0) {
-            const lastMove = moves[moves.length - 1];
-            this.gameState.setLastMove({from: lastMove.from, to: lastMove.to});
-        } else {
-            this.gameState.setLastMove(null);
-        }
         await this.updatePotentialMoves();
         await this.renderBoard();
     }
@@ -79,39 +73,24 @@ export class GameController {
         try {
             const result = await this.api.submitMove(move);
             this.gameState.setBoard(result.board);
-            
-            // Convert u16 moves to Move objects
-            const moves: Move[] = [];
-            for (const moveU16 of result.moves) {
-                const fromPos = moveU16 & 0x7F;
-                const toPos = (moveU16 >> 7) & 0x7F;
-                const unstackFlag = ((moveU16 >> 14) & 0x1) === 1;
-                moves.push({from: fromPos, to: toPos, unstack: unstackFlag});
-            }
-            
+
             // Update move list with all moves (including AI response if any)
-            this.gameState.setMoveList(moves);
-            this.gameState.setCurrentMoveIndex(moves.length - 1);
-            
+            this.gameState.addMoveToList(move);
+            this.gameState.setCurrentMoveIndex(this.gameState.getMoveList().length - 1);
+
             // Update move history
             this.gameState.clearMoveHistory();
             const {posToAlgebraic} = await import('../utils/boardUtils');
-            for (const mv of moves) {
+            for (const mv of this.gameState.getMoveList()) {
                 const fromPos = posToAlgebraic(mv.from);
                 const toPos = posToAlgebraic(mv.to);
                 const notation = `${fromPos}-${toPos}${mv.unstack ? '*' : ''}`;
                 this.gameState.addMove(notation);
             }
-            
-            // Set last move
-            if (moves.length > 0) {
-                const lastMove = moves[moves.length - 1];
-                this.gameState.setLastMove({from: lastMove.from, to: lastMove.to});
-            }
-            
+
             // Unlock board after successful move
             this.gameState.setBoardLocked(false);
-            
+
             await this.updatePotentialMoves();
             await this.renderBoard();
             window.dispatchEvent(new CustomEvent('boardStateChanged'));

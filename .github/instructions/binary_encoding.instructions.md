@@ -8,8 +8,8 @@ Each board position is encoded using 7 bits, each line from the board is encoded
 
 - **Stacking rules:**
   - King+*, *+King: Not permitted in encoding (King has a special code).
-  - Jester+Jester, Commander+Commander: Can be encoded but never appear in a game.
-- When describing a stack, the first piece is always on top (e.g., Jester+Paladin = J+P: Jester is on top).
+  - Bishop+Bishop, Rook+Rook: Can be encoded but never appear in a game.
+- When describing a stack, the first piece is always on top (e.g., Bishop+Paladin = J+P: Bishop is on top).
 
 The 7 bits for a piece are interpreted as `C UUU LLL`:
 - `C` (1 bit): Color. `0` for Black, `1` for White.
@@ -17,7 +17,7 @@ The 7 bits for a piece are interpreted as `C UUU LLL`:
 - `LLL` (3 bits): Bottom Piece Code (bottom of stack, or type for single piece).
 
 - Single piece (e.g., Guard): type code in `LLL`, `UUU` is `0b000`. (Black Guard: `0 000 101`)
-- Stack (e.g., Jester+Paladin): Jester's code in `UUU`, Paladin's in `LLL`. (White Jester+Paladin: `1 010 100`)
+- Stack (e.g., Bishop+Paladin): Bishop's code in `UUU`, Paladin's in `LLL`. (White Bishop+Paladin: `1 010 100`)
 
 ### Special cases
 - `0b0000000`: Empty square
@@ -25,15 +25,15 @@ The 7 bits for a piece are interpreted as `C UUU LLL`:
 
 #### Base pieces
 - `0b001`: Soldier
-- `0b010`: Jester
-- `0b011`: Commander
+- `0b010`: Bishop
+- `0b011`: Rook
 - `0b100`: Paladins
 - `0b101`: Guards
-- `0b110`: Dragons
+- `0b110`: Knights
 - `0b111`: Ballista
 
 ### Examples
-- White Soldier+Commander: `1 001 011`
+- White Soldier+Rook: `1 001 011`
 - Black Guard: `0 000 101`
 - Black King: `0 111000`
 - White Soldier+Soldier: `1 001 001`

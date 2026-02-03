@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Form;
 
+use App\Model\OpponentType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\SubmitType;
@@ -27,17 +28,20 @@ class NewGameType extends AbstractType
             ->add('opponentType', ChoiceType::class, [
                 'label' => 'Opponent',
                 'choices' => [
-                    'AI' => 'ai',
-                    'Hot-seat (2 players)' => 'hotseat',
+                    'AI' => OpponentType::AI,
+                    'Hot-seat (2 players)' => OpponentType::HOTSEAT,
                 ],
                 'expanded' => true,
-                'data' => 'ai', // Default selection
+                'data' => OpponentType::AI, // Default selection
+                'choice_label' => function ($choice, $key, $value) {
+                    // Use the label as is
+                    return $key;
+                },
             ])
             ->add('submit', SubmitType::class, [
                 'label' => 'Start Game',
                 'attr' => ['class' => 'button is-primary'],
-            ])
-        ;
+            ]);
     }
 
     public function configureOptions(OptionsResolver $resolver): void

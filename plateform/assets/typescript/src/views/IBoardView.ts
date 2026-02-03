@@ -6,7 +6,7 @@ export interface IBoardView {
     /**
      * Initialize the rendering system
      */
-    initialize(container: HTMLElement): void;
+    initialize(container: HTMLElement): Promise<void>;
 
     /**
      * Render the board with all pieces

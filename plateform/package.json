@@ -7,14 +7,16 @@
         "type-check": "tsc --noEmit"
     },
     "dependencies": {
+        "cheerio": "^1.1.2",
+        "svgo": "^4.0.0",
         "three": "^0.181.0"
     },
     "devDependencies": {
-        "@vitejs/plugin-basic-ssl": "^2.1.0",
-        "vite": "^6.0",
-        "vite-plugin-symfony": "^8.2",
         "@types/node": "^24.10.1",
         "@types/three": "^0.181.0",
-        "typescript": "^5.9.3"
+        "@vitejs/plugin-basic-ssl": "^2.1.0",
+        "typescript": "^5.9.3",
+        "vite": "^6.0",
+        "vite-plugin-symfony": "^8.2"
     }
 }

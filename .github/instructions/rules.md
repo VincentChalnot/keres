@@ -19,7 +19,7 @@ Abstract strategy board game inspired by chess.
 - A stacked piece can be separated (unstacked), moving the top piece according to its movement. Unstacking is only possible if there is a top piece.
 
 ### Movement and Capture
-- Players cannot move through other pieces (except Dragons, which can jump over other pieces).
+- Players cannot move through other pieces (except Knights, which can jump over other pieces).
 - A piece captures enemy pieces by moving onto their tile.
 - Capturing a stacked piece removes the entire stack.
 - Only the player whose turn it is can move their pieces.
@@ -28,17 +28,17 @@ Abstract strategy board game inspired by chess.
 
 ### Piece Movement
 - Soldiers: move 1 tile forward diagonally
-- Jester: move any number of tiles diagonally
-- Commander: move any number of tiles orthogonally
+- Bishop: move any number of tiles diagonally
+- Rook: move any number of tiles orthogonally
 - Paladins: move 1 or 2 tiles orthogonally
 - Guards: move 1 or 2 tiles diagonally
-- Dragons: move in an L-shape like chess knights; **can jump over other pieces**
+- Knights: move in an L-shape like chess knights; **can jump over other pieces**
 - Ballista: move any number of tiles forward
 - King: move 1 tile in any direction (orthogonally or diagonally); **cannot be stacked with other pieces or be the top piece in a stack**
 
 ### Promotions
 - When a Soldier reaches the opponent's back rank, it is promoted to a Paladin.
-- When a Ballista reaches the opponent's back rank, it is promoted to a Commander.
+- When a Ballista reaches the opponent's back rank, it is promoted to a Rook.
 - If a stacked piece reaches the back rank, both the bottom and top pieces are promoted if eligible.
 
 ### Initial Board Positions

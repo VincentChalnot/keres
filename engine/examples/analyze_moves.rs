@@ -38,7 +38,7 @@ fn main() {
     let game = Game::from_board(board.clone());
 
     // Try G9->I9
-    println!("1. G9->I9 (Paladin takes Dragon+Commander):");
+    println!("1. G9->I9 (Paladin takes Knight+Rook):");
     if let Ok(new_board) = game.apply_move_copy(keres_engine::game::Move {
         from: g9,
         to: i9,

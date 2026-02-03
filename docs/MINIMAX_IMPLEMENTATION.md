@@ -18,13 +18,13 @@ Successfully implemented a complete Minimax AI engine with Alpha-Beta pruning fo
 - Territorial Control (25%): Enemy territory, center control, king proximity
 - Piece Mobility (20%): Legal moves with piece-specific multipliers
 - King Safety (15%): Defender count, distance from threats
-- Tactical Penalties: Commander positioning, piece defense
+- Tactical Penalties: Rook positioning, piece defense
 
 ### 3. Move Generation and Ordering Logic ✅
 **Move Ordering Heuristics**:
 - Captures of high-value pieces (MVV-LVA)
 - Threats to the King (+10,000 priority)
-- Commander captures (+500 priority)
+- Rook captures (+500 priority)
 - Center control moves (+30 priority)
 - Development moves
 
@@ -55,7 +55,7 @@ Successfully implemented a complete Minimax AI engine with Alpha-Beta pruning fo
 3. Material evaluation correctness
 4. Zobrist hashing consistency
 5. Best move finding
-6. Avoiding commander losses
+6. Avoiding rook losses
 7. Capturing high-value pieces
 8. Statistics tracking
 
@@ -84,11 +84,11 @@ MinimaxConfig {
 
 ### Piece Values
 - King: 10,000 (invaluable)
-- Commander: 100
-- Dragon: 30
+- Rook: 100
+- Knight: 30
 - Guard: 25
 - Paladin: 20
-- Jester: 20
+- Bishop: 20
 - Ballista: 15
 - Soldier: 10
 

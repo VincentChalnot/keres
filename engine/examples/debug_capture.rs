@@ -31,15 +31,15 @@ fn main() {
 
         let g9 = Position::new(6, 0);
         let i9 = Position::new(8, 0);
-        let captures_dragon = best_move.from == g9 && best_move.to == i9;
+        let captures_knight = best_move.from == g9 && best_move.to == i9;
 
         println!(
             "\nDepth {}: {} -> {} {}",
             depth,
             best_move.from.to_string(),
             best_move.to.to_string(),
-            if captures_dragon {
-                "✓ CAPTURES DRAGON+COMMANDER!"
+            if captures_knight {
+                "✓ CAPTURES KNIGHT+ROOK!"
             } else {
                 ""
             }

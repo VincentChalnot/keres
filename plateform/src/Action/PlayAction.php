@@ -31,21 +31,12 @@ class PlayAction extends AbstractController
         }
 
         // Encode moves to base64
-        $moves = $game->getMoves();
-        $binaryMoves = '';
-        foreach ($moves as $move) {
-            $binaryMoves .= $move->getMove();
-        }
-        $movesBase64 = base64_encode($binaryMoves);
-
-        // Board data is computed client-side by replaying moves
-        // This allows the client to use the Rust backend directly for move generation
-        $boardBase64 = '';
+        $movesData = $game->getMovesData();
+        $movesBase64 = base64_encode($movesData->toBinary());
 
         return $this->render('actions/play.html.twig', [
             'game' => $game,
             'moves' => $movesBase64,
-            'board' => $boardBase64,
         ]);
     }
 }

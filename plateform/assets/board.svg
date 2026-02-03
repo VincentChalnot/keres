@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-20 -10 920 730">
+    <g id="board-layer">
+        <use href="#board-row-odd" y="0"/>
+        <use href="#board-row-even" y="80"/>
+        <use href="#board-row-odd" y="160"/>
+        <use href="#board-row-even" y="240"/>
+        <use href="#board-row-odd" y="320"/>
+        <use href="#board-row-even" y="400"/>
+        <use href="#board-row-odd" y="480"/>
+        <use href="#board-row-even" y="560"/>
+        <use href="#board-row-odd" y="640"/>
+    </g>
+    <g id="overlays-layer"/>
+    <g id="pieces-layer">
+        <!-- Black -->
+        <use href="#piece-ballista" class="p-b p-r" x="0" y="0"/>
+        <use href="#piece-knight" class="p-b p-r" x="100" y="0"/>
+        <use href="#piece-paladin" class="p-b p-r" x="200" y="0"/>
+        <use href="#piece-guard" class="p-b p-r" x="300" y="0"/>
+        <use href="#piece-king" class="p-b p-r" x="400" y="0"/>
+        <use href="#piece-guard" class="p-b p-r" x="500" y="0"/>
+        <use href="#piece-paladin" class="p-b p-r" x="600" y="0"/>
+        <use href="#piece-knight" class="p-b p-r" x="700" y="0"/>
+        <use href="#piece-ballista" class="p-b p-r" x="800" y="0"/>
+        <use href="#piece-rook" class="p-b p-r" x="200" y="80"/>
+        <use href="#piece-bishop" class="p-b p-r" x="600" y="80"/>
+        <use href="#piece-soldier" class="p-b p-r" x="0" y="160"/>
+        <use href="#piece-soldier" class="p-b p-r" x="100" y="160"/>
+        <use href="#piece-soldier" class="p-b p-r" x="200" y="160"/>
+        <use href="#piece-soldier" class="p-b p-r" x="300" y="160"/>
+        <use href="#piece-soldier" class="p-b p-r" x="400" y="160"/>
+        <use href="#piece-soldier" class="p-b p-r" x="500" y="160"/>
+        <use href="#piece-soldier" class="p-b p-r" x="600" y="160"/>
+        <use href="#piece-soldier" class="p-b p-r" x="700" y="160"/>
+        <use href="#piece-soldier" class="p-b p-r" x="800" y="160"/>
+        <!-- White -->
+        <use href="#piece-soldier" class="p-w" x="0" y="480"/>
+        <use href="#piece-soldier" class="p-w" x="100" y="480"/>
+        <use href="#piece-soldier" class="p-w" x="200" y="480"/>
+        <use href="#piece-soldier" class="p-w" x="300" y="480"/>
+        <use href="#piece-soldier" class="p-w" x="400" y="480"/>
+        <use href="#piece-soldier" class="p-w" x="500" y="480"/>
+        <use href="#piece-soldier" class="p-w" x="600" y="480"/>
+        <use href="#piece-soldier" class="p-w" x="700" y="480"/>
+        <use href="#piece-soldier" class="p-w" x="800" y="480"/>
+        <use href="#piece-rook" class="p-w" x="600" y="560"/>
+        <use href="#piece-bishop" class="p-w" x="200" y="560"/>
+        <use href="#piece-ballista" class="p-w" x="0" y="640"/>
+        <use href="#piece-knight" class="p-w" x="100" y="640"/>
+        <use href="#piece-paladin" class="p-w" x="200" y="640"/>
+        <use href="#piece-guard" class="p-w" x="300" y="640"/>
+        <use href="#piece-king" class="p-w" x="400" y="640"/>
+        <use href="#piece-guard" class="p-w" x="500" y="640"/>
+        <use href="#piece-paladin" class="p-w" x="600" y="640"/>
+        <use href="#piece-knight" class="p-w" x="700" y="640"/>
+        <use href="#piece-ballista" class="p-w" x="800" y="640"/>
+    </g>
+</svg>

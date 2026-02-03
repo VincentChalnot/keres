@@ -3,6 +3,7 @@ import {GameAPI} from './network/GameAPI';
 import SVGBoardView from './views/SVGBoardView';
 import {GameController} from './controllers/GameController';
 import {Move} from './models/types';
+import {IBoardView} from './views/IBoardView';
 
 function decodeMoveListFromBase64(base64Moves: string): Move[] {
     try {
@@ -49,8 +50,8 @@ class KeresGame {
     private askEngineBtn: HTMLButtonElement | null;
     private askMinimaxBtn: HTMLButtonElement | null;
     private toggleThreatsBtn: HTMLButtonElement;
-    private gameMode: string = 'hotseat'; // 'hotseat' or 'ai'
-    private playerSide: string = 'white'; // 'white' or 'black'
+    private gameMode: number = 0; // opponent type as int
+    private playerWhite: boolean = true; // true if player is white
 
     constructor() {
         this.gameState = new GameState();
@@ -70,9 +71,9 @@ class KeresGame {
         this.askMinimaxBtn = document.getElementById('ask-minimax-btn') as HTMLButtonElement | null;
         this.toggleThreatsBtn = document.getElementById('toggle-threats-btn') as HTMLButtonElement;
         
-        // Read game mode and player side from data attributes
-        this.gameMode = this.boardContainer.getAttribute('data-opponent-type') || 'hotseat';
-        this.playerSide = this.boardContainer.getAttribute('data-player-side') || 'white';
+        // Read game mode and player color from data attributes
+        this.gameMode = parseInt(this.boardContainer.getAttribute('data-opponent-type') || '0', 10);
+        this.playerWhite = (this.boardContainer.getAttribute('data-player-white') === 'true');
     }
 
     async initialize(): Promise<void> {
@@ -83,7 +84,7 @@ class KeresGame {
 
         // Initialize view
         this.view = new SVGBoardView(this.gameState) as IBoardView;
-        this.view.initialize(this.boardContainer as any);
+        await this.view.initialize(this.boardContainer as any);
 
         // Initialize controller
         this.controller = new GameController(this.gameState, this.api, this.view);
@@ -93,13 +94,17 @@ class KeresGame {
         const moves = decodeMoveListFromBase64(movesBase64);
         await this.controller.setMoves(moves);
 
-        // In AI mode, set board orientation based on player side
-        if (this.gameMode === 'ai' && this.playerSide === 'black') {
+        // OpponentType: 0 = HOTSEAT, 1 = AI, etc. (adjust as needed)
+        const OPPONENT_TYPE_HOTSEAT = 0;
+        const OPPONENT_TYPE_AI = 1;
+
+        // In AI mode, set board orientation based on player color
+        if (this.gameMode === OPPONENT_TYPE_AI && !this.playerWhite) {
             // If player is black, flip the board so blacks are at the bottom
             await this.controller.flipBoard();
         }
         // In hotseat mode, determine orientation based on last move
-        else if (this.gameMode === 'hotseat' && moves.length % 2 === 1) {
+        else if (this.gameMode === OPPONENT_TYPE_HOTSEAT && moves.length % 2 === 1) {
             // Odd number of moves means black just played, so show white's perspective
             await this.controller.flipBoard();
         }
@@ -121,7 +126,9 @@ class KeresGame {
 
         // Modal background close
         const modalBackground = this.unstackModal.querySelector('.modal-background');
-        modalBackground?.addEventListener('click', () => this.handleModalClose());
+        if (modalBackground) {
+            modalBackground.addEventListener('click', () => this.handleModalClose());
+        }
 
         // Game controls
         if (this.switchSidesBtn) {
@@ -159,7 +166,7 @@ class KeresGame {
             await this.controller.playMove(selectedPosition, clickedDestination, fullStack);
             
             // Auto-rotate board in hotseat mode after each move
-            if (this.gameMode === 'hotseat') {
+            if (this.gameMode === 0) {
                 await this.controller.flipBoard();
             }
             
@@ -184,8 +191,10 @@ class KeresGame {
 
     private async handleAskEngine(): Promise<void> {
         try {
-            this.askEngineBtn.disabled = true;
-            this.askEngineBtn.innerText = 'Thinking...';
+            if (this.askEngineBtn) {
+                this.askEngineBtn.disabled = true;
+                this.askEngineBtn.innerText = 'Thinking...';
+            }
             await this.controller.requestEngineMove();
             this.updateStatus();
             this.updateMoveHistoryDisplay();
@@ -193,15 +202,19 @@ class KeresGame {
             console.error('Error getting MCTS engine move:', error);
             this.statusDiv.innerText = `Error: ${(error as Error).message}. MCTS engine may not be available.`;
         } finally {
-            this.askEngineBtn.disabled = false;
-            this.askEngineBtn.innerText = 'Ask MCTS Engine';
+            if (this.askEngineBtn) {
+                this.askEngineBtn.disabled = false;
+                this.askEngineBtn.innerText = 'Ask MCTS Engine';
+            }
         }
     }
 
     private async handleAskMinimax(): Promise<void> {
         try {
-            this.askMinimaxBtn.disabled = true;
-            this.askMinimaxBtn.innerText = 'Thinking...';
+            if (this.askMinimaxBtn) {
+                this.askMinimaxBtn.disabled = true;
+                this.askMinimaxBtn.innerText = 'Thinking...';
+            }
             await this.controller.requestMinimaxMove();
             this.updateStatus();
             this.updateMoveHistoryDisplay();
@@ -209,8 +222,10 @@ class KeresGame {
             console.error('Error getting Minimax engine move:', error);
             this.statusDiv.innerText = `Error: ${(error as Error).message}. Minimax engine may not be available.`;
         } finally {
-            this.askMinimaxBtn.disabled = false;
-            this.askMinimaxBtn.innerText = 'Ask Minimax Engine';
+            if (this.askMinimaxBtn) {
+                this.askMinimaxBtn.disabled = false;
+                this.askMinimaxBtn.innerText = 'Ask Minimax Engine';
+            }
         }
     }
 
@@ -261,7 +276,7 @@ class KeresGame {
         // Check if board is locked
         if (this.controller.isBoardLocked()) {
             // In AI mode, show "Waiting for AI..." message
-            if (this.gameMode === 'ai') {
+            if (this.gameMode === 1) {
                 this.statusDiv.innerText = 'Waiting for AI...';
             } else {
                 this.statusDiv.innerText = `Viewing history - Navigate to latest move to continue playing`;

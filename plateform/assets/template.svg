@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <symbol id="piece-base" xmlns="http://www.w3.org/2000/svg" viewBox="-45 -45 90 90">
+            <path class="piece-background" fill="var(--piece-bg)" stroke="#000" stroke-width="2"
+                  d="M-44 10.4A1.79 1 0 0044 10.4L44-10.2A1.79 1 0 00-44-10.2Z"/>
+            <path class="piece-border-top" fill="none" stroke="var(--piece-fg)" stroke-width="2"
+                  d="M-44 -10.2A1.79 1 0 0044-10.2"/>
+            <ellipse class="piece-circle" fill="none" stroke="var(--piece-fg)" stroke-width="2" cx="0" cy="-10.1"
+                     rx="39" ry="21.8"/>
+        </symbol>
+        <symbol id="board-row-even">
+            <rect class="tile" x="0"/>
+            <rect class="tile" x="100"/>
+            <rect class="tile" x="200"/>
+            <rect class="tile" x="300"/>
+            <rect class="tile" x="400"/>
+            <rect class="tile" x="500"/>
+            <rect class="tile" x="600"/>
+            <rect class="tile" x="700"/>
+            <rect class="tile" x="800"/>
+        </symbol>
+        <symbol id="board-row-odd">
+            <rect class="tile" x="0"/>
+            <rect class="tile" x="100"/>
+            <rect class="tile" x="200"/>
+            <rect class="tile" x="300"/>
+            <rect class="tile" x="400"/>
+            <rect class="tile" x="500"/>
+            <rect class="tile" x="600"/>
+            <rect class="tile" x="700"/>
+            <rect class="tile" x="800"/>
+        </symbol>
+        <symbol id="piece-ballista" class="piece" viewBox="0 0 90 90" width="100" height="80">
+            <use href="#piece-base"/>
+            <use href="#icon-ballista" class="piece-icon"/>
+            <use href="#text-ballista" y="3"/>
+        </symbol>
+        <symbol id="piece-knight" class="piece" viewBox="0 0 90 90" width="100" height="80">
+            <use href="#piece-base"/>
+            <use href="#icon-knight" class="piece-icon"/>
+            <use href="#text-knight" y="3"/>
+        </symbol>
+        <symbol id="piece-paladin" class="piece" viewBox="0 0 90 90" width="100" height="80">
+            <use href="#piece-base"/>
+            <use href="#icon-paladin" class="piece-icon"/>
+            <use href="#text-paladin" y="3"/>
+        </symbol>
+        <symbol id="piece-guard" class="piece" viewBox="0 0 90 90" width="100" height="80">
+            <use href="#piece-base"/>
+            <use href="#icon-guard" class="piece-icon"/>
+            <use href="#text-guard" y="3"/>
+        </symbol>
+        <symbol id="piece-king" class="piece" viewBox="0 0 90 90" width="100" height="80">
+            <use href="#piece-base"/>
+            <use href="#icon-king" class="piece-icon"/>
+            <use href="#text-king" y="3"/>
+        </symbol>
+        <symbol id="piece-bishop" class="piece" viewBox="0 0 90 90" width="100" height="80">
+            <use href="#piece-base"/>
+            <use href="#icon-bishop" class="piece-icon"/>
+            <use href="#text-bishop" y="3"/>
+        </symbol>
+        <symbol id="piece-rook" class="piece" viewBox="0 0 90 90" width="100" height="80">
+            <use href="#piece-base"/>
+            <use href="#icon-rook" class="piece-icon"/>
+            <use href="#text-rook" y="3"/>
+        </symbol>
+        <symbol id="piece-soldier" class="piece" viewBox="0 0 90 90" width="100" height="80">
+            <use href="#piece-base"/>
+            <use href="#icon-soldier" class="piece-icon"/>
+            <use href="#text-soldier" y="3"/>
+        </symbol>
+    </defs>
+</svg>

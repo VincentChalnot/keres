@@ -18,7 +18,7 @@
             <li>À chaque tour, un joueur déplace <strong>une seule pièce ou pile</strong></li>
             <li>Une pièce capture une pièce ennemie en se déplaçant sur sa case</li>
             <li><strong>Capturer une pile retire la pile entière</strong></li>
-            <li>Les pièces ne peuvent pas traverser d'autres pièces (sauf le Dragon)</li>
+            <li>Les pièces ne peuvent pas traverser d'autres pièces (sauf le cavalier)</li>
         </ul>
 
         <h3>Règles d'Empilement</h3>
@@ -37,6 +37,10 @@
             son propre mouvement.
         </div>
 
+        <h3>🎲 Disposition Initiale</h3>
+        <img src="{{ asset('/images/movesets/Start.svg') }}" class="board-start" alt="Start position"/>
+
+        <div style="page-break-after: always"></div>
         <h3>♟️ Les Pièces et Leurs Mouvements</h3>
 
         <div class="piece-grid">
@@ -45,26 +49,26 @@
                 <div class="piece-name"><i class="piece-icon primary ballista"></i> Baliste (B)</div>
                 <img src="{{ asset('/images/movesets/Ballista.svg') }}" alt="Ballista moves"/>
                 <p class="piece-description">Illimité vers l'avant uniquement<br><strong>→ Promotion en
-                        Commandant</strong></p>
+                        Tour</strong></p>
             </div>
 
-            <!-- Commander -->
+            <!-- Rook -->
             <div class="piece-card">
-                <div class="piece-name"><i class="piece-icon primary commander"></i> Commandant (C)</div>
-                <img src="{{ asset('/images/movesets/Commander.svg') }}" alt="Commander moves"/>
-                <p class="piece-description">Illimité orthogonalement<br>(comme la Tour aux échecs)</p>
+                <div class="piece-name"><i class="piece-icon primary rook"></i> Tour (T)</div>
+                <img src="{{ asset('/images/movesets/Rook.svg') }}" alt="Rook moves"/>
+                <p class="piece-description">Illimité orthogonalement<br></p>
             </div>
 
-            <!-- Jester -->
+            <!-- Bishop -->
             <div class="piece-card">
-                <div class="piece-name"><i class="piece-icon primary jester"></i> Bouffon (J)</div>
-                <img src="{{ asset('/images/movesets/Jester.svg') }}" alt="Jester moves"/>
-                <p class="piece-description">Illimité en diagonale<br>(comme le Fou aux échecs)</p>
+                <div class="piece-name"><i class="piece-icon primary bishop"></i> Fou (F)</div>
+                <img src="{{ asset('/images/movesets/Bishop.svg') }}" alt="Bishop moves"/>
+                <p class="piece-description">Illimité en diagonale<br></p>
             </div>
 
             <!-- King -->
             <div class="piece-card">
-                <div class="piece-name"><i class="piece-icon primary king"></i> Roi (K)</div>
+                <div class="piece-name"><i class="piece-icon primary king"></i> Roi (R)</div>
                 <img src="{{ asset('/images/movesets/King.svg') }}" alt="King moves"/>
                 <p class="piece-description">1 case dans toutes les directions<br><strong>Ne peut pas être
                         empilé</strong></p>
@@ -91,12 +95,11 @@
                 <p class="piece-description">1 ou 2 cases en diagonale</p>
             </div>
 
-            <!-- Dragon -->
+            <!-- Knight -->
             <div class="piece-card">
-                <div class="piece-name"><i class="piece-icon primary dragon"></i> Dragon (D)</div>
-                <img src="{{ asset('/images/movesets/Dragon.svg') }}" alt="Dragon moves"/>
-                <p class="piece-description">Mouvement en L (comme le Cavalier)<br><strong>Peut sauter par-dessus les
-                        pièces</strong></p>
+                <div class="piece-name"><i class="piece-icon primary knight"></i> Cavalier (C)</div>
+                <img src="{{ asset('/images/movesets/Knight.svg') }}" alt="Knight moves"/>
+                <p class="piece-description">Mouvement en L<br><strong>Peut sauter par-dessus les pièces</strong></p>
             </div>
         </div>
 
@@ -105,11 +108,8 @@
         </p>
         <ul>
             <li><strong>Soldat (S) → Paladin (P)</strong></li>
-            <li><strong>Baliste (B) → Commandant (C)</strong></li>
+            <li><strong>Baliste (B) → Tour (C)</strong></li>
         </ul>
-
-        <h3>🎲 Disposition Initiale</h3>
-        <img src="{{ asset('/images/movesets/Start.svg') }}" alt="Start position"/>
     </div>
 
 {% endblock %}

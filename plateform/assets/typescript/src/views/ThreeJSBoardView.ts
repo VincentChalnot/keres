@@ -73,7 +73,7 @@ export default class ThreeJSBoardView implements IBoardView {
         this.gameState = gameState;
     }
 
-    initialize(container: HTMLElement): void {
+    initialize(container: HTMLElement): Promise<void> {
         this.container = container;
 
         // Create canvas
@@ -139,6 +139,8 @@ export default class ThreeJSBoardView implements IBoardView {
 
         // Create board and overlays
         this.createOverlays();
+
+        return Promise.resolve();
     }
 
     private updateRendererSize(): void {
@@ -391,7 +393,7 @@ export default class ThreeJSBoardView implements IBoardView {
 
     private async loadPieceSprite(pieceName: string, color: boolean, reversed: boolean): Promise<THREE.Texture> {
         try {
-            const colorName = color ? 'white' : 'red';
+            const colorName = color ? 'white' : 'black';
             const reversedSuffix = color === reversed ? '-reversed' : '';
             const path = `/images/${pieceName}-${colorName}${reversedSuffix}.png`;
             const texture = await this.loadTexture(path);

@@ -14,7 +14,6 @@ export class GameState {
     private hoveredPosition: number | null = null;
     private moveHistory: string[] = [];
     private gameHistory: Board[] = [];
-    private lastMove: {from: number, to: number} | null = null;
     private moveList: Move[] = []; // List of all moves played
     private currentMoveIndex: number = -1; // -1 means at initial position, 0+ is after that move
     private boardLocked: boolean = false; // True when viewing history, not at latest move
@@ -151,17 +150,17 @@ export class GameState {
         this.gameHistory = [];
     }
 
-    getCurrentTurn(): 'White' | 'Red' {
+    getCurrentTurn(): 'White' | 'Black' {
         if (!this.board) return 'White';
         return this.board.getCurrentTurn();
     }
 
-    getLastMove(): {from: number, to: number} | null {
-        return this.lastMove;
-    }
+    getLastMove(): Move | null {
+        if (this.moveList.length === 0) {
+            return null;
+        }
 
-    setLastMove(move: {from: number, to: number} | null): void {
-        this.lastMove = move;
+        return this.moveList[this.moveList.length - 1];
     }
 
     // Move list management

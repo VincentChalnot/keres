@@ -43,6 +43,7 @@ services:
     build:
       context: ../engine
       dockerfile: Dockerfile
+    restart: unless-stopped
     environment:
       - RUST_LOG=info
       - XDG_RUNTIME_DIR=/tmp/runtime
