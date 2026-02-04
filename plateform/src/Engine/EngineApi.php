@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Engine;
 
 use App\Model\BoardData;
+use App\Model\MoveData;
 use App\Model\MovesData;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
@@ -19,6 +20,13 @@ readonly class EngineApi
         $boardData = $this->callApi('replay-moves', $movesData->toBinary());
 
         return new BoardData($boardData);
+    }
+
+    public function aiMove(BoardData $boardData): MoveData
+    {
+        $moveData = $this->callApi('minimax-move', $boardData->data);
+
+        return new MoveData($moveData);
     }
 
     private function callApi(string $endpoint, string $body): string
