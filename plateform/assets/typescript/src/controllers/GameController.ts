@@ -1,5 +1,6 @@
 import {GameState} from '../models/GameState';
 import {GameAPI} from '../network/GameAPI';
+import {MercureClient, GameUpdate} from '../network/MercureClient';
 import {IBoardView, TileHighlight} from '../views/IBoardView';
 import {Move} from '../models/types';
 import {decodeMoveListFromBase64} from '../utils/boardUtils';
@@ -11,6 +12,7 @@ export class GameController {
     private gameState: GameState;
     private api: GameAPI;
     private view: IBoardView;
+    private mercureClient: MercureClient | null = null;
 
     constructor(gameState: GameState, api: GameAPI, view: IBoardView) {
         this.gameState = gameState;
@@ -20,6 +22,68 @@ export class GameController {
         // Set up view event handlers
         this.view.onTileClick((pos) => this.handleTileClick(pos));
         this.view.onTileHover((pos) => this.handleTileHover(pos));
+    }
+
+    /**
+     * Initialize Mercure connection for real-time updates
+     */
+    initializeMercure(gameUuid: string): void {
+        this.mercureClient = new MercureClient();
+        this.mercureClient.subscribe(gameUuid, (update: GameUpdate) => {
+            this.handleMercureUpdate(update);
+        });
+    }
+
+    /**
+     * Handle incoming Mercure update
+     */
+    private async handleMercureUpdate(update: GameUpdate): Promise<void> {
+        console.log('Received Mercure update:', update);
+
+        // Update the board state
+        this.gameState.setBoard(update.board);
+
+        // Decode moves from the update
+        const moves: Move[] = [];
+        for (let i = 0; i < update.moves.length; i++) {
+            const moveU16 = update.moves[i];
+            const from = moveU16 & 0x7F;
+            const to = (moveU16 >> 7) & 0x7F;
+            const unstack = ((moveU16 >> 14) & 0x1) === 1;
+            moves.push({from, to, unstack});
+        }
+
+        // Update move list
+        this.gameState.setMoveList(moves);
+        this.gameState.setCurrentMoveIndex(moves.length - 1);
+
+        // Update move history
+        this.gameState.clearMoveHistory();
+        const {posToAlgebraic} = await import('../utils/boardUtils');
+        for (const move of moves) {
+            const fromPos = posToAlgebraic(move.from);
+            const toPos = posToAlgebraic(move.to);
+            const notation = `${fromPos}-${toPos}${move.unstack ? '*' : ''}`;
+            this.gameState.addMove(notation);
+        }
+
+        // Unlock board if it was locked waiting for AI
+        this.gameState.setBoardLocked(false);
+
+        // Update view
+        await this.updatePotentialMoves();
+        await this.renderBoard();
+        window.dispatchEvent(new CustomEvent('boardStateChanged'));
+    }
+
+    /**
+     * Disconnect from Mercure
+     */
+    disconnectMercure(): void {
+        if (this.mercureClient) {
+            this.mercureClient.disconnect();
+            this.mercureClient = null;
+        }
     }
 
     /**

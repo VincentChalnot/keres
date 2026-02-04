@@ -70,6 +70,14 @@ class KeresGame {
         // Initialize controller
         this.controller = new GameController(this.gameState, this.api, this.view);
 
+        // Initialize Mercure for AI mode
+        if (this.gameMode === OPPONENT_TYPE_AI) {
+            const gameUuid = this.boardContainer.getAttribute('data-game-uuid');
+            if (gameUuid) {
+                this.controller.initializeMercure(gameUuid);
+            }
+        }
+
         // Read moves from data-moves attribute
         const movesBase64 = this.boardContainer.getAttribute('data-moves') || '';
         const moves = decodeMoveListFromBase64(movesBase64);
@@ -253,7 +261,7 @@ class KeresGame {
         // Check if board is locked
         if (this.controller.isBoardLocked()) {
             // In AI mode, show "Waiting for AI..." message
-            if (this.gameMode === 1) {
+            if (this.gameMode === OPPONENT_TYPE_AI) {
                 this.statusDiv.innerText = 'Waiting for AI...';
             } else {
                 this.statusDiv.innerText = `Viewing history - Navigate to latest move to continue playing`;

@@ -5,15 +5,19 @@ namespace App\Action;
 
 use App\Engine\BoardTreeManager;
 use App\Engine\EngineApi;
+use App\Message\ProcessAiMoveMessage;
 use App\Model\BoardMovesData;
 use App\Model\MoveData;
 use App\Model\OpponentType;
 use App\Repository\GameRepository;
+use App\Service\GameUpdatePublisher;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
+use Symfony\Component\HttpKernel\EventListener\AbstractSessionListener;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Uid\Uuid;
 
@@ -25,6 +29,8 @@ readonly class SubmitMoveAction
         private BoardTreeManager $boardTreeManager,
         private EntityManagerInterface $entityManager,
         private EngineApi $engineApi,
+        private MessageBusInterface $messageBus,
+        private GameUpdatePublisher $gameUpdatePublisher,
     ) {
     }
 
@@ -88,12 +94,26 @@ readonly class SubmitMoveAction
             }
         );
 
-        // If game is in hot seat mode, simply return the mode data
+        // For hot seat mode, simply return the response synchronously
         if ($game->getOpponentType() === OpponentType::HOTSEAT) {
             return $this->getResponse($boardMovesData);
         }
 
-        throw new \RuntimeException('Not implemented');
+        // For AI mode, return the response and dispatch async message to process AI move
+        if ($game->getOpponentType() === OpponentType::AI) {
+            $response = $this->getResponse($boardMovesData);
+            
+            // Dispatch message after response is sent
+            // We need to ensure the message is dispatched after the response
+            $response->headers->set(AbstractSessionListener::NO_AUTO_CACHE_CONTROL_HEADER, '1');
+            $this->messageBus->dispatch(new ProcessAiMoveMessage($uuid));
+            
+            return $response;
+        }
+
+        // For future multiplayer mode, publish to Mercure and return response
+        // This will be implemented when multiplayer is added
+        throw new \RuntimeException('Multiplayer mode not yet implemented');
     }
 
     private function getResponse(BoardMovesData $boardMovesData): Response
