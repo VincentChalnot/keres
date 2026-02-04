@@ -5,6 +5,9 @@ import {GameController} from './controllers/GameController';
 import {IBoardView} from './views/IBoardView';
 import {decodeMoveListFromBase64} from './utils/boardUtils';
 
+const OPPONENT_TYPE_AI = 0;
+const OPPONENT_TYPE_HOTSEAT = 1;
+
 /**
  * Main application entry point
  */
@@ -71,10 +74,6 @@ class KeresGame {
         const movesBase64 = this.boardContainer.getAttribute('data-moves') || '';
         const moves = decodeMoveListFromBase64(movesBase64);
         await this.controller.setMoves(moves);
-
-        // OpponentType: 0 = HOTSEAT, 1 = AI, etc. (adjust as needed)
-        const OPPONENT_TYPE_HOTSEAT = 0;
-        const OPPONENT_TYPE_AI = 1;
 
         // In AI mode, set board orientation based on player color
         if (this.gameMode === OPPONENT_TYPE_AI && !this.playerWhite) {
