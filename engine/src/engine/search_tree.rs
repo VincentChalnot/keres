@@ -188,24 +188,18 @@ impl KTree {
 
     pub fn inject_penalty(&mut self, route: &[usize]) {
         let delta = self.params.vl_penalty;
-        let mut p = 0usize;
-        loop {
-            if p >= route.len() { break; }
-            self.cols.visit_ct[route[p]] += delta;
-            self.refresh_facade(route[p]);
-            p += 1;
+        for &key in route {
+            self.cols.visit_ct[key] += delta;
+            self.refresh_facade(key);
         }
     }
 
     pub fn retract_penalty(&mut self, route: &[usize]) {
         let delta = self.params.vl_penalty;
-        let mut p = 0usize;
-        loop {
-            if p >= route.len() { break; }
-            let old = self.cols.visit_ct[route[p]];
-            self.cols.visit_ct[route[p]] = if old >= delta { old - delta } else { 0 };
-            self.refresh_facade(route[p]);
-            p += 1;
+        for &key in route {
+            let old = self.cols.visit_ct[key];
+            self.cols.visit_ct[key] = if old >= delta { old - delta } else { 0 };
+            self.refresh_facade(key);
         }
     }
 
@@ -217,23 +211,16 @@ impl KTree {
         let candidates = game_ref.get_all_moves();
 
         let mut moves_buf = Vec::<Move>::with_capacity(candidates.len() * 2);
-        let mut ci = 0usize;
-        loop {
-            if ci >= candidates.len() { break; }
-            flatten_candidate(&candidates[ci], &mut moves_buf);
-            ci += 1;
+        for candidate in &candidates {
+            flatten_candidate(candidate, &mut moves_buf);
         }
 
         let mut new_arcs = Vec::<(Move, usize)>::with_capacity(moves_buf.len());
-        let mut mi = 0usize;
-        loop {
-            if mi >= moves_buf.len() { break; }
-            let mv = moves_buf[mi];
+        for &mv in &moves_buf {
             if let Ok(next_brd) = game_ref.apply_move_copy(mv) {
                 let child_key = self.alloc_vertex(next_brd, slot, mv);
                 new_arcs.push((mv, child_key));
             }
-            mi += 1;
         }
 
         self.cols.arc_list[slot] = new_arcs.clone();
@@ -245,17 +232,12 @@ impl KTree {
     // ── back-propagation ──────────────────────────
 
     pub fn feed_result(&mut self, route: &[usize], reward: f32) {
-        let total_depth = route.len();
         let mut signal = reward;
-        let mut steps_from_leaf = 0usize;
-        loop {
-            if steps_from_leaf >= total_depth { break; }
-            let key = route[total_depth - 1 - steps_from_leaf];
+        for &key in route.iter().rev() {
             self.cols.visit_ct[key] += 1;
             self.cols.reward_acc[key] += signal;
             self.refresh_facade(key);
             signal = 1.0 - signal;
-            steps_from_leaf += 1;
         }
     }
 

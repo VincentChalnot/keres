@@ -61,11 +61,8 @@ impl MctsEngine {
         let mut tree = KTree::with_root(*board, tree_params);
 
         let budget = self.cfg.iterations;
-        let mut completed = 0usize;
 
-        loop {
-            if completed >= budget { break; }
-
+        for _iter in 0..budget {
             // 1. Selection
             let (leaf_key, path) = tree.descend_to_leaf();
 
@@ -81,15 +78,13 @@ impl MctsEngine {
 
             // 4. Back-propagation
             tree.feed_result(&path, leaf_score);
-
-            completed += 1;
         }
 
         let best = tree.pick_best_action()
             .ok_or_else(|| "no legal moves found during search".to_string())?;
 
         let stats = SearchStatistics {
-            iterations_completed: completed,
+            iterations_completed: budget,
             nodes_in_tree: tree.pool_len(),
             root_visit_count: tree.root_n(),
         };
