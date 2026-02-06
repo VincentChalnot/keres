@@ -3,48 +3,18 @@
   <component name="AutoImportSettings">
     <option name="autoReloadType" value="ALL" />
   </component>
+  <component name="CargoProjects">
+    <cargoProject FILE="$PROJECT_DIR$/engine/Cargo.toml">
+      <package file="$PROJECT_DIR$/engine">
+        <feature name="default" enabled="true" />
+      </package>
+    </cargoProject>
+  </component>
   <component name="ChangeListManager">
-    <list default="true" id="e677cc10-da9b-4d42-bdc5-9b87d9746894" name="Changes" comment="TMP">
-      <change beforePath="$PROJECT_DIR$/.github/instructions/binary_encoding.instructions.md" beforeDir="false" afterPath="$PROJECT_DIR$/.github/instructions/binary_encoding.instructions.md" afterDir="false" />
+    <list default="true" id="e677cc10-da9b-4d42-bdc5-9b87d9746894" name="Changes" comment="Adding MCTS engine specifications">
+      <change beforePath="$PROJECT_DIR$/.idea/keres.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/keres.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/MINIMAX_IMPLEMENTATION.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/MINIMAX_SECURITY.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/OPTIMIZATION_SUMMARY.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/SECURITY_SUMMARY.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/examples/analyze_king_safety.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/examples/analyze_moves.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/examples/analyze_response.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/examples/check_g9_moves.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/examples/compare_positions.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/examples/debug_capture.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/examples/engine_demo.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/examples/test_capture.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/examples/test_capture2.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/examples/test_king_capture.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/examples/test_no_tt.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/examples/test_parallelization.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/examples/test_weights.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/examples/verify_parallelization.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/src/debug.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/src/engine/README.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/src/engine/gpu_batch_sim.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/src/engine/minimax.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/src/engine/mod.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/src/engine/shaders/batch_simulation.wgsl" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/src/server.rs" beforeDir="false" afterPath="$PROJECT_DIR$/engine/src/server.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/.idea/Keres.iml" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/.idea/Keres.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/.idea/php.xml" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/.idea/php.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/assets/typescript/src/app.ts" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/assets/typescript/src/app.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/assets/typescript/src/controllers/GameController.ts" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/assets/typescript/src/controllers/GameController.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/assets/typescript/src/network/GameAPI.ts" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/assets/typescript/src/network/GameAPI.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/composer.json" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/composer.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/composer.lock" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/composer.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/src/Action/UndoMoveAction.php" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/src/Action/UndoMoveAction.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/src/Engine/EngineApi.php" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/src/Engine/EngineApi.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/templates/actions/play.html.twig" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/templates/actions/play.html.twig" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/templates/base.html.twig" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/templates/base.html.twig" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/engine/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/engine/src/main.rs" afterDir="false" />
     </list>
     <list id="f9dd0b4c-d0bb-4b1c-a4b7-3766cd8094fd" name="NOCOMMIT" comment="" />
     <option name="SHOW_DIALOG" value="false" />
@@ -63,10 +33,16 @@
       <entry key="_/home/vincent/www/keres" value="36kQjdZ0x2J0Ckl5p0bRHPnBypp" />
     </persistenceIdMap>
   </component>
+  <component name="CopilotUserSelectedModel">
+    <selectedModels>
+      <entry key="chat-panel" value="GPT-4.1" />
+      <entry key="agent-panel" value="GPT-4.1" />
+    </selectedModels>
+  </component>
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="copilot/add-move-list-endpoint" />
+        <entry key="$PROJECT_DIR$" value="mcts-engine" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -110,7 +86,7 @@
     "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.rust.reset.selective.auto.import": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "git-widget-placeholder": "#45 on copilot/setup-mercure-realtime-updates",
+    "git-widget-placeholder": "#46 on copilot/implement-mcts-engine-for-keres",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -130,8 +106,27 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/docs" />
       <recent name="$PROJECT_DIR$" />
     </key>
+  </component>
+  <component name="RunManager">
+    <configuration default="true" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="command" value="run" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
   </component>
   <component name="RustProjectSettings">
     <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
@@ -158,7 +153,8 @@
       <workItem from="1770119381427" duration="1420000" />
       <workItem from="1770131291746" duration="2245000" />
       <workItem from="1770198438909" duration="770000" />
-      <workItem from="1770335907309" duration="1020000" />
+      <workItem from="1770335907309" duration="2657000" />
+      <workItem from="1770351884678" duration="2034000" />
     </task>
     <task id="LOCAL-00001" summary="Major repo reorganisation, switching to mono-repo for client, engine and plateform">
       <option name="closed" value="true" />
@@ -192,7 +188,31 @@
       <option name="project" value="LOCAL" />
       <updated>1770047190123</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="Cleaning up previous engines implementations">
+      <option name="closed" value="true" />
+      <created>1770336984743</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1770336984743</updated>
+    </task>
+    <task id="LOCAL-00006" summary="Adding MCTS engine specifications">
+      <option name="closed" value="true" />
+      <created>1770338199023</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1770338199023</updated>
+    </task>
+    <task id="LOCAL-00007" summary="Adding MCTS engine specifications">
+      <option name="closed" value="true" />
+      <created>1770338245352</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1770338245352</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -215,7 +235,9 @@
     <MESSAGE value="Add move list endpoint and update game state handling in GameController" />
     <MESSAGE value="Renaming pieces to match chess" />
     <MESSAGE value="TMP" />
-    <option name="LAST_COMMIT_MESSAGE" value="TMP" />
+    <MESSAGE value="Cleaning up previous engines implementations" />
+    <MESSAGE value="Adding MCTS engine specifications" />
+    <option name="LAST_COMMIT_MESSAGE" value="Adding MCTS engine specifications" />
   </component>
   <component name="github-copilot-workspace">
     <instructionFileLocations>
