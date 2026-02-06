@@ -58,6 +58,7 @@ export class MercureClient {
         this.eventSource.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
+                console.log(data);
                 
                 // Check timestamp to ignore out-of-order updates
                 if (data.timestamp && data.timestamp <= this.lastTimestamp) {

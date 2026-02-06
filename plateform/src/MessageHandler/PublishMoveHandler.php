@@ -4,22 +4,20 @@ declare(strict_types=1);
 namespace App\MessageHandler;
 
 use App\Engine\EngineApi;
-use App\Engine\GameEngine;
 use App\Message\ProcessAiMoveMessage;
-use App\Message\PublishMoveMessage;
+use App\Model\BoardMovesData;
 use App\Repository\GameRepository;
+use App\Service\GameUpdatePublisher;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
-use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\Uuid;
 
 #[AsMessageHandler]
-readonly class ProcessAiMoveHandler
+readonly class PublishMoveHandler
 {
     public function __construct(
         private GameRepository $gameRepository,
         private EngineApi $engineApi,
-        private GameEngine $gameEngine,
-        private MessageBusInterface $messageBus,
+        private GameUpdatePublisher $gameUpdatePublisher,
     ) {
     }
 
@@ -30,22 +28,12 @@ readonly class ProcessAiMoveHandler
             throw new \RuntimeException('Game not found: '.$message->gameUuid);
         }
 
-        if ($game->isGameOver()) {
-            // Game is already over, nothing to do
-            return;
-        }
-
-        // Get current board state
         $movesData = $game->getMovesData();
         $boardData = $this->engineApi->replayMoves($movesData);
 
-        // Get AI move
-        $aiMoveData = $this->engineApi->aiMove($boardData);
+        $boardMovesData = new BoardMovesData($boardData, $movesData);
 
-        // Apply AI move
-        $boardMovesData = $this->gameEngine->applyMove($game, $aiMoveData);
-
-        // Forward to PublishMoveMessage to update game state and notify clients
-        $this->messageBus->dispatch(new PublishMoveMessage($message->gameUuid));
+        // Publish update to Mercure
+        $this->gameUpdatePublisher->publishGameUpdate($message->gameUuid, $boardMovesData);
     }
 }
