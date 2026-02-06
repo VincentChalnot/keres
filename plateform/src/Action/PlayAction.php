@@ -22,7 +22,7 @@ class PlayAction extends AbstractController
         path: '/play/{uuid}',
         name: 'play',
     )]
-    public function __(string $uuid): Response
+    public function __(string $uuid): array
     {
         $game = $this->gameRepository->findByUuid(Uuid::fromString($uuid));
         
@@ -34,9 +34,9 @@ class PlayAction extends AbstractController
         $movesData = $game->getMovesData();
         $movesBase64 = base64_encode($movesData->toBinary());
 
-        return $this->render('actions/play.html.twig', [
+        return [
             'game' => $game,
             'moves' => $movesBase64,
-        ]);
+        ];
     }
 }

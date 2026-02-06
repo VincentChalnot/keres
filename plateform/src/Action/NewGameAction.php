@@ -5,8 +5,10 @@ namespace App\Action;
 
 use App\Entity\Game;
 use App\Form\NewGameType;
+use App\Repository\GameRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
@@ -17,6 +19,7 @@ class NewGameAction extends AbstractController
 {
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
+        private readonly GameRepository $gameRepository,
     ) {
     }
 
@@ -25,7 +28,7 @@ class NewGameAction extends AbstractController
         name: 'new_game',
         methods: ['GET', 'POST'],
     )]
-    public function __(Request $request): Response
+    public function __(Request $request): RedirectResponse|array
     {
         $form = $this->createForm(NewGameType::class);
         $form->handleRequest($request);
@@ -49,8 +52,9 @@ class NewGameAction extends AbstractController
             return $this->redirectToRoute('play', ['uuid' => $game->getUuid()]);
         }
 
-        return $this->render('actions/new_game.html.twig', [
+        return [
             'form' => $form->createView(),
-        ]);
+            'games' => $this->gameRepository->findAll(),
+        ];
     }
 }

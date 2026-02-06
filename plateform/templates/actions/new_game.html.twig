@@ -5,11 +5,11 @@
         <div class="columns is-centered">
             <div class="column is-half">
                 <div class="box">
-                    <h1 class="title">New Game</h1>
+                    <h3 class="title">New Game</h3>
                     <p class="subtitle">Configure your game settings</p>
-                    
+
                     {{ form_start(form) }}
-                    
+
                     <div class="field">
                         <label class="label">{{ form_label(form.playerSide) }}</label>
                         <div class="control">
@@ -17,7 +17,7 @@
                         </div>
                         {{ form_errors(form.playerSide) }}
                     </div>
-                    
+
                     <div class="field">
                         <label class="label">{{ form_label(form.opponentType) }}</label>
                         <div class="control">
@@ -25,16 +25,35 @@
                         </div>
                         {{ form_errors(form.opponentType) }}
                     </div>
-                    
+
                     <div class="field">
                         <div class="control">
                             {{ form_widget(form.submit) }}
                         </div>
                     </div>
-                    
+
                     {{ form_end(form) }}
                 </div>
             </div>
+            <h3>Games</h3>
+            {% for game in games %}
+                <div class="box">
+                    <a href="{{ path('play', {uuid: game.uuid}) }}" class="btn primary float-right">Resume</a>
+                    <p><strong>Player Side:</strong> {{ game.white ? 'White' : 'Black' }}</p>
+                    <p><strong>Opponent Type:</strong>
+                        {% if game.opponentType == enum('App\\Model\\OpponentType').AI %}
+                            AI
+                        {% elseif game.opponentType == enum('App\\Model\\OpponentType').HOTSEAT %}
+                            Hot Seat
+                        {% else %}
+                            Unknown
+                        {% endif %}
+                    </p>
+                </div>
+                <hr>
+            {% else %}
+                <p>No games found.</p>
+            {% endfor %}
         </div>
     </div>
 {% endblock %}
