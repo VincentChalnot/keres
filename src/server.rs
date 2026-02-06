@@ -7,7 +7,7 @@ use axum::{
     Router,
 };
 use keres_engine::board::{Board, BOARD_SIZE};
-use keres_engine::engine::{EngineConfig};
+use keres_engine::engine::{EngineConfig, MctsEngine};
 use keres_engine::game::{Game, Move};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
@@ -21,9 +21,7 @@ struct AppState {
 #[tokio::main]
 async fn main() {
     // @todo Initialize the MCTS engine with configuration
-    let mcts_config = EngineConfig {
-        // This is just an example.
-    };
+    let mcts_config = EngineConfig::default();
 
     let mcts_engine = match MctsEngine::with_config(mcts_config) {
         Ok(e) => {
@@ -139,14 +137,15 @@ async fn engine_move(
     let mut board_array = [0u8; BOARD_SIZE + 2];
     board_array.copy_from_slice(&board_bytes);
 
-    // Convert binary board to Board object
     let board = Board::from_binary(board_array).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // @todo implement MCTS engine move selection
+    let guard = state.mcts_engine.lock().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let engine = guard.as_ref().ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
 
-    // Encode the move for the client
+    let (mv, _stats) = engine
+        .find_move(&board)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
     let move_encoding = mv.to_u16();
-
-    // Return the move as 2-byte little-endian u16
     Ok(move_encoding.to_le_bytes().to_vec())
 }
