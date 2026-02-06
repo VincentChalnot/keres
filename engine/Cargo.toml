@@ -18,6 +18,7 @@ pollster = "0.3"
 bytemuck = { version = "1.14", features = ["derive"] }
 rand = "0.8"
 rayon = "1.10"
+parking_lot = "0.12"
 
 [lib]
 name = "keres_engine"
@@ -31,6 +32,4 @@ path = "src/main.rs"
 name = "server"
 path = "src/server.rs"
 
-[[bin]]
-name = "debug"
-path = "src/debug.rs"
+
