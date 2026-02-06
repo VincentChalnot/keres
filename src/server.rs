@@ -7,7 +7,7 @@ use axum::{
     Router,
 };
 use keres_engine::board::{Board, BOARD_SIZE};
-use keres_engine::engine::{EngineConfig, MctsEngine, MinimaxConfig, MinimaxEngine, SearchParams};
+use keres_engine::engine::{EngineConfig};
 use keres_engine::game::{Game, Move};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
@@ -16,15 +16,13 @@ use tower_http::cors::{Any, CorsLayer};
 // Shared engine state
 struct AppState {
     mcts_engine: Mutex<Option<MctsEngine>>,
-    minimax_engine: Mutex<MinimaxEngine>,
 }
 
 #[tokio::main]
 async fn main() {
-    // Initialize the MCTS engine with configuration
+    // @todo Initialize the MCTS engine with configuration
     let mcts_config = EngineConfig {
-        gpu_batch_size: 4096,
-        use_gpu_simulation: true,
+        // This is just an example.
     };
 
     let mcts_engine = match MctsEngine::with_config(mcts_config) {
@@ -39,20 +37,8 @@ async fn main() {
         }
     };
 
-    // Initialize the Minimax engine
-    let minimax_config = MinimaxConfig {
-        max_depth: 4,
-        use_quiescence: true,
-        use_transposition_table: false,
-        time_limit_ms: 5000,
-        ..Default::default()
-    };
-    let minimax_engine = MinimaxEngine::with_config(minimax_config);
-    println!("✓ Minimax Engine initialized successfully");
-
     let state = Arc::new(AppState {
         mcts_engine: Mutex::new(mcts_engine),
-        minimax_engine: Mutex::new(minimax_engine),
     });
 
     let cors = CorsLayer::new()
@@ -66,7 +52,6 @@ async fn main() {
         .route("/play", post(play_move))
         .route("/replay-moves", post(replay_moves))
         .route("/engine-move", post(engine_move))
-        .route("/minimax-move", post(minimax_move))
         .with_state(state)
         .layer(cors);
 
@@ -157,99 +142,11 @@ async fn engine_move(
     // Convert binary board to Board object
     let board = Board::from_binary(board_array).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // Get the MCTS engine from state
-    let mut engine_guard = state
-        .mcts_engine
-        .lock()
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let engine = engine_guard
-        .as_mut()
-        .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
-
-    // Search parameters for this call
-    let search_params = SearchParams {
-        max_depth: 16,
-        simulations_per_move: 100000,
-        exploration_constant: 1.414,
-    };
-
-    // Evaluate all moves
-    let scored_moves = engine.evaluate_moves(&board, &search_params).map_err(|e| {
-        eprintln!("MCTS Engine error: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    // Select the best move for the current player
-    let mv = MctsEngine::select_best_move(&board, &scored_moves).map_err(|e| {
-        eprintln!("MCTS Engine error selecting move: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
+    // @todo implement MCTS engine move selection
 
     // Encode the move for the client
     let move_encoding = mv.to_u16();
 
     // Return the move as 2-byte little-endian u16
     Ok(move_encoding.to_le_bytes().to_vec())
-}
-
-async fn minimax_move(
-    State(state): State<Arc<AppState>>,
-    payload: Bytes,
-) -> Result<Vec<u8>, StatusCode> {
-    let board_bytes = payload;
-    if board_bytes.len() != BOARD_SIZE + 2 {
-        return Err(StatusCode::BAD_REQUEST);
-    }
-
-    let mut board_array = [0u8; BOARD_SIZE + 2];
-    board_array.copy_from_slice(&board_bytes);
-
-    // Convert binary board to Board object
-    let board = Board::from_binary(board_array).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    // Get the Minimax engine from state
-    let mut engine_guard = state
-        .minimax_engine
-        .lock()
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    // Find best move using the Minimax engine
-    let mv = engine_guard.find_best_move(&board).map_err(|e| {
-        eprintln!("Minimax Engine error: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    // Encode the move for the client
-    let move_encoding = mv.to_u16();
-
-    // Return the move as 2-byte little-endian u16
-    Ok(move_encoding.to_le_bytes().to_vec())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use keres_engine::board::Position;
-
-    #[test]
-    fn test_move_encoding_matches_client_expectations() {
-        // Create a move
-        let mv = Move {
-            from: Position::from_u8(15),
-            to: Position::from_u8(25),
-            unstack: true,
-        };
-
-        let encoded = mv.to_u16();
-
-        // Decode as the TypeScript client would
-        let from_decoded = (encoded & 0x7F) as u8;
-        let to_decoded = ((encoded >> 7) & 0x7F) as u8;
-        let unstack_decoded = ((encoded >> 14) & 0x1) != 0;
-
-        assert_eq!(from_decoded, 15);
-        assert_eq!(to_decoded, 25);
-        assert_eq!(unstack_decoded, true);
-    }
 }
