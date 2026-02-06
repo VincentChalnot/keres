@@ -129,6 +129,7 @@ pub struct GpuEvaluator {
     pipeline: wgpu::ComputePipeline,
     bind_group_layout: wgpu::BindGroupLayout,
     weight_data: ScoringWeights,
+    #[allow(dead_code)]
     dispatch_cfg: DispatchParams,
 }
 
