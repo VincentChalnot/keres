@@ -4,6 +4,7 @@ use keres_engine::cli_rendering::get_board_hash;
 use keres_engine::{
     cli_rendering::display_stack, run_tui, Game, Position, BOARD_DIMENSION, BOARD_SIZE,
 };
+use keres_engine::game::Move;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -16,6 +17,8 @@ struct Cli {
 enum Commands {
     Play(PlayArgs),
     ShowMoves(ShowMovesArgs),
+    /// Request an engine move for a given board
+    EngineMove(EngineMoveArgs),
 }
 
 #[derive(Args)]
@@ -34,12 +37,20 @@ struct ShowMovesArgs {
     coordinates: Option<String>,
 }
 
+#[derive(Args)]
+struct EngineMoveArgs {
+    /// Base64 encoded board data to import
+    #[arg(long)]
+    board: Option<String>,
+}
+
 fn main() {
     let cli = Cli::parse();
 
     let board_data = match &cli.command {
         Some(Commands::Play(args)) => args.board.as_deref(),
         Some(Commands::ShowMoves(args)) => args.board.as_deref(),
+        Some(Commands::EngineMove(args)) => args.board.as_deref(),
         None => None,
     };
 
@@ -61,6 +72,34 @@ fn main() {
                 show_moves_for_position(&game, &position, true);
             } else {
                 show_all_moves(&game);
+            }
+        }
+        Some(Commands::EngineMove(_args)) => {
+            match run_engine_move(&game) {
+                Ok(mv) => {
+                    let piece = game.board.get_piece(&mv.from);
+                    let piece_string = if let Some(piece) = piece {
+                        display_stack(piece)
+                    } else {
+                        "?".to_string()
+                    };
+                    let unstack_info = if mv.unstack {
+                        "-"
+                    } else {
+                        ""
+                    };
+                    println!(
+                        "Engine move: {}@{}-{}{}",
+                        piece_string,
+                        mv.from.to_string(),
+                        mv.to.to_string(),
+                        unstack_info,
+                    );
+                }
+                Err(e) => {
+                    eprintln!("Engine error: {}", e);
+                    std::process::exit(1);
+                }
             }
         }
         _ => {
@@ -161,5 +200,17 @@ fn main() {
                 }
             }
         }
+    }
+
+    // Add this function to run the engine move logic
+    fn run_engine_move(game: &Game) -> Result<Move, String> {
+        use keres_engine::engine::{EngineConfig, MctsEngine};
+        let mcts_config = EngineConfig::default();
+        let mcts_engine = MctsEngine::with_config(mcts_config)
+            .map_err(|e| format!("Failed to initialize MCTS engine: {}", e))?;
+        let (mv, _stats) = mcts_engine
+            .find_move(&game.board)
+            .map_err(|e| format!("Engine failed to find move: {}", e))?;
+        Ok(mv)
     }
 }
