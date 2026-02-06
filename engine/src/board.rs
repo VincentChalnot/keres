@@ -7,7 +7,7 @@ pub enum Color {
     Black,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Position {
     pub x: usize, // 0-8 for columns
     pub y: usize, // 0-8 for rows
