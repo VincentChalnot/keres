@@ -51,10 +51,8 @@ impl CpuEvaluator {
         let mut enemy_score: f32 = 0.0;
 
         // Scan all 81 squares
-        let mut sq = 0u8;
-        loop {
-            if sq as usize >= BOARD_SIZE { break; }
-            let pos = Position::from_u8(sq);
+        for sq in 0..BOARD_SIZE {
+            let pos = Position::from_u8(sq as u8);
             if let Some(piece) = board.get_piece(&pos) {
                 let is_friendly = piece.color == mover_color;
                 let accumulator = if is_friendly { &mut friendly_score } else { &mut enemy_score };
@@ -93,7 +91,6 @@ impl CpuEvaluator {
                     *accumulator += advance_bonus;
                 }
             }
-            sq += 1;
         }
 
         let diff = friendly_score - enemy_score;
@@ -105,14 +102,7 @@ impl CpuEvaluator {
 
 impl Evaluator for CpuEvaluator {
     fn score_positions(&self, boards: &[Board]) -> Vec<f32> {
-        let mut results = Vec::with_capacity(boards.len());
-        let mut bi = 0usize;
-        loop {
-            if bi >= boards.len() { break; }
-            results.push(self.evaluate_single(&boards[bi]));
-            bi += 1;
-        }
-        results
+        boards.iter().map(|b| self.evaluate_single(b)).collect()
     }
 }
 
@@ -123,19 +113,11 @@ impl Evaluator for CpuEvaluator {
 pub fn serialize_boards(boards: &[Board]) -> Vec<u8> {
     let stride = 84usize;
     let mut blob = vec![0u8; boards.len() * stride];
-    let mut bi = 0usize;
-    loop {
-        if bi >= boards.len() { break; }
-        let bin = boards[bi].to_binary();
+    for (bi, board) in boards.iter().enumerate() {
+        let bin = board.to_binary();
         let offset = bi * stride;
-        let mut k = 0usize;
-        loop {
-            if k >= 83 { break; }
-            blob[offset + k] = bin[k];
-            k += 1;
-        }
+        blob[offset..offset + 83].copy_from_slice(&bin[..83]);
         // blob[offset + 83] stays 0 (padding)
-        bi += 1;
     }
     blob
 }
