@@ -884,6 +884,7 @@ dependencies = [
  "bytemuck",
  "clap",
  "crossterm 0.29.0",
+ "parking_lot",
  "pollster",
  "rand",
  "ratatui",
