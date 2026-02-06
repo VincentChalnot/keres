@@ -2,6 +2,11 @@
 
 {% block title %}Play Game - Keres{% endblock %}
 
+{% block head %}
+    {{ parent() }}
+    <meta name="mercure-url" content="{{ mercure(url('play', {uuid: game.uuid})) }}">
+{% endblock %}
+
 {% block body %}
     <div class="game-container">
         <div id="board-container"
@@ -23,7 +28,7 @@
             </div>
             <div id="move-history-display" class="move-history-box">
                 <table class="table is-fullwidth move-history-table has-background-dark has-text-white">
-                    <thead>
+                    <thead>https://local.playkeres.com/play/09ce1faf-c9b5-4ae8-9b27-7a4ae6a01c6e#:~:text=Internal%20Server%20Error-,Unknown%20%22mercure_public_url%22%20function,-in%20base.html
                     <tr>
                         <th>#</th>
                         <th>White</th>

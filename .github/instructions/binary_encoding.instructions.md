@@ -45,14 +45,16 @@ The 7 bits for a piece are interpreted as `C UUU LLL`:
 
 ## Board Encoding
 - The board is a 9x9 grid (81 squares).
-- Each square is encoded as 7 bits (see above), so a board can be encoded as 9 x u64 (each row fits in a 64-bit integer).
-- Board state includes:
+- Each square is encoded as 7 bits (see above), the whole board is then stored as 9x9x8 bits = 81 bytes.
+- For compact storage or hashing, the board can be represented as 9 u64 integers, where each u64 encodes a row of 9 squares (63 bits used, 1 bit unused).
+- Board state also includes:
   - Array of 81 Option<Piece> (empty or piece/stack)
   - Flags:
     - `white_to_move`: whose turn it is (1 bit)
     - `game_over`, `white_wins`, `draw`: game state flags (1 bit each)
     - `moves_without_capture`: u8 counter (for 40-move draw rule)
 - When serializing the board, include both the piece array and these flags.
+- So a full board position with flags and counter is 83 bytes (81 for pieces + 1 for flags + 1 for counter).
 
 ---
 
@@ -89,7 +91,7 @@ The 7 bits for a piece are interpreted as `C UUU LLL`:
 
 ## Summary
 - Piece encoding: 7 bits per square, as `C UUU LLL`.
-- Board encoding: 9x9 grid, 9 x u64, plus flags.
+- Board encoding: 9x9 grid, 83 bytes.
 - Position encoding: u8 (0-80).
 - Move encoding: u16, with bit layout for Move and PotentialMove.
 - All encoding and decoding must follow the rules above and throw exceptions for invalid codes.

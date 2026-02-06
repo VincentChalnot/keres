@@ -29,7 +29,6 @@ class KeresGame {
     private nextMoveBtn: HTMLButtonElement;
     private undoBtn: HTMLButtonElement;
     private askEngineBtn: HTMLButtonElement | null;
-    private askMinimaxBtn: HTMLButtonElement | null;
     private toggleThreatsBtn: HTMLButtonElement;
     private gameMode: number = 0; // opponent type as int
     private playerWhite: boolean = true; // true if player is white
@@ -49,7 +48,6 @@ class KeresGame {
         this.nextMoveBtn = document.getElementById('next-move-btn') as HTMLButtonElement;
         this.undoBtn = document.getElementById('undo-btn') as HTMLButtonElement;
         this.askEngineBtn = document.getElementById('ask-engine-btn') as HTMLButtonElement | null;
-        this.askMinimaxBtn = document.getElementById('ask-minimax-btn') as HTMLButtonElement | null;
         this.toggleThreatsBtn = document.getElementById('toggle-threats-btn') as HTMLButtonElement;
         
         // Read game mode and player color from data attributes
@@ -122,9 +120,6 @@ class KeresGame {
         if (this.askEngineBtn) {
             this.askEngineBtn.addEventListener('click', () => this.handleAskEngine());
         }
-        if (this.askMinimaxBtn) {
-            this.askMinimaxBtn.addEventListener('click', () => this.handleAskMinimax());
-        }
         this.undoBtn.addEventListener('click', () => this.handleUndo());
         this.prevMoveBtn.addEventListener('click', () => this.handlePrevMove());
         this.nextMoveBtn.addEventListener('click', () => this.handleNextMove());
@@ -184,32 +179,12 @@ class KeresGame {
             this.updateStatus();
             this.updateMoveHistoryDisplay();
         } catch (error) {
-            console.error('Error getting MCTS engine move:', error);
-            this.statusDiv.innerText = `Error: ${(error as Error).message}. MCTS engine may not be available.`;
+            console.error('Error getting engine move:', error);
+            this.statusDiv.innerText = `Error: ${(error as Error).message}. engine may not be available.`;
         } finally {
             if (this.askEngineBtn) {
                 this.askEngineBtn.disabled = false;
-                this.askEngineBtn.innerText = 'Ask MCTS Engine';
-            }
-        }
-    }
-
-    private async handleAskMinimax(): Promise<void> {
-        try {
-            if (this.askMinimaxBtn) {
-                this.askMinimaxBtn.disabled = true;
-                this.askMinimaxBtn.innerText = 'Thinking...';
-            }
-            await this.controller.requestMinimaxMove();
-            this.updateStatus();
-            this.updateMoveHistoryDisplay();
-        } catch (error) {
-            console.error('Error getting Minimax engine move:', error);
-            this.statusDiv.innerText = `Error: ${(error as Error).message}. Minimax engine may not be available.`;
-        } finally {
-            if (this.askMinimaxBtn) {
-                this.askMinimaxBtn.disabled = false;
-                this.askMinimaxBtn.innerText = 'Ask Minimax Engine';
+                this.askEngineBtn.innerText = 'Ask Engine';
             }
         }
     }
@@ -254,7 +229,6 @@ class KeresGame {
             this.statusDiv.innerText = board.getGameResult();
             // Disable engine buttons when game is over
             if (this.askEngineBtn) this.askEngineBtn.disabled = true;
-            if (this.askMinimaxBtn) this.askMinimaxBtn.disabled = true;
             return;
         }
 
@@ -267,7 +241,6 @@ class KeresGame {
                 this.statusDiv.innerText = `Viewing history - Navigate to latest move to continue playing`;
             }
             if (this.askEngineBtn) this.askEngineBtn.disabled = true;
-            if (this.askMinimaxBtn) this.askMinimaxBtn.disabled = true;
             return;
         }
 
@@ -277,7 +250,6 @@ class KeresGame {
 
         // Re-enable engine buttons if they were disabled
         if (this.askEngineBtn) this.askEngineBtn.disabled = false;
-        if (this.askMinimaxBtn) this.askMinimaxBtn.disabled = false;
     }
 
     private updateMoveHistoryDisplay(): void {

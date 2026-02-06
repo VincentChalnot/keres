@@ -174,13 +174,6 @@ export class GameController {
         await this.playMove(move.from, move.to, move.unstack);
     }
 
-    async requestMinimaxMove(): Promise<void> {
-        const board = this.gameState.getBoard();
-        if (!board) return;
-        const move = await this.api.getMinimaxMove(board);
-        await this.playMove(move.from, move.to, move.unstack);
-    }
-
     async undoMove(): Promise<void> {
         try {
             const movesBase64 = await this.api.undoMove();

@@ -50,8 +50,12 @@ readonly class UndoMoveAction
             $em->remove($lastMove);
             if ($game->getOpponentType() === OpponentType::AI) {
                 // In AI mode, undo both player move and AI response
-                $aiLastMove = $this->removeLastMoveFromGame($game);
-                $em->remove($aiLastMove);
+                try {
+                    $aiLastMove = $this->removeLastMoveFromGame($game);
+                    $em->remove($aiLastMove);
+                } catch (\Exception) {
+                    // Ignore if there was no AI move to remove @todo better handling for production is needed
+                }
             }
             $game->setGameOverAt(null);
             $game->setWhiteWins(false);

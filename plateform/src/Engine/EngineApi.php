@@ -24,7 +24,7 @@ readonly class EngineApi
 
     public function aiMove(BoardData $boardData): MoveData
     {
-        $moveData = $this->callApi('minimax-move', $boardData->data);
+        $moveData = $this->callApi('engine-move', $boardData->data);
 
         return new MoveData($moveData);
     }
