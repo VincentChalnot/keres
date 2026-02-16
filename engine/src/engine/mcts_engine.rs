@@ -53,6 +53,20 @@ impl MctsEngine {
     /// Run MCTS from the given board position and return the best
     /// move together with search statistics.
     pub fn find_move(&self, board: &Board) -> Result<(Move, SearchStatistics), String> {
+        let (best, stats, _tree) = self.run_search(board)?;
+        Ok((best, stats))
+    }
+
+    /// Run MCTS and also return the debug tree snapshot (for the debug-tree CLI).
+    pub fn find_move_debug(&self, board: &Board)
+        -> Result<(Move, SearchStatistics, super::search_tree::DebugTree), String>
+    {
+        let (best, stats, tree) = self.run_search(board)?;
+        let debug = tree.export_debug();
+        Ok((best, stats, debug))
+    }
+
+    fn run_search(&self, board: &Board) -> Result<(Move, SearchStatistics, KTree), String> {
         if board.is_game_over() {
             return Err("cannot search from a terminal position".into());
         }
@@ -89,7 +103,7 @@ impl MctsEngine {
             root_visit_count: tree.root_n(),
         };
 
-        Ok((best, stats))
+        Ok((best, stats, tree))
     }
 }
 
@@ -151,5 +165,108 @@ mod tests {
             Box::new(FixedScoreEvaluator { val: 0.5 }),
         );
         assert!(eng.find_move(&b).is_err());
+    }
+
+    /// Regression test for the reported bug: after the moves
+    ///   1. G2-E2  E7-D6
+    ///   2. E3-F4
+    /// black's king on E9 is exposed to the white rook on E2.
+    /// Black must defend (block or move the king); the engine must NOT
+    /// pick a move that leaves the king capturable.
+    #[test]
+    fn black_must_defend_exposed_king() {
+        // Replay moves: base64 "xSEWDzoZ" = 3 moves
+        let move_bytes: &[u8] = &[0xC5, 0x21, 0x16, 0x0F, 0x3A, 0x19];
+        let mut game = crate::game::Game::new();
+        for chunk in move_bytes.chunks_exact(2) {
+            let mv = Move::from_u16(u16::from_le_bytes([chunk[0], chunk[1]]));
+            game.apply_move(mv).expect("replayed move should be valid");
+        }
+        // Now it's black's turn. The white rook on E2 has a clear line to E9.
+        assert!(!game.board.is_white_to_move(), "should be black to move");
+
+        let mut cfg = EngineConfig::default();
+        cfg.iterations = 5000;
+        let eng = MctsEngine::cpu_only(cfg);
+        let (mv, _stats) = eng.find_move(&game.board).expect("should find a move");
+
+        // After black plays, white should NOT be able to immediately capture the king
+        let mut game_after = game.clone();
+        game_after.apply_move(mv).expect("engine move should be legal");
+
+        // Check: it should NOT be game over after white's next best reply
+        let white_game = crate::game::Game::from_board(game_after.board);
+        let white_moves = white_game.get_all_moves();
+        let king_captured = white_moves.iter().any(|pm| {
+            let m = pm.to_move(false);
+            if let Ok(b) = white_game.apply_move_copy(m) {
+                b.is_game_over() && b.white_wins()
+            } else {
+                false
+            }
+        });
+
+        assert!(!king_captured,
+            "Engine's move {:?} left the black king capturable!", mv);
+    }
+
+    /// Debug test to inspect the MCTS tree state for the exposed-king position.
+    #[test]
+    fn debug_exposed_king_tree_state() {
+        let move_bytes: &[u8] = &[0xC5, 0x21, 0x16, 0x0F, 0x3A, 0x19];
+        let mut game = crate::game::Game::new();
+        for chunk in move_bytes.chunks_exact(2) {
+            let mv = Move::from_u16(u16::from_le_bytes([chunk[0], chunk[1]]));
+            game.apply_move(mv).expect("replayed move should be valid");
+        }
+
+        // Check: can white capture the king after a non-defensive black move?
+        let bad_move = Move {
+            from: crate::Position { x: 0, y: 2 },
+            to: crate::Position { x: 1, y: 3 },
+            unstack: false,
+        };
+        let board_after_bad = game.apply_move_copy(bad_move).unwrap();
+        let white_game = crate::game::Game::from_board(board_after_bad);
+        let white_moves = white_game.get_all_moves();
+        let mut found_king_capture = false;
+        for pm in &white_moves {
+            let m = pm.to_move(false);
+            if let Ok(b) = white_game.apply_move_copy(m) {
+                if b.is_game_over() && b.white_wins() {
+                    found_king_capture = true;
+                    eprintln!("Confirmed: white can play {} to capture king", m.to_string());
+                }
+            }
+        }
+        assert!(found_king_capture, "Expected white to have a king-capture move");
+
+        // Evaluate positions with the CPU evaluator
+        let eval = crate::engine::gpu_batch_processor::CpuEvaluator {
+            weights: crate::engine::config::ScoringWeights::default(),
+        };
+        use crate::engine::gpu_batch_processor::Evaluator;
+        let root_score = eval.score_positions(&[game.board])[0];
+        let after_bad_score = eval.score_positions(&[board_after_bad])[0];
+        eprintln!("Root position (black to move) white-perspective: {:.4}", root_score);
+        eprintln!("After bad A7-B6 (white to move) white-perspective: {:.4}", after_bad_score);
+
+        // Run MCTS and inspect root children
+        let mut cfg = EngineConfig::default();
+        cfg.iterations = 5000;
+        let eng = MctsEngine::cpu_only(cfg);
+        let (best_mv, stats, tree_debug) = eng.find_move_debug(&game.board).unwrap();
+        eprintln!("Best move: {} | iterations: {} | nodes: {}",
+            best_mv.to_string(), stats.iterations_completed, stats.nodes_in_tree);
+
+        // Print top-level children and their scores
+        eprintln!("\nRoot children (sorted by mean value, ascending = better for black):");
+        let mut children_info: Vec<_> = tree_debug.children.iter().map(|c| {
+            (c.action.clone().unwrap_or_default(), c.visits, c.mean_value)
+        }).collect();
+        children_info.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap());
+        for (action, visits, mean) in &children_info {
+            eprintln!("  {} : visits={}, mean={:.4}", action, visits, mean);
+        }
     }
 }

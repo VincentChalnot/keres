@@ -7,6 +7,6 @@ pub mod search_tree;
 
 pub use config::{EngineConfig, ScoringWeights};
 pub use mcts_engine::{MctsEngine, SearchStatistics};
-pub use search_tree::KTree;
+pub use search_tree::{KTree, DebugTree};
 pub use gpu_context::{GpuContext, get_shared_context};
 pub use gpu_move_gen::MoveGenerationEngine;
