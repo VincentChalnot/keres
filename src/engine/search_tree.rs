@@ -284,8 +284,8 @@ impl KTree {
             } else {
                 0.5
             };
-            let dominated = if white_to_move { cs > winner_score } else { cs < winner_score };
-            if dominated { winner_score = cs; winner_mv = root_arcs[ai].0; }
+            let is_better = if white_to_move { cs > winner_score } else { cs < winner_score };
+            if is_better { winner_score = cs; winner_mv = root_arcs[ai].0; }
             ai += 1;
         }
         Some(winner_mv)

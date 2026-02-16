@@ -221,9 +221,10 @@ mod tests {
         }
 
         // Check: can white capture the king after a non-defensive black move?
+        // A7-B6: non-defensive black move (soldier from A7=(0,2) to B6=(1,3))
         let bad_move = Move {
-            from: crate::Position { x: 0, y: 2 },
-            to: crate::Position { x: 1, y: 3 },
+            from: crate::Position { x: 0, y: 2 },  // A7
+            to: crate::Position { x: 1, y: 3 },    // B6
             unstack: false,
         };
         let board_after_bad = game.apply_move_copy(bad_move).unwrap();
