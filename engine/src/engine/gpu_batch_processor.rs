@@ -75,8 +75,9 @@ impl CpuEvaluator {
                 *accumulator += centrality_bonus;
 
                 // Advance bonus for soldiers and ballistas near promotion
-                let dominated_type = piece.top.as_ref().unwrap_or(&piece.bottom);
-                let is_advanceable = matches!(dominated_type,
+                // Top piece if stacked, otherwise bottom piece
+                let top_piece_type = piece.top.as_ref().unwrap_or(&piece.bottom);
+                let is_advanceable = matches!(top_piece_type,
                     PieceType::Soldier | PieceType::Ballista);
                 if is_advanceable {
                     let advance_rank = match piece.color {
