@@ -144,28 +144,27 @@ fn rollout_entry(@builtin(global_invocation_id) gid: vec3<u32>) {
     let w_wins    = (flags_byte >> 5u) & 1u;
     let is_draw   = (flags_byte >> 4u) & 1u;
 
-    // Terminal positions: assign fixed scores
+    // Terminal positions: assign fixed scores from WHITE's perspective
     if is_over == 1u {
         if is_draw == 1u {
             results[board_idx] = 0.5;
             return;
         }
-        // Current mover wins → 1.0, else 0.0
-        let mover_won = select(0u, 1u, who_moves == w_wins);
-        results[board_idx] = f32(mover_won);
+        // White wins → 1.0, black wins → 0.0 (always white's perspective)
+        results[board_idx] = f32(w_wins);
         return;
     }
 
-    // Non-terminal: material + positional evaluation
-    var friendly_total: f32 = 0.0;
-    var enemy_total: f32 = 0.0;
+    // Non-terminal: material + positional evaluation from WHITE's perspective
+    var white_total: f32 = 0.0;
+    var black_total: f32 = 0.0;
 
     for (var sq: u32 = 0u; sq < BOARD_SQ; sq++) {
         let encoded = read_position_byte(board_idx, sq);
         if encoded == 0u { continue; }
 
         let piece_color = extract_color(encoded);
-        let same_side = (piece_color == who_moves);
+        let is_white = (piece_color == 1u);
 
         // Material contribution
         var mat_value: f32 = 0.0;
@@ -186,13 +185,13 @@ fn rollout_entry(@builtin(global_invocation_id) gid: vec3<u32>) {
         mat_value += cent_bonus;
 
         // Accumulate to appropriate side
-        if same_side {
-            friendly_total += mat_value;
+        if is_white {
+            white_total += mat_value;
         } else {
-            enemy_total += mat_value;
+            black_total += mat_value;
         }
     }
 
-    let diff = friendly_total - enemy_total;
+    let diff = white_total - black_total;
     results[board_idx] = sigmoid_keres(diff / 2000.0);
 }

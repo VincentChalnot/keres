@@ -56,15 +56,26 @@ impl Columns {
 
 // ══════════  Ranking function  ══════════
 
-/// Compute the selection priority of a vertex.  Vertices with
+/// Compute the UCT selection priority of a vertex.  Vertices with
 /// zero visits always receive `f32::MAX`.
+///
+/// `maximizing` should be `true` when the parent is white-to-move
+/// (pick child that maximises white's reward) and `false` when the
+/// parent is black-to-move (pick child that minimises white's reward).
 fn rank_vertex(visits: u32, reward: f32,
-               parent_total: u32, kappa: f32) -> f32 {
+               parent_total: u32, kappa: f32,
+               maximizing: bool) -> f32 {
     if visits == 0 { return f32::MAX; }
     let mean_payoff = reward / (visits as f32);
     let ln_parent = f32::ln(parent_total as f32);
     let uncertainty = kappa * f32::sqrt(ln_parent / (visits as f32));
-    mean_payoff + uncertainty
+    // For white-to-move parent: high white score is good → mean_payoff + exploration
+    // For black-to-move parent: low white score is good → (1 - mean_payoff) + exploration
+    if maximizing {
+        mean_payoff + uncertainty
+    } else {
+        (1.0 - mean_payoff) + uncertainty
+    }
 }
 
 // ══════════  Move flattening  ══════════
@@ -92,8 +103,8 @@ pub struct KNode {
 }
 
 impl KNode {
-    pub fn uct_score(&self, parent_agg: u32, kappa: f32) -> f32 {
-        rank_vertex(self.n, self.w, parent_agg, kappa)
+    pub fn uct_score(&self, parent_agg: u32, kappa: f32, maximizing: bool) -> f32 {
+        rank_vertex(self.n, self.w, parent_agg, kappa, maximizing)
     }
 }
 
@@ -155,6 +166,9 @@ impl KTree {
             let no_arcs  = self.cols.arc_list[key].is_empty();
             if terminal || closed || no_arcs { break; }
 
+            // Determine perspective: white-to-move maximises white's score.
+            let maximizing = self.cols.boards[key].is_white_to_move();
+
             // Find the arc whose destination has the highest rank.
             let pv = self.cols.visit_ct[key];
             let kp = self.params.uct_c;
@@ -163,7 +177,7 @@ impl KTree {
             let mut champ_key = arcs[0].1;
             let mut champ_rank = rank_vertex(
                 self.cols.visit_ct[champ_key],
-                self.cols.reward_acc[champ_key], pv, kp);
+                self.cols.reward_acc[champ_key], pv, kp, maximizing);
 
             let mut idx = 1usize;
             let bound = arcs.len();
@@ -172,7 +186,7 @@ impl KTree {
                 let dk = arcs[idx].1;
                 let dr = rank_vertex(
                     self.cols.visit_ct[dk],
-                    self.cols.reward_acc[dk], pv, kp);
+                    self.cols.reward_acc[dk], pv, kp, maximizing);
                 if dr > champ_rank { champ_rank = dr; champ_key = dk; }
                 idx += 1;
             }
@@ -230,30 +244,48 @@ impl KTree {
     }
 
     // ── back-propagation ──────────────────────────
+    // Scores are always from white's perspective (1.0 = white winning).
+    // No flipping needed — every node stores the same viewpoint.
 
     pub fn feed_result(&mut self, route: &[usize], reward: f32) {
-        let mut signal = reward;
         for &key in route.iter().rev() {
             self.cols.visit_ct[key] += 1;
-            self.cols.reward_acc[key] += signal;
+            self.cols.reward_acc[key] += reward;
             self.refresh_facade(key);
-            signal = 1.0 - signal;
         }
     }
 
     // ── result extraction ─────────────────────────
+    // Scores are from white's perspective.  White picks the child with
+    // the highest mean reward; black picks the child with the lowest.
 
     pub fn pick_best_action(&self) -> Option<Move> {
         let root_arcs = &self.cols.arc_list[self.root];
         if root_arcs.is_empty() { return None; }
 
+        let white_to_move = self.cols.boards[self.root].is_white_to_move();
+
         let mut winner_mv = root_arcs[0].0;
-        let mut winner_vc = self.cols.visit_ct[root_arcs[0].1];
+        let first_key = root_arcs[0].1;
+        let first_n = self.cols.visit_ct[first_key];
+        let mut winner_score = if first_n > 0 {
+            self.cols.reward_acc[first_key] / (first_n as f32)
+        } else {
+            0.5
+        };
+
         let mut ai = 1usize;
         loop {
             if ai >= root_arcs.len() { break; }
-            let vc = self.cols.visit_ct[root_arcs[ai].1];
-            if vc > winner_vc { winner_vc = vc; winner_mv = root_arcs[ai].0; }
+            let ck = root_arcs[ai].1;
+            let cn = self.cols.visit_ct[ck];
+            let cs = if cn > 0 {
+                self.cols.reward_acc[ck] / (cn as f32)
+            } else {
+                0.5
+            };
+            let dominated = if white_to_move { cs > winner_score } else { cs < winner_score };
+            if dominated { winner_score = cs; winner_mv = root_arcs[ai].0; }
             ai += 1;
         }
         Some(winner_mv)
@@ -264,6 +296,55 @@ impl KTree {
     pub fn root_n(&self) -> u32 { self.cols.visit_ct[self.root] }
     pub fn pool_len(&self) -> usize { self.cols.row_count() }
     pub fn board_of(&self, key: usize) -> &Board { &self.cols.boards[key] }
+
+    // ── debug export ─────────────────────────────
+
+    /// Export the search tree as a serialisable structure for debugging.
+    /// Only includes nodes with at least one visit.
+    pub fn export_debug(&self) -> DebugTree {
+        self.export_subtree(self.root)
+    }
+
+    fn export_subtree(&self, key: usize) -> DebugTree {
+        let n = self.cols.visit_ct[key];
+        let w = self.cols.reward_acc[key];
+        let mean = if n > 0 { w / (n as f32) } else { 0.0 };
+        let board = &self.cols.boards[key];
+
+        let action_label = self.cols.inbound_mv[key].map(|m| m.to_string());
+        let white_to_move = board.is_white_to_move();
+
+        let children: Vec<DebugTree> = self.cols.arc_list[key].iter()
+            .filter(|(_, ck)| self.cols.visit_ct[*ck] > 0)
+            .map(|(_, ck)| self.export_subtree(*ck))
+            .collect();
+
+        DebugTree {
+            node_id: key,
+            action: action_label,
+            visits: n,
+            total_reward: w,
+            mean_value: mean,
+            white_to_move,
+            is_terminal: board.is_game_over(),
+            children,
+        }
+    }
+}
+
+/// Serialisable snapshot of the MCTS tree for external debugging tools.
+#[derive(serde::Serialize)]
+pub struct DebugTree {
+    pub node_id: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action: Option<String>,
+    pub visits: u32,
+    pub total_reward: f32,
+    pub mean_value: f32,
+    pub white_to_move: bool,
+    pub is_terminal: bool,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub children: Vec<DebugTree>,
 }
 
 // ══════════  Tests  ══════════
@@ -285,13 +366,24 @@ mod tests {
 
     #[test]
     fn rank_vertex_gives_max_for_zero_visits() {
-        assert_eq!(rank_vertex(0, 0.0, 100, 1.0), f32::MAX);
+        assert_eq!(rank_vertex(0, 0.0, 100, 1.0, true), f32::MAX);
+        assert_eq!(rank_vertex(0, 0.0, 100, 1.0, false), f32::MAX);
     }
 
     #[test]
     fn rank_vertex_gives_finite_for_nonzero_visits() {
-        let r = rank_vertex(20, 8.0, 200, 1.414);
+        let r = rank_vertex(20, 8.0, 200, 1.414, true);
         assert!(r.is_finite() && r >= 0.0, "expected finite nonneg, got {r}");
+    }
+
+    #[test]
+    fn rank_vertex_black_perspective_inverts() {
+        // 10 visits, 8.0 total reward → mean 0.8 (good for white)
+        let white_rank = rank_vertex(10, 8.0, 100, 1.414, true);
+        let black_rank = rank_vertex(10, 8.0, 100, 1.414, false);
+        // White should prefer this (high rank), black should not (low rank)
+        assert!(white_rank > black_rank,
+            "white {white_rank} should exceed black {black_rank} for white-favorable position");
     }
 
     #[test]
@@ -322,22 +414,35 @@ mod tests {
     }
 
     #[test]
-    fn propagation_flips_signal_per_layer() {
+    fn propagation_stores_uniform_white_score() {
         let mut t = with_kids();
         let ck = t.cols.arc_list[0][0].1;
         t.feed_result(&[0, ck], 0.8);
+        // With white-perspective scoring, both nodes store the same reward
         assert_approx!(t.cols.reward_acc[ck], 0.8, "child reward");
-        assert_approx!(t.cols.reward_acc[0], 0.2, "root reward");
+        assert_approx!(t.cols.reward_acc[0], 0.8, "root reward");
         assert_eq!(t.cols.visit_ct[ck], 1);
         assert_eq!(t.cols.visit_ct[0], 1);
     }
 
     #[test]
-    fn best_action_follows_visit_leader() {
+    fn best_action_follows_value_leader() {
         let mut t = with_kids();
+        // White to move from initial position: pick_best_action takes highest mean
         let (expected_mv, boosted_key) = t.cols.arc_list[0][2];
-        t.cols.visit_ct[boosted_key] = 7777;
-        t.refresh_facade(boosted_key);
+        // Collect all child keys first to avoid borrow conflict
+        let all_children: Vec<usize> = t.cols.arc_list[0].iter().map(|&(_, ck)| ck).collect();
+        // Give the boosted child a high score, others mediocre
+        for &ck in &all_children {
+            if ck == boosted_key {
+                t.cols.visit_ct[ck] = 100;
+                t.cols.reward_acc[ck] = 95.0; // mean 0.95 — very good for white
+            } else {
+                t.cols.visit_ct[ck] = 100;
+                t.cols.reward_acc[ck] = 50.0; // mean 0.5
+            }
+            t.refresh_facade(ck);
+        }
         assert_eq!(t.pick_best_action().unwrap(), expected_mv);
     }
 

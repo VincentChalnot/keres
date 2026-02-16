@@ -19,6 +19,8 @@ enum Commands {
     ShowMoves(ShowMovesArgs),
     /// Request an engine move for a given board
     EngineMove(EngineMoveArgs),
+    /// Run MCTS on a board loaded from a move list, output the search tree as JSON
+    DebugTree(DebugTreeArgs),
 }
 
 #[derive(Args)]
@@ -44,6 +46,16 @@ struct EngineMoveArgs {
     board: Option<String>,
 }
 
+#[derive(Args)]
+struct DebugTreeArgs {
+    /// Base64 encoded binary moves to replay before running the engine
+    #[arg(long)]
+    moves: Option<String>,
+    /// Number of MCTS iterations (default: 100)
+    #[arg(long, default_value = "100")]
+    iterations: usize,
+}
+
 fn main() {
     let cli = Cli::parse();
 
@@ -51,8 +63,15 @@ fn main() {
         Some(Commands::Play(args)) => args.board.as_deref(),
         Some(Commands::ShowMoves(args)) => args.board.as_deref(),
         Some(Commands::EngineMove(args)) => args.board.as_deref(),
+        Some(Commands::DebugTree(_)) => None, // DebugTree builds its own game from moves
         None => None,
     };
+
+    // DebugTree has its own flow — handle it before building the default game
+    if let Some(Commands::DebugTree(args)) = &cli.command {
+        run_debug_tree(args);
+        return;
+    }
 
     let game = match create_game(board_data) {
         Ok(g) => g,
@@ -212,5 +231,53 @@ fn main() {
             .find_move(&game.board)
             .map_err(|e| format!("Engine failed to find move: {}", e))?;
         Ok(mv)
+    }
+
+    fn run_debug_tree(args: &DebugTreeArgs) {
+        use keres_engine::engine::{EngineConfig, MctsEngine};
+
+        // Build the game state by replaying the encoded moves
+        let mut game = Game::new();
+        if let Some(encoded) = &args.moves {
+            let bytes = match general_purpose::STANDARD.decode(encoded) {
+                Ok(b) => b,
+                Err(e) => {
+                    eprintln!("Failed to decode base64 moves: {}", e);
+                    std::process::exit(1);
+                }
+            };
+            if bytes.len() % 2 != 0 {
+                eprintln!("Move data must be an even number of bytes");
+                std::process::exit(1);
+            }
+            for chunk in bytes.chunks_exact(2) {
+                let mv = Move::from_u16(u16::from_le_bytes([chunk[0], chunk[1]]));
+                if let Err(e) = game.apply_move(mv) {
+                    eprintln!("Failed to apply move {}: {}", mv.to_string(), e);
+                    std::process::exit(1);
+                }
+            }
+        }
+
+        eprintln!("Board after replay ({} to move):",
+            if game.board.is_white_to_move() { "white" } else { "black" });
+
+        let mut cfg = EngineConfig::default();
+        cfg.iterations = args.iterations;
+        let engine = MctsEngine::cpu_only(cfg);
+
+        match engine.find_move_debug(&game.board) {
+            Ok((best_mv, stats, debug_tree)) => {
+                eprintln!("Best move: {}", best_mv.to_string());
+                eprintln!("Iterations: {}, Nodes: {}, Root visits: {}",
+                    stats.iterations_completed, stats.nodes_in_tree, stats.root_visit_count);
+                // Print JSON tree to stdout (can be piped to a file)
+                println!("{}", serde_json::to_string_pretty(&debug_tree).unwrap());
+            }
+            Err(e) => {
+                eprintln!("Engine error: {}", e);
+                std::process::exit(1);
+            }
+        }
     }
 }
