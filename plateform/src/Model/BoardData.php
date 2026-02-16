@@ -16,25 +16,28 @@ namespace App\Model;
  *     bits 4-1: unused
  * - 1 byte: Moves without capture counter
  */
+
 readonly class BoardData
 {
-    private const int BOARD_DATA_SIZE = 9*9+2; // 81 squares + 2 bytes flags
+    private const int BOARD_DATA_SIZE = 9 * 9 + 2; // 81 squares + 2 bytes flags
     public bool $whiteToMove;
     public bool $gameOver;
     public bool $whiteWins;
     public bool $draw;
+    public int $movesWithoutCapture;
 
     public function __construct(public string $data)
     {
         if (strlen($data) !== self::BOARD_DATA_SIZE) {
             throw new \InvalidArgumentException('Invalid board data size');
         }
-        $flagsData = substr($data, 81, 2);
-        $flags = unpack('v', $flagsData)[1];
-        $this->whiteToMove = (bool)($flags & 0x1);
-        $this->gameOver = (bool)(($flags >> 1) & 0x1);
-        $this->whiteWins = (bool)(($flags >> 2) & 0x1);
-        $this->draw = (bool)(($flags >> 3) & 0x1);
+        /** @var int $flags */
+        $flags = unpack('C', $data[81])[1];
+        $this->whiteToMove = (bool) ($flags & 0b10000000);
+        $this->gameOver = (bool) ($flags & 0b01000000);
+        $this->whiteWins = (bool) ($flags & 0b00100000);
+        $this->draw = (bool) ($flags & 0b00010000);
+        $this->movesWithoutCapture = ord($data[82]);
     }
 
     public function getPositionData(): string

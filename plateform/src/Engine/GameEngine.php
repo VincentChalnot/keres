@@ -40,4 +40,22 @@ readonly class GameEngine
 
         return $boardMovesData;
     }
+
+    public function aiMove(Game $game): BoardMovesData
+    {
+        if ($game->isGameOver()) {
+            // Game is already over, nothing to do
+            throw new \RuntimeException('Game is over.');
+        }
+
+        // Get current board state
+        $movesData = $game->getMovesData();
+        $boardData = $this->engineApi->replayMoves($movesData);
+
+        // Get AI move
+        $aiMoveData = $this->engineApi->aiMove($boardData);
+
+        // Apply AI move
+        return $this->applyMove($game, $aiMoveData);
+    }
 }
