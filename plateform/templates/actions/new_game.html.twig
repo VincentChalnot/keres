@@ -37,8 +37,13 @@
             </div>
             <h3>Games</h3>
             {% for game in games %}
+                {# @var game \App\Entity\Game #}
                 <div class="box">
-                    <a href="{{ path('play', {uuid: game.uuid}) }}" class="btn primary float-right">Resume</a>
+                    {% if game.gameOver %}
+                        <a href="{{ path('play', {uuid: game.uuid}) }}" class="btn disabled float-right">Game Over</a>
+                    {% else %}
+                        <a href="{{ path('play', {uuid: game.uuid}) }}" class="btn primary float-right">Resume</a>
+                    {% endif %}
                     <p><strong>Player Side:</strong> {{ game.white ? 'White' : 'Black' }}</p>
                     <p><strong>Opponent Type:</strong>
                         {% if game.opponentType == enum('App\\Model\\OpponentType').AI %}

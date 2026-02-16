@@ -9,6 +9,9 @@
 
 {% block body %}
     <div class="game-container">
+        <nav>
+            <a href="{{ path('new_game') }}" class="btn btn-outline">Back</a>
+        </nav>
         <div id="board-container"
              data-moves="{{ moves }}"
              data-game-uuid="{{ game.uuid }}"
