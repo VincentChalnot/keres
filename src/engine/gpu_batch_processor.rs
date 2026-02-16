@@ -38,24 +38,24 @@ impl CpuEvaluator {
     }
 
     fn evaluate_single(&self, board: &Board) -> f32 {
-        // Handle terminal states
+        // All evaluations are from WHITE's perspective:
+        // 1.0 = white is winning, 0.0 = black is winning, 0.5 = even.
         if board.is_game_over() {
             if board.is_draw() { return 0.5; }
-            let mover_is_white = board.is_white_to_move();
-            let white_won = board.white_wins();
-            return if mover_is_white == white_won { 1.0 } else { 0.0 };
+            return if board.white_wins() { 1.0 } else { 0.0 };
         }
 
-        let mover_color = board.color_to_move();
-        let mut friendly_score: f32 = 0.0;
-        let mut enemy_score: f32 = 0.0;
+        let mut white_score: f32 = 0.0;
+        let mut black_score: f32 = 0.0;
 
-        // Scan all 81 squares
         for sq in 0..BOARD_SIZE {
             let pos = Position::from_u8(sq as u8);
             if let Some(piece) = board.get_piece(&pos) {
-                let is_friendly = piece.color == mover_color;
-                let accumulator = if is_friendly { &mut friendly_score } else { &mut enemy_score };
+                let accumulator = if piece.color == Color::White {
+                    &mut white_score
+                } else {
+                    &mut black_score
+                };
 
                 // Material for bottom piece
                 let bottom_val = self.weights.material_value(Self::piece_disc(&piece.bottom));
@@ -67,7 +67,7 @@ impl CpuEvaluator {
                     *accumulator += top_val as f32;
                 }
 
-                // Centrality bonus: how close to the center (4,4)
+                // Centrality bonus
                 let dx = if pos.x > 4 { pos.x - 4 } else { 4 - pos.x };
                 let dy = if pos.y > 4 { pos.y - 4 } else { 4 - pos.y };
                 let manhattan = dx + dy;
@@ -75,11 +75,7 @@ impl CpuEvaluator {
                 *accumulator += centrality_bonus;
 
                 // Advance bonus for soldiers and ballistas near promotion
-                let dominated_type = if piece.top.is_some() {
-                    piece.top.as_ref().unwrap()
-                } else {
-                    &piece.bottom
-                };
+                let dominated_type = piece.top.as_ref().unwrap_or(&piece.bottom);
                 let is_advanceable = matches!(dominated_type,
                     PieceType::Soldier | PieceType::Ballista);
                 if is_advanceable {
@@ -93,8 +89,8 @@ impl CpuEvaluator {
             }
         }
 
-        let diff = friendly_score - enemy_score;
-        // Sigmoid squash into [0,1]
+        let diff = white_score - black_score;
+        // Sigmoid squash into [0,1]: high = good for white
         let exponent = -diff / 2000.0;
         1.0 / (1.0 + exponent.exp())
     }
@@ -319,17 +315,32 @@ mod tests {
     #[test]
     fn terminal_win_scores_one() {
         let mut b = Board::new();
-        b.set_game_over(true, true, false); // white wins, white to move
+        b.set_game_over(true, true, false); // white wins
         let sc = cpu_eval().score_positions(&[b]);
-        assert!((sc[0] - 1.0).abs() < 1e-5, "winner-to-move should be 1.0, got {}", sc[0]);
+        // From white's perspective, white winning = 1.0 regardless of whose turn
+        assert!((sc[0] - 1.0).abs() < 1e-5, "white wins should be 1.0, got {}", sc[0]);
     }
 
     #[test]
     fn terminal_loss_scores_zero() {
         let mut b = Board::new();
-        b.set_game_over(true, false, false); // black wins, white to move
+        b.set_game_over(true, false, false); // black wins
         let sc = cpu_eval().score_positions(&[b]);
-        assert!(sc[0].abs() < 1e-5, "loser-to-move should be 0.0, got {}", sc[0]);
+        // From white's perspective, black winning = 0.0
+        assert!(sc[0].abs() < 1e-5, "black wins should be 0.0, got {}", sc[0]);
+    }
+
+    #[test]
+    fn evaluation_is_symmetric_regardless_of_turn() {
+        // Same board, different turn flag — material shouldn't change
+        let b_white = Board::new();
+        let mut b_black = Board::new();
+        b_black.set_white_to_move(false);
+        let ev = cpu_eval();
+        let sw = ev.score_positions(&[b_white])[0];
+        let sb = ev.score_positions(&[b_black])[0];
+        assert!((sw - sb).abs() < 1e-5,
+            "evaluation should be same regardless of turn: white={sw}, black={sb}");
     }
 
     #[test]
