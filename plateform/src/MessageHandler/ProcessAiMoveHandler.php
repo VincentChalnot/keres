@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace App\MessageHandler;
 
-use App\Engine\EngineApi;
 use App\Engine\GameEngine;
 use App\Message\ProcessAiMoveMessage;
 use App\Message\PublishMoveMessage;
@@ -17,7 +16,6 @@ readonly class ProcessAiMoveHandler
 {
     public function __construct(
         private GameRepository $gameRepository,
-        private EngineApi $engineApi,
         private GameEngine $gameEngine,
         private MessageBusInterface $messageBus,
     ) {
@@ -30,20 +28,7 @@ readonly class ProcessAiMoveHandler
             throw new \RuntimeException('Game not found: '.$message->gameUuid);
         }
 
-        if ($game->isGameOver()) {
-            // Game is already over, nothing to do
-            return;
-        }
-
-        // Get current board state
-        $movesData = $game->getMovesData();
-        $boardData = $this->engineApi->replayMoves($movesData);
-
-        // Get AI move
-        $aiMoveData = $this->engineApi->aiMove($boardData);
-
-        // Apply AI move
-        $boardMovesData = $this->gameEngine->applyMove($game, $aiMoveData);
+        $this->gameEngine->aiMove($game);
 
         // Forward to PublishMoveMessage to update game state and notify clients
         $this->messageBus->dispatch(new PublishMoveMessage($message->gameUuid));
