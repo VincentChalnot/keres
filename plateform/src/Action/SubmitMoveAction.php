@@ -70,13 +70,8 @@ readonly class SubmitMoveAction
 
         $boardMovesData = $this->gameEngine->applyMove($game, $moveData);
 
-        // For hot seat mode, simply return the response synchronously
-        if ($game->getOpponentType() === OpponentType::HOTSEAT) {
-            return $this->getResponse($boardMovesData);
-        }
-
         // For AI mode, return the response and dispatch async message to process AI move
-        if ($game->getOpponentType() === OpponentType::AI) {
+        if (!$game->isGameOver() && $game->getOpponentType() === OpponentType::AI) {
             $this->messageBus->dispatch(new ProcessAiMoveMessage($uuid));
         }
 
