@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace App\MessageHandler;
 
 use App\Engine\EngineApi;
-use App\Message\ProcessAiMoveMessage;
+use App\Message\PublishMoveMessage;
 use App\Model\BoardMovesData;
 use App\Repository\GameRepository;
 use App\Service\GameUpdatePublisher;
@@ -21,7 +21,7 @@ readonly class PublishMoveHandler
     ) {
     }
 
-    public function __invoke(ProcessAiMoveMessage $message): void
+    public function __invoke(PublishMoveMessage $message): void
     {
         $game = $this->gameRepository->findByUuid(Uuid::fromString($message->gameUuid));
         if (!$game) {

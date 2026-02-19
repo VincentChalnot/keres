@@ -23,7 +23,7 @@ class Game
     private ?int $id = null;
 
     #[ORM\Column(type: UuidType::NAME, unique: true)]
-    private ?Uuid $uuid;
+    private readonly Uuid $uuid;
 
     #[ORM\Column(type: Types::INTEGER)]
     private int $opponentTypeValue;
@@ -75,16 +75,9 @@ class Game
         return $this->id;
     }
 
-    public function getUuid(): ?Uuid
+    public function getUuid(): Uuid
     {
         return $this->uuid;
-    }
-
-    public function setUuid(Uuid $uuid): self
-    {
-        $this->uuid = $uuid;
-
-        return $this;
     }
 
     public function isWhite(): bool

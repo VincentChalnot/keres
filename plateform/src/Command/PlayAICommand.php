@@ -6,12 +6,15 @@ namespace App\Command;
 use App\Engine\BoardTreeManager;
 use App\Engine\EngineApi;
 use App\Engine\GameEngine;
+use App\Event\GameUpdateEvent;
+use App\Message\PublishMoveMessage;
 use App\Repository\GameRepository;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Uid\Uuid;
 
 #[AsCommand(name: 'game:play-ai', description: 'Play AI move on a given game')]
@@ -20,6 +23,7 @@ class PlayAICommand extends Command
     public function __construct(
         private readonly GameRepository $gameRepository,
         private readonly GameEngine $gameEngine,
+        private readonly MessageBusInterface $messageBus,
         ?string $name = null,
     ) {
         parent::__construct($name);
@@ -41,6 +45,9 @@ class PlayAICommand extends Command
         }
 
         $this->gameEngine->aiMove($game);
+
+        $message = new PublishMoveMessage($game->getUuid()->toRfc4122());
+        $this->messageBus->dispatch($message);
 
         return 0;
     }

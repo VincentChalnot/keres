@@ -33,8 +33,8 @@ readonly class GameUpdatePublisher
         ];
 
         $update = new Update(
-            sprintf('game/%s', $gameUuid),
-            json_encode($data),
+            "game/{$gameUuid}",
+            json_encode($data, JSON_THROW_ON_ERROR),
         );
 
         $this->hub->publish($update);
