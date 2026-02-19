@@ -74,7 +74,7 @@ impl MctsEngine {
         let tree_params = self.cfg.tree_params_copy();
         let mut tree = KTree::with_root(*board, tree_params);
 
-        let budget = self.cfg.iterations;
+        let budget = self.cfg.iterations.max(self.cfg.min_iterations);
 
         for _iter in 0..budget {
             // 1. Selection
@@ -125,6 +125,7 @@ mod tests {
     fn tiny_cfg() -> EngineConfig {
         let mut c = EngineConfig::default();
         c.iterations = 50;
+        c.min_iterations = 50;
         c
     }
 

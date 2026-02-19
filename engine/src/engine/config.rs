@@ -54,11 +54,13 @@ impl Default for DispatchParams {
 pub struct EngineConfig {
     pub tree: TreeParams, pub dispatch: DispatchParams,
     pub weights: ScoringWeights, pub threads: usize, pub iterations: usize,
+    pub min_iterations: usize,
 }
 impl Default for EngineConfig {
     fn default() -> Self {
         Self { tree: Default::default(), dispatch: Default::default(),
-               weights: Default::default(), threads: 8, iterations: 10_000 }
+               weights: Default::default(), threads: 8, iterations: 10_000,
+               min_iterations: 10_000 }
     }
 }
 impl EngineConfig {

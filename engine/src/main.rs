@@ -225,8 +225,7 @@ fn main() {
     fn run_engine_move(game: &Game) -> Result<Move, String> {
         use keres_engine::engine::{EngineConfig, MctsEngine};
         let mcts_config = EngineConfig::default();
-        let mcts_engine = MctsEngine::with_config(mcts_config)
-            .map_err(|e| format!("Failed to initialize MCTS engine: {}", e))?;
+        let mcts_engine = MctsEngine::cpu_only(mcts_config);
         let (mv, _stats) = mcts_engine
             .find_move(&game.board)
             .map_err(|e| format!("Engine failed to find move: {}", e))?;
