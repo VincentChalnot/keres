@@ -1,0 +1,10 @@
+name: mcts-visualizer
+
+services:
+  web:
+    image: nginx:alpine
+    ports:
+      - "${PORT:-8080}:80"
+    volumes:
+      - ./public:/usr/share/nginx/html:ro
+    restart: unless-stopped
