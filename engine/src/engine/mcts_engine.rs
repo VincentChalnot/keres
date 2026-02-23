@@ -94,10 +94,16 @@ impl MctsEngine {
                 tree.spawn_children(leaf_key);
             }
 
-            // 3. Evaluation
-            let leaf_board = *tree.board_of(leaf_key);
-            let scores = self.evaluator.score_positions(&[leaf_board]);
-            let leaf_score = scores[0];
+            // 3. Evaluation — use a guaranteed terminal result when the
+            //    current mover already has a winning move available,
+            //    otherwise fall back to the heuristic evaluator.
+            let leaf_score = if let Some(forced) = tree.immediate_terminal_score(leaf_key) {
+                forced
+            } else {
+                let leaf_board = *tree.board_of(leaf_key);
+                let scores = self.evaluator.score_positions(&[leaf_board]);
+                scores[0]
+            };
 
             // 4. Back-propagation
             tree.feed_result(&path, leaf_score);

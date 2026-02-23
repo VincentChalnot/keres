@@ -297,6 +297,39 @@ impl KTree {
     pub fn pool_len(&self) -> usize { self.cols.row_count() }
     pub fn board_of(&self, key: usize) -> &Board { &self.cols.boards[key] }
 
+    // ── terminal detection ───────────────────────────
+
+    /// If the current (expanded) node has a terminal child that
+    /// represents a **forced win** for the current mover — i.e. the
+    /// player whose turn it is has at least one child that is already
+    /// game-over in their favour — return the guaranteed terminal
+    /// score (1.0 = white wins, 0.0 = black wins).
+    ///
+    /// Returns `None` for terminal nodes themselves, for nodes with no
+    /// children yet (not yet expanded), and for nodes where no child
+    /// is a decisive terminal position.
+    pub fn immediate_terminal_score(&self, slot: usize) -> Option<f32> {
+        let board = &self.cols.boards[slot];
+        if board.is_game_over() { return None; }
+
+        let white_to_move = board.is_white_to_move();
+
+        for &(_, ck) in &self.cols.arc_list[slot] {
+            let child = &self.cols.boards[ck];
+            if child.is_game_over() && !child.is_draw() {
+                // White to move and child is a white win → forced win for white.
+                if white_to_move && child.white_wins() {
+                    return Some(1.0);
+                }
+                // Black to move and child is a black win → forced win for black.
+                if !white_to_move && !child.white_wins() {
+                    return Some(0.0);
+                }
+            }
+        }
+        None
+    }
+
     // ── debug export ─────────────────────────────
 
     /// Export the search tree as a serialisable structure for debugging.
@@ -453,5 +486,85 @@ mod tests {
         let mut t = KTree::with_root(b, TreeParams::default());
         t.spawn_children(0);
         assert_eq!(t.descend_to_leaf().0, 0);
+    }
+
+    #[test]
+    fn immediate_terminal_score_returns_none_for_unexpanded_node() {
+        let t = fresh();
+        // Root has no children yet → no forced result.
+        assert!(t.immediate_terminal_score(0).is_none());
+    }
+
+    #[test]
+    fn immediate_terminal_score_returns_none_for_no_terminal_children() {
+        let t = with_kids();
+        // Opening position: no child is immediately game-over.
+        assert!(t.immediate_terminal_score(0).is_none());
+    }
+
+    #[test]
+    fn immediate_terminal_score_detects_white_win() {
+        // Build a tree with a synthetic child that is a white-win terminal.
+        let mut t = fresh();
+        // The root board is white-to-move.
+        assert!(t.cols.boards[0].is_white_to_move());
+
+        // Manually insert a terminal child (white wins) into the root's arc list.
+        let mut terminal_board = Board::new();
+        terminal_board.set_game_over(true, true, false); // white wins
+        // We need a Move to insert; borrow any valid move from the opening.
+        t.spawn_children(0); // creates real children
+        // Replace the first child's board with the terminal board.
+        let first_child_key = t.cols.arc_list[0][0].1;
+        t.cols.boards[first_child_key] = terminal_board;
+        t.pool[first_child_key].state = terminal_board;
+
+        let score = t.immediate_terminal_score(0);
+        assert_eq!(score, Some(1.0),
+            "white-to-move parent with white-win child should yield forced score 1.0");
+    }
+
+    #[test]
+    fn immediate_terminal_score_detects_black_win() {
+        // Build a tree rooted at a black-to-move position.
+        let mut b = Board::new();
+        b.set_white_to_move(false);
+        let mut t = KTree::with_root(b, TreeParams::default());
+        t.spawn_children(0);
+
+        // Replace the first child's board with a black-win terminal.
+        let first_child_key = t.cols.arc_list[0][0].1;
+        let mut terminal_board = Board::new();
+        terminal_board.set_game_over(true, false, false); // black wins
+        t.cols.boards[first_child_key] = terminal_board;
+        t.pool[first_child_key].state = terminal_board;
+
+        let score = t.immediate_terminal_score(0);
+        assert_eq!(score, Some(0.0),
+            "black-to-move parent with black-win child should yield forced score 0.0");
+    }
+
+    #[test]
+    fn immediate_terminal_score_ignores_draw_children() {
+        // A draw child should NOT be considered a forced result.
+        let mut t = fresh();
+        t.spawn_children(0);
+        let first_child_key = t.cols.arc_list[0][0].1;
+        let mut draw_board = Board::new();
+        draw_board.set_game_over(true, false, true); // draw
+        t.cols.boards[first_child_key] = draw_board;
+        t.pool[first_child_key].state = draw_board;
+
+        assert!(t.immediate_terminal_score(0).is_none(),
+            "draw child should not produce a forced terminal score");
+    }
+
+    #[test]
+    fn immediate_terminal_score_returns_none_for_terminal_slot() {
+        let mut b = Board::new();
+        b.set_game_over(true, true, false);
+        let t = KTree::with_root(b, TreeParams::default());
+        assert!(t.immediate_terminal_score(0).is_none(),
+            "terminal slot itself should always return None");
     }
 }
