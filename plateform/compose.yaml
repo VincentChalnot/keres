@@ -58,7 +58,7 @@ services:
     healthcheck:
       disable: true
     entrypoint: php
-    command: bin/console messenger:consume async --no-interaction --time-limit=60
+    command: bin/console messenger:consume async --no-interaction
 
   backend:
     build:
