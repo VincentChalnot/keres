@@ -11,10 +11,10 @@ export default defineConfig({
     server: {
         host: 'local.playkeres.com',
         port: 5173,
-        https: {
+        https: fs.existsSync('/app/frankenphp/certs/privkey.pem') ? {
             key: fs.readFileSync('/app/frankenphp/certs/privkey.pem'),
             cert: fs.readFileSync('/app/frankenphp/certs/fullchain.pem'),
-        },
+        } : undefined,
         hmr: {
             host: 'local.playkeres.com',
         },

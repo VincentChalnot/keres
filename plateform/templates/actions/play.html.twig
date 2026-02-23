@@ -9,29 +9,35 @@
 
 {% block body %}
     <div class="game-container">
-        <nav>
-            <a href="{{ path('new_game') }}" class="btn btn-outline">Back</a>
+        <nav class="level mb-4">
+            <div class="level-left">
+                <a href="{{ path('new_game') }}" class="button is-rounded is-outlined is-light">Back</a>
+            </div>
+            <div class="level-right">
+                <div id="status" class="level-item">Loading...</div>
+            </div>
         </nav>
         <div id="board-container"
              data-moves="{{ moves }}"
              data-game-uuid="{{ game.uuid }}"
              data-opponent-type="{{ game.opponentType.value }}"
              data-player-white="{{ game.white ? 'true' : 'false' }}"></div>
-        <div id="status" class="float-right">Loading...</div>
-        {% if game.opponentType == enum('App\\Model\\OpponentType').AI %}
-            <button class="btn btn-outline" id="switch-sides-btn">Switch Sides</button>
-        {% endif %}
-        <button class="btn btn-outline" id="toggle-threats-btn">Hide Threats</button>
-        <button class="btn" id="undo-btn">Undo</button>
+        <div class="buttons mt-3">
+            {% if game.opponentType == enum('App\\Model\\OpponentType').AI %}
+                <button class="button is-rounded is-outlined is-light" id="switch-sides-btn">Switch Sides</button>
+            {% endif %}
+            <button class="button is-rounded is-outlined is-light" id="toggle-threats-btn">Hide Threats</button>
+            <button class="button is-rounded is-light" id="undo-btn">Undo</button>
+        </div>
         <div class="move-history">
             <label class="label">Move History</label>
             <div class="buttons">
-                <button class="btn btn-outline" id="prev-move-btn" title="Previous Move">◄ Prev</button>
-                <button class="btn btn-outline" id="next-move-btn" title="Next Move">Next ►</button>
+                <button class="button is-rounded is-small is-outlined is-light" id="prev-move-btn" title="Previous Move">◄ Prev</button>
+                <button class="button is-rounded is-small is-outlined is-light" id="next-move-btn" title="Next Move">Next ►</button>
             </div>
             <div id="move-history-display" class="move-history-box">
-                <table class="table is-fullwidth move-history-table has-background-dark has-text-white">
-                    <thead>https://local.playkeres.com/play/09ce1faf-c9b5-4ae8-9b27-7a4ae6a01c6e#:~:text=Internal%20Server%20Error-,Unknown%20%22mercure_public_url%22%20function,-in%20base.html
+                <table class="table is-fullwidth move-history-table">
+                    <thead>
                     <tr>
                         <th>#</th>
                         <th>White</th>
@@ -55,7 +61,7 @@
                 <p>You are moving a stacked piece. Do you want to move the full stack or only the top piece?</p>
             </section>
             <footer class="modal-card-foot">
-                <button class="button" id="move-stack">Move Full Stack</button>
+                <button class="button is-primary" id="move-stack">Move Full Stack</button>
                 <button class="button" id="move-unstack">Move Top Piece</button>
             </footer>
         </div>

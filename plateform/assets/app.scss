@@ -1,0 +1,436 @@
+// ─── Bulma – must be first @use ───────────────────────────────────────────────
+// Pass brand colours directly so the @use call is the very first rule.
+
+@use 'bulma/sass' with (
+    $primary: #e19e5b,
+    $dark: #55442d,
+    $light: #f8f0e6,
+    $family-primary: ("Inter", "Roboto", "Helvetica Neue", "Arial", sans-serif),
+    $radius-rounded: 9999px,
+);
+
+// ─── Brand colour variables ───────────────────────────────────────────────────
+
+$keres-primary: #e19e5b;
+$keres-secondary: #e1c499;
+$keres-light: #f8f0e6;
+$keres-dark: #55442d;
+$keres-bg: #010101;
+
+// ─── Fonts ───────────────────────────────────────────────────────────────────
+
+@font-face {
+    font-family: 'Carolingia';
+    src: url('../public/fonts/carolingia.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'RomanSerif';
+    src: url('../public/fonts/RomanSerif.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+// ─── Global overrides ─────────────────────────────────────────────────────────
+// Force near-black background regardless of Bulma theme calculations.
+
+:root {
+    // Keep CSS custom properties for pieces / board code that still references them
+    --primary-color: #{$keres-primary};
+    --secondary-color: #{$keres-secondary};
+    --light-color: #{$keres-light};
+    --dark-color: #{$keres-dark};
+    --spacing: 1rem;
+}
+
+html,
+body {
+    background-color: $keres-bg;
+    color: $keres-light;
+}
+
+// Bulma sets body colour via its theme CSS vars; override explicitly.
+body {
+    font-size: 1.1rem;
+    min-height: 100vh;
+    line-height: 1.5;
+}
+
+// ─── Typography ───────────────────────────────────────────────────────────────
+
+h1 {
+    font-family: 'Carolingia', serif;
+    font-size: 6rem;
+    margin: 3rem 0 0;
+    line-height: 1.1;
+    text-wrap: balance;
+
+    @media (min-width: 600px) {
+        font-size: 8rem;
+    }
+}
+
+h2, h3, h4, h5, h6 {
+    font-family: 'RomanSerif', serif;
+    font-size: 3rem;
+    margin-bottom: 0.5em;
+    line-height: 1.1;
+    text-wrap: balance;
+}
+
+h3 { font-size: 2rem; }
+h4 { font-size: 1.5rem; }
+h5 { font-size: 1.2rem; }
+
+p { margin-bottom: 1em; }
+
+a {
+    color: $keres-primary;
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+strong { color: $keres-secondary; }
+
+ul {
+    margin-left: 20px;
+    margin-bottom: 15px;
+}
+
+li { margin-bottom: 8px; }
+
+// ─── Hero (landing page) ──────────────────────────────────────────────────────
+
+.hero-header {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 2em;
+
+    .button {
+        box-shadow: 1px 1px 12px #000;
+    }
+}
+
+.hero-baseline {
+    font-family: 'RomanSerif', serif;
+    font-size: 1.5rem;
+    margin: 0 0 1.2em;
+    text-shadow: -1px 1px 4px #0a0a0a;
+}
+
+.hero-img {
+    z-index: -10;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+
+    img {
+        display: block;
+        width: 100%;
+        max-width: 1900px;
+        min-height: 800px;
+        object-fit: cover;
+        margin: -130px 0 -200px;
+    }
+}
+
+.hero-content {
+    max-width: 60ch;
+    padding: 0 2em;
+}
+
+// ─── Sections ─────────────────────────────────────────────────────────────────
+// Bulma's .section handles padding; we add the layout on top.
+
+.section {
+    // Dark background so .section doesn't use Bulma's default light scheme
+    background-color: transparent;
+    color: $keres-light;
+
+    &.section-flex {
+        // Two-column flex layout used on the landing page sections
+        padding: 1em;
+        max-width: 900px;
+        margin: 0 auto;
+        display: flex;
+        gap: 2rem;
+
+        h2, h3, h4, h5, h6 {
+            margin-top: 0;
+        }
+    }
+}
+
+.section-img {
+    min-width: 30%;
+    text-align: center;
+
+    img {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-radius: 1em;
+    }
+
+    .button {
+        margin: 1em auto 0;
+    }
+}
+
+// ─── Footer ───────────────────────────────────────────────────────────────────
+
+footer.footer {
+    background-color: transparent;
+    color: $keres-light;
+    padding: 2rem;
+    text-align: center;
+    border-top: 1px solid $keres-dark;
+
+    a {
+        color: $keres-primary;
+        margin: 0 0.75rem;
+    }
+}
+
+// ─── Bulma component overrides for the dark background ────────────────────────
+
+// Box: give it a slightly lighter dark background so it "floats" on the page
+.box {
+    background-color: #1a1a1a;
+    color: $keres-light;
+    border: 1px solid $keres-dark;
+}
+
+// Table overrides
+.move-history-table {
+    font-family: monospace;
+}
+
+.move-history-table th,
+.move-history-table thead th {
+    color: white !important;
+    background: transparent !important;
+}
+
+// Notification-like blocks used in rules page
+.warning,
+.special-note {
+    background: $keres-dark;
+    border-left: 4px solid $keres-light;
+    padding: 15px;
+    margin: 20px 0;
+    border-radius: 4px;
+    color: $keres-light;
+}
+
+// ─── Intro text (rules page) ──────────────────────────────────────────────────
+
+.intro {
+    text-align: center;
+    color: $keres-secondary;
+    margin-bottom: 40px;
+    font-style: italic;
+}
+
+// ─── Piece grid (rules page) ──────────────────────────────────────────────────
+
+.piece-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.piece-card {
+    border: 1px solid $keres-primary;
+    border-radius: 0.4em;
+    padding: 1em;
+}
+
+.piece-name {
+    text-align: center;
+    font-weight: bold;
+    color: $keres-primary;
+    margin-bottom: 10px;
+}
+
+.piece-description {
+    text-align: center;
+    font-size: 0.9em;
+    color: #999;
+    margin-top: 10px;
+}
+
+// ─── Movement table (rules page) ──────────────────────────────────────────────
+
+.movement-table {
+    margin: 10px auto;
+    border-collapse: collapse;
+    background: white;
+    font-family: 'Tahoma', monospace, sans-serif;
+    font-weight: bold;
+    color: $keres-dark;
+    text-align: center;
+
+    td {
+        aspect-ratio: 1 / 1;
+        width: 2.6rem;
+        border: 1px solid $keres-dark;
+        font-size: 1.7rem;
+        padding: 0;
+    }
+
+    &.small td {
+        width: 2rem;
+        font-size: 1.3rem;
+    }
+}
+
+.movement-table td:empty::before {
+    content: '\00a0';
+    visibility: hidden;
+}
+
+.movement-table .center {
+    background: #667eea;
+    color: white;
+    font-weight: bold;
+    border: 2px solid #764ba2;
+}
+
+.movement-table tr:nth-child(odd) td:nth-child(even),
+.movement-table tr:nth-child(even) td:nth-child(odd) {
+    background: $keres-secondary;
+}
+
+// ─── Piece icons (shared across pages) ────────────────────────────────────────
+
+.piece-icon {
+    display: inline-block;
+    vertical-align: text-bottom;
+    width: 1.2em;
+    aspect-ratio: 1 / 1;
+    background-color: $keres-light;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+
+    &.dark    { background-color: $keres-dark; }
+    &.primary { background-color: $keres-primary; }
+
+    &.ballista { -webkit-mask-image: url('../public/images/pieces/ballista.svg'); mask-image: url('../public/images/pieces/ballista.svg'); }
+    &.rook     { -webkit-mask-image: url('../public/images/pieces/rook.svg');     mask-image: url('../public/images/pieces/rook.svg'); }
+    &.knight   { -webkit-mask-image: url('../public/images/pieces/knight.svg');   mask-image: url('../public/images/pieces/knight.svg'); }
+    &.guard    { -webkit-mask-image: url('../public/images/pieces/guard.svg');    mask-image: url('../public/images/pieces/guard.svg'); }
+    &.bishop   { -webkit-mask-image: url('../public/images/pieces/bishop.svg');   mask-image: url('../public/images/pieces/bishop.svg'); }
+    &.king     { -webkit-mask-image: url('../public/images/pieces/king.svg');     mask-image: url('../public/images/pieces/king.svg'); }
+    &.paladin  { -webkit-mask-image: url('../public/images/pieces/paladin.svg');  mask-image: url('../public/images/pieces/paladin.svg'); }
+    &.soldier  { -webkit-mask-image: url('../public/images/pieces/soldier.svg');  mask-image: url('../public/images/pieces/soldier.svg'); }
+}
+
+.piece--white {
+    --piece-bg: #fff;
+    --piece-fg: #000;
+}
+
+.piece--black {
+    --piece-bg: #000;
+    --piece-fg: #fff;
+}
+
+.piece--reversed .piece-icon {
+    transform-origin: 45px 35.2px;
+    transform: rotate(180deg);
+}
+
+// ─── Board & game layout ──────────────────────────────────────────────────────
+
+#board-canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    cursor: pointer;
+    touch-action: none;
+    user-select: none;
+    -webkit-tap-highlight-color: rgba(255, 255, 255, 0);
+}
+
+.game-container {
+    max-width: 1200px;
+    margin: auto;
+    padding: 1rem;
+}
+
+.move-history {
+    max-width: 300px;
+    flex-shrink: 0;
+    margin-bottom: 1em;
+}
+
+.move-history-box {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+// ─── Utility ─────────────────────────────────────────────────────────────────
+
+.board-start {
+    max-width: 500px;
+}
+
+// ─── Print styles ─────────────────────────────────────────────────────────────
+
+@media print {
+    body, html {
+        background: #fff !important;
+        color: #000 !important;
+    }
+
+    :root {
+        --primary-color: #b36b00;
+        --secondary-color: #7a5c2e;
+        --light-color: #222;
+        --dark-color: #fff;
+    }
+
+    .container, .hero-header, .piece-card, .warning, .special-note, .section {
+        background: none !important;
+        box-shadow: none !important;
+        color: #000 !important;
+        border-color: #888 !important;
+    }
+
+    .container { max-width: none; }
+
+    .board-start { max-width: 500px; }
+
+    h1, h2, h3, h4, h5, h6, p, li, strong, .piece-name {
+        color: #000 !important;
+        text-shadow: none !important;
+    }
+
+    .piece-icon { background-color: #000 !important; }
+    .piece-icon.dark    { background-color: #fff !important; }
+    .piece-icon.primary { background-color: #b36b00 !important; }
+
+    nav, .button, .hero-img, .move-history, .game-container, .section-img, .no-print {
+        display: none !important;
+    }
+
+    a, a:visited, a:hover {
+        color: #000 !important;
+        text-decoration: underline !important;
+    }
+
+    @page { margin: 1cm; }
+}
