@@ -9,6 +9,7 @@ use App\Engine\GameEngine;
 use App\Event\GameUpdateEvent;
 use App\Message\PublishMoveMessage;
 use App\Repository\GameRepository;
+use App\Service\GameUpdatePublisher;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -23,7 +24,7 @@ class PlayAICommand extends Command
     public function __construct(
         private readonly GameRepository $gameRepository,
         private readonly GameEngine $gameEngine,
-        private readonly MessageBusInterface $messageBus,
+        private readonly GameUpdatePublisher $gameUpdatePublisher,
         ?string $name = null,
     ) {
         parent::__construct($name);
@@ -44,10 +45,9 @@ class PlayAICommand extends Command
             return 1;
         }
 
-        $this->gameEngine->aiMove($game);
+        $boardMovesData = $this->gameEngine->aiMove($game);
 
-        $message = new PublishMoveMessage($game->getUuid()->toRfc4122());
-        $this->messageBus->dispatch($message);
+        $this->gameUpdatePublisher->publishGameUpdate($game->getUuid()->toRfc4122(), $boardMovesData);
 
         return 0;
     }
