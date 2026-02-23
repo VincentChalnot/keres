@@ -155,6 +155,8 @@ impl KTree {
     // ── selection ─────────────────────────────────
 
     pub fn descend_to_leaf(&self) -> (usize, Vec<usize>) {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
         let mut path = Vec::<usize>::with_capacity(48);
         let mut key = self.root;
         path.push(key);
@@ -174,22 +176,49 @@ impl KTree {
             let kp = self.params.uct_c;
             let arcs = &self.cols.arc_list[key];
 
+            // Rank a child node.  Already-visited leaves (visit_ct > 0 but
+            // still not expanded, i.e. terminal or no-legal-move positions)
+            // receive -infinity so they are never re-selected: the heuristic is
+            // deterministic and re-evaluating them yields no new information.
+            let rank_of = |dk: usize| -> f32 {
+                let v = self.cols.visit_ct[dk];
+                if v > 0 && !self.cols.is_open[dk] {
+                    f32::NEG_INFINITY
+                } else {
+                    rank_vertex(v, self.cols.reward_acc[dk], pv, kp, maximizing)
+                }
+            };
+
             let mut champ_key = arcs[0].1;
-            let mut champ_rank = rank_vertex(
-                self.cols.visit_ct[champ_key],
-                self.cols.reward_acc[champ_key], pv, kp, maximizing);
+            let mut champ_rank = rank_of(champ_key);
+            let mut tied_count = 1usize;
 
             let mut idx = 1usize;
-            let bound = arcs.len();
-            loop {
-                if idx >= bound { break; }
+            while idx < arcs.len() {
                 let dk = arcs[idx].1;
-                let dr = rank_vertex(
-                    self.cols.visit_ct[dk],
-                    self.cols.reward_acc[dk], pv, kp, maximizing);
-                if dr > champ_rank { champ_rank = dr; champ_key = dk; }
+                let dr = rank_of(dk);
+                if dr > champ_rank {
+                    champ_rank = dr;
+                    champ_key = dk;
+                    tied_count = 1;
+                } else if dr == champ_rank {
+                    // Reservoir sampling: randomly replace the current champion
+                    // with probability 1/tied_count so that all tied candidates are
+                    // equally likely to win.  This prevents the deterministic
+                    // "always pick arcs[0]" bias when multiple unvisited children
+                    // share the f32::MAX rank.
+                    tied_count += 1;
+                    if rng.gen_bool(1.0 / tied_count as f64) {
+                        champ_key = dk;
+                    }
+                }
                 idx += 1;
             }
+
+            // If every child is an already-evaluated leaf (all ranked -infinity),
+            // the current node's subtree is fully exhausted: stop here rather
+            // than descending into a position that would only be re-evaluated.
+            if champ_rank == f32::NEG_INFINITY { break; }
 
             key = champ_key;
             path.push(key);
@@ -566,5 +595,112 @@ mod tests {
         let t = KTree::with_root(b, TreeParams::default());
         assert!(t.immediate_terminal_score(0).is_none(),
             "terminal slot itself should always return None");
+    }
+
+    // ── new-behaviour tests ───────────────────────────────────────────────
+
+    /// A visited terminal child must not be re-selected as a leaf.
+    /// With N-1 unvisited children and 1 already-visited terminal child,
+    /// `descend_to_leaf` must always land on one of the unvisited children.
+    #[test]
+    fn visited_terminal_child_is_not_reselected() {
+        let mut t = with_kids(); // root expanded, all children unvisited
+        let term_child_key = t.cols.arc_list[0][0].1;
+
+        // Make the first child a visited terminal (game-over board, 1 visit).
+        let mut term_board = Board::new();
+        term_board.set_game_over(true, true, false);
+        t.cols.boards[term_child_key] = term_board;
+        t.pool[term_child_key].state  = term_board;
+        // is_open stays false (terminal, never expanded) — that's the key.
+        t.cols.visit_ct[term_child_key]   = 1;
+        t.cols.reward_acc[term_child_key] = 1.0;
+        t.refresh_facade(term_child_key);
+        // Also give the root 1 visit so UCT exploration term is well-defined.
+        t.cols.visit_ct[0]   = 1;
+        t.cols.reward_acc[0] = 0.5;
+        t.refresh_facade(0);
+
+        // Run many descents: the terminal child must never be chosen.
+        for _ in 0..200 {
+            let (leaf, _) = t.descend_to_leaf();
+            assert_ne!(leaf, term_child_key,
+                "descend_to_leaf selected the already-visited terminal child");
+        }
+    }
+
+    /// When multiple children are unvisited (all tied at f32::MAX), the
+    /// selection must not always land on the first arc.  Over enough trials
+    /// every child should be chosen at least once.
+    #[test]
+    fn unvisited_children_are_chosen_with_variety() {
+        let t = with_kids(); // root expanded, all children unvisited
+        let child_count = t.cols.arc_list[0].len();
+        assert!(child_count >= 3, "need at least 3 children for this test");
+
+        let mut seen = std::collections::HashSet::new();
+        // 500 descents should be more than enough to hit every child at least once.
+        for _ in 0..500 {
+            let (leaf, _) = t.descend_to_leaf();
+            seen.insert(leaf);
+        }
+        // All unvisited children should have been selected at some point.
+        assert!(seen.len() > 1,
+            "selection was always the same child — tie-breaking is not random");
+        // We don't require *all* to be seen (the budget might not be enough for
+        // huge branching factors), but at least 3 distinct choices is a robust
+        // signal that randomness is working.
+        assert!(seen.len() >= 3,
+            "only {} distinct children seen in 500 descents; expected randomness",
+            seen.len());
+    }
+
+    /// Each unique leaf must be evaluated at most once across a full MCTS run.
+    /// We count evaluator calls per board and assert none exceeds 1.
+    #[test]
+    fn each_leaf_evaluated_at_most_once() {
+        use std::sync::{Arc, Mutex};
+        use crate::engine::gpu_batch_processor::{CpuEvaluator, Evaluator};
+        use crate::engine::config::{EngineConfig, ScoringWeights};
+
+        // Wrap a CpuEvaluator and track which boards it sees.
+        struct CountingEvaluator {
+            inner: CpuEvaluator,
+            // Store (board, count) pairs; Board is PartialEq so we can search.
+            calls: Arc<Mutex<Vec<(Board, usize)>>>,
+        }
+        impl Evaluator for CountingEvaluator {
+            fn score_positions(&self, boards: &[Board]) -> Vec<f32> {
+                let mut calls = self.calls.lock().unwrap();
+                for b in boards {
+                    if let Some(entry) = calls.iter_mut().find(|(k, _)| k == b) {
+                        entry.1 += 1;
+                    } else {
+                        calls.push((*b, 1));
+                    }
+                }
+                drop(calls);
+                self.inner.score_positions(boards)
+            }
+        }
+
+        let call_log: Arc<Mutex<Vec<(Board, usize)>>> = Default::default();
+        let evaluator = CountingEvaluator {
+            inner: CpuEvaluator { weights: ScoringWeights::default() },
+            calls: Arc::clone(&call_log),
+        };
+
+        let mut cfg = EngineConfig::default();
+        cfg.iterations = 200;
+
+        let eng = crate::engine::mcts_engine::MctsEngine::with_evaluator(
+            cfg, Box::new(evaluator));
+        let _ = eng.find_move(&Board::new()).expect("should find a move");
+
+        // No board position should have been evaluated more than once.
+        let calls = call_log.lock().unwrap();
+        let max_calls = calls.iter().map(|(_, c)| *c).max().unwrap_or(0);
+        assert_eq!(max_calls, 1,
+            "at least one position was evaluated {} times (expected ≤1)", max_calls);
     }
 }
