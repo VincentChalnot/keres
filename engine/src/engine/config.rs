@@ -48,7 +48,7 @@ impl Default for TreeParams {
 #[derive(Clone, Debug)]
 pub struct DispatchParams { pub batch_cap: usize, pub wait_limit_ms: u64, pub playout_depth: u32 }
 impl Default for DispatchParams {
-    fn default() -> Self { Self { batch_cap: 256, wait_limit_ms: 50, playout_depth: 15 } }
+    fn default() -> Self { Self { batch_cap: 512, wait_limit_ms: 50, playout_depth: 15 } }
 }
 #[derive(Clone, Debug)]
 pub struct EngineConfig {
@@ -58,7 +58,7 @@ pub struct EngineConfig {
 impl Default for EngineConfig {
     fn default() -> Self {
         Self { tree: Default::default(), dispatch: Default::default(),
-               weights: Default::default(), threads: 8, iterations: 10_000 }
+               weights: Default::default(), threads: 12, iterations: 1_000_000 }
     }
 }
 impl EngineConfig {

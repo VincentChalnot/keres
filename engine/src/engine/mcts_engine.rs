@@ -31,7 +31,16 @@ impl MctsEngine {
 
         let eval_box: Box<dyn Evaluator> = match gpu_result {
             Ok(gpu_ev) => Box::new(gpu_ev),
-            Err(_) => Box::new(CpuEvaluator { weights: cfg.weights }),
+            Err(_) => {
+                // Only allow CPU fallback if MCTS_ALLOW_CPU=1
+                match std::env::var("MCTS_ALLOW_CPU") {
+                    Ok(val) if val == "1" => Box::new(CpuEvaluator { weights: cfg.weights }),
+                    _ => {
+                        eprintln!("Error: GPU evaluation unavailable and MCTS_ALLOW_CPU is not set to 1. Aborting.");
+                        std::process::exit(1);
+                    }
+                }
+            }
         };
 
         Ok(MctsEngine { evaluator: eval_box, cfg })
