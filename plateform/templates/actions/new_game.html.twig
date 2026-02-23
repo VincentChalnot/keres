@@ -1,64 +1,66 @@
 {% extends 'base.html.twig' %}
 
 {% block body %}
-    <div class="container">
-        <div class="columns is-centered">
-            <div class="column is-half">
-                <div class="box">
-                    <h3 class="title">New Game</h3>
-                    <p class="subtitle">Configure your game settings</p>
+    <section class="section">
+        <div class="container">
+            <div class="columns is-centered">
+                <div class="column is-half">
+                    <div class="box">
+                        <h3 class="title">New Game</h3>
+                        <p class="subtitle">Configure your game settings</p>
 
-                    {{ form_start(form) }}
+                        {{ form_start(form) }}
 
-                    <div class="field">
-                        <label class="label">{{ form_label(form.playerSide) }}</label>
-                        <div class="control">
-                            {{ form_widget(form.playerSide) }}
+                        <div class="field">
+                            <label class="label">{{ form_label(form.playerSide) }}</label>
+                            <div class="control">
+                                {{ form_widget(form.playerSide) }}
+                            </div>
+                            {{ form_errors(form.playerSide) }}
                         </div>
-                        {{ form_errors(form.playerSide) }}
+
+                        <div class="field">
+                            <label class="label">{{ form_label(form.opponentType) }}</label>
+                            <div class="control">
+                                {{ form_widget(form.opponentType) }}
+                            </div>
+                            {{ form_errors(form.opponentType) }}
+                        </div>
+
+                        <div class="field">
+                            <div class="control">
+                                {{ form_widget(form.submit, {attr: {class: 'button is-rounded is-primary'}}) }}
+                            </div>
+                        </div>
+
+                        {{ form_end(form) }}
                     </div>
 
-                    <div class="field">
-                        <label class="label">{{ form_label(form.opponentType) }}</label>
-                        <div class="control">
-                            {{ form_widget(form.opponentType) }}
+                    <h3 class="title is-4 mt-5">Games</h3>
+                    {% for game in games %}
+                        {# @var game \App\Entity\Game #}
+                        <div class="box mb-4">
+                            {% if game.gameOver %}
+                                <a href="{{ path('play', {uuid: game.uuid}) }}" class="button is-rounded is-static is-pulled-right">Game Over</a>
+                            {% else %}
+                                <a href="{{ path('play', {uuid: game.uuid}) }}" class="button is-rounded is-primary is-pulled-right">Resume</a>
+                            {% endif %}
+                            <p><strong>Player Side:</strong> {{ game.white ? 'White' : 'Black' }}</p>
+                            <p><strong>Opponent Type:</strong>
+                                {% if game.opponentType == enum('App\\Model\\OpponentType').AI %}
+                                    AI
+                                {% elseif game.opponentType == enum('App\\Model\\OpponentType').HOTSEAT %}
+                                    Hot Seat
+                                {% else %}
+                                    Unknown
+                                {% endif %}
+                            </p>
                         </div>
-                        {{ form_errors(form.opponentType) }}
-                    </div>
-
-                    <div class="field">
-                        <div class="control">
-                            {{ form_widget(form.submit, {attr: {class: 'btn'}}) }}
-                        </div>
-                    </div>
-
-                    {{ form_end(form) }}
+                    {% else %}
+                        <p>No games found.</p>
+                    {% endfor %}
                 </div>
             </div>
-            <h3>Games</h3>
-            {% for game in games %}
-                {# @var game \App\Entity\Game #}
-                <div class="box">
-                    {% if game.gameOver %}
-                        <a href="{{ path('play', {uuid: game.uuid}) }}" class="btn disabled float-right">Game Over</a>
-                    {% else %}
-                        <a href="{{ path('play', {uuid: game.uuid}) }}" class="btn primary float-right">Resume</a>
-                    {% endif %}
-                    <p><strong>Player Side:</strong> {{ game.white ? 'White' : 'Black' }}</p>
-                    <p><strong>Opponent Type:</strong>
-                        {% if game.opponentType == enum('App\\Model\\OpponentType').AI %}
-                            AI
-                        {% elseif game.opponentType == enum('App\\Model\\OpponentType').HOTSEAT %}
-                            Hot Seat
-                        {% else %}
-                            Unknown
-                        {% endif %}
-                    </p>
-                </div>
-                <hr>
-            {% else %}
-                <p>No games found.</p>
-            {% endfor %}
         </div>
-    </div>
+    </section>
 {% endblock %}

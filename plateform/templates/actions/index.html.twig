@@ -4,9 +4,9 @@
     <header class="hero-header">
         <h1>KERES</h1>
         <p class="hero-baseline">The art of abstract play</p>
-        <a href="{{ path('new_game') }}" class="btn btn-outline">Play for Free</a>
+        <a href="{{ path('new_game') }}" class="button is-rounded is-outlined is-light">Play for Free</a>
         <div class="hero-img">
-            <img src="{{ asset('images/landing-dark.webp') }}" alt="Keres Board" class="w-full h-full object-cover"/>
+            <img src="{{ asset('images/landing-dark.webp') }}" alt="Keres Board"/>
         </div>
         <div class="hero-content">
             <p>
@@ -18,7 +18,7 @@
     </header>
 
     <!-- Concept Section -->
-    <section>
+    <section class="section section-flex">
         <div class="section-content">
             <h2>Pure tactics, total freedom</h2>
             <p>A two-player duel, no randomness, no hidden information.
@@ -34,12 +34,12 @@
         </div>
         <div class="section-img">
             <img src="{{ asset('images/gameplay-preview.webp') }}" alt="Gameplay Preview" />
-            <a href="{{ path('rules') }}" class="btn primary">Read the rules</a>
+            <a href="{{ path('rules') }}" class="button is-rounded is-primary">Read the rules</a>
         </div>
     </section>
 
     <!-- Author/Vision Section -->
-    <section>
+    <section class="section section-flex">
         <div class="section-img">
             <img src="{{ asset('images/avatar.webp') }}" alt="Author Avatar" />
         </div>
@@ -61,7 +61,7 @@
     </section>
 
     <!-- Pre-order Section -->
-    <section>
+    <section class="section section-flex">
         <div class="section-img">
             <img src="{{ asset('/images/board-preview-sm.webp') }}" alt="Keres Box"/>
         </div>
@@ -69,38 +69,42 @@
             <h4>Collector's Edition</h4>
             <p>Pre-order the physical edition and own a piece of strategy
                 history.</p>
-            <div>45€</div>
-            <a href="#" class="btn primary">Pre-order Collector's Edition</a>
+            <p class="title is-4">45€</p>
+            <a href="#" class="button is-rounded is-primary">Pre-order Collector's Edition</a>
         </div>
     </section>
 
     <!-- Newsletter Section -->
-    <section>
+    <section class="section section-flex">
         <div>
             <h5>Stay Updated</h5>
             <form>
-                <label for="newsletter">Email address</label>
-                <input type="email" id="newsletter" placeholder="Your email address"
-
-                       required/>
-                <button type="submit" class="btn primary">
-                    Subscribe
-                </button>
+                <div class="field">
+                    <label class="label" for="newsletter">Email address</label>
+                    <div class="control">
+                        <input class="input" type="email" id="newsletter" placeholder="Your email address" required/>
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="control">
+                        <button type="submit" class="button is-rounded is-primary">Subscribe</button>
+                    </div>
+                </div>
             </form>
-            <p>We respect your privacy. Your email will only be used for Keres
+            <p class="mt-4">We respect your privacy. Your email will only be used for Keres
                 updates. Unsubscribe anytime.</p>
         </div>
     </section>
 
     <!-- Footer -->
-    <footer>
-        <div>
-            <div>&copy; Keres 2025</div>
-            <div>
+    <footer class="footer">
+        <div class="content has-text-centered">
+            <p>&copy; Keres 2025</p>
+            <nav>
                 <a href="#">Legal Notice</a>
                 <a href="#">Terms of Sales</a>
                 <a href="#">Contact</a>
-            </div>
+            </nav>
         </div>
     </footer>
 {% endblock %}
