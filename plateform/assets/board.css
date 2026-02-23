@@ -40,3 +40,11 @@
     fill: #d2b48c;
 }
 
+.coord-label {
+    font-size: 16px;
+    font-family: sans-serif;
+    fill: #55442d;
+    pointer-events: none;
+    user-select: none;
+}
+

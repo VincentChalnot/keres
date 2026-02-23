@@ -7,8 +7,12 @@ import {decodePiece} from "../utils/boardUtils";
 const SQUARE_WIDTH = 100; // px
 const SQUARE_HEIGHT = 80; // px
 const BOARD_WIDTH = BOARD_SIZE * SQUARE_WIDTH; // 900px
-const BOARD_HEIGHT = BOARD_SIZE * SQUARE_HEIGHT; // 800px
+const BOARD_HEIGHT = BOARD_SIZE * SQUARE_HEIGHT; // 720px
 const STACKED_OFFSET = 23;
+
+// Coordinate label dimensions (left margin for row labels, bottom margin for column labels)
+const COORD_WIDTH = 25; // px left margin for row numbers (1-9)
+const COORD_HEIGHT = 25; // px bottom margin for column letters (A-I)
 
 const SPRITE_URL = '/build/pieces-sprite.svg';
 // Use Vite's asset handling to get the correct URL for board.css
@@ -23,6 +27,7 @@ export default class SVGBoardView implements IBoardView {
     private boardGroup!: SVGGElement;
     private piecesGroup!: SVGGElement;
     private overlaysGroup!: SVGGElement;
+    private coordsGroup!: SVGGElement;
     private gameState: GameState;
 
     private clickHandler: ((tileIndex: number) => void) | null = null;
@@ -49,7 +54,7 @@ export default class SVGBoardView implements IBoardView {
         this.container = container;
         await this.injectBoardCSS();
         this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        this.svg.setAttribute('viewBox', `0 0 ${BOARD_WIDTH} ${BOARD_HEIGHT}`);
+        this.svg.setAttribute('viewBox', `${-COORD_WIDTH} 0 ${BOARD_WIDTH + COORD_WIDTH} ${BOARD_HEIGHT + COORD_HEIGHT}`);
         this.svg.style.cursor = 'pointer';
 
         // Inline the sprite sheet symbols/defs directly into the SVG
@@ -59,6 +64,10 @@ export default class SVGBoardView implements IBoardView {
         this.boardGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         this.boardGroup.setAttribute('id', 'board-layer');
         this.svg.appendChild(this.boardGroup);
+
+        this.coordsGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        this.coordsGroup.setAttribute('id', 'coords-layer');
+        this.svg.appendChild(this.coordsGroup);
 
         this.overlaysGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         this.overlaysGroup.setAttribute('id', 'overlays-layer');
@@ -72,6 +81,7 @@ export default class SVGBoardView implements IBoardView {
 
         // Create the board background
         this.createBoard();
+        this.createCoordinates(false);
         this.createOverlays();
 
         // Event listeners - bind and store references for proper cleanup
@@ -121,6 +131,42 @@ export default class SVGBoardView implements IBoardView {
             use.setAttribute('href', row % 2 === 0 ? '#board-row-odd' : '#board-row-even');
             use.setAttribute('y', String(row * SQUARE_HEIGHT));
             this.boardGroup.appendChild(use);
+        }
+    }
+
+    private createCoordinates(flipped: boolean): void {
+        // Clear existing coordinate labels
+        while (this.coordsGroup.firstChild) {
+            this.coordsGroup.removeChild(this.coordsGroup.firstChild);
+        }
+
+        const columns = flipped
+            ? ['I', 'H', 'G', 'F', 'E', 'D', 'C', 'B', 'A']
+            : ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+
+        // Row labels (1-9) on the left side
+        for (let row = 0; row < BOARD_SIZE; row++) {
+            const rowNumber = flipped ? (row + 1) : (BOARD_SIZE - row);
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', String(-COORD_WIDTH / 2));
+            text.setAttribute('y', String(row * SQUARE_HEIGHT + SQUARE_HEIGHT / 2));
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('dominant-baseline', 'central');
+            text.setAttribute('class', 'coord-label');
+            text.textContent = String(rowNumber);
+            this.coordsGroup.appendChild(text);
+        }
+
+        // Column labels (A-I) at the bottom
+        for (let col = 0; col < BOARD_SIZE; col++) {
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', String(col * SQUARE_WIDTH + SQUARE_WIDTH / 2));
+            text.setAttribute('y', String(BOARD_HEIGHT + COORD_HEIGHT / 2));
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('dominant-baseline', 'central');
+            text.setAttribute('class', 'coord-label');
+            text.textContent = columns[col];
+            this.coordsGroup.appendChild(text);
         }
     }
 
@@ -174,6 +220,9 @@ export default class SVGBoardView implements IBoardView {
         // If this is the first render or orientation changed, recreate all pieces
         if (!this.currentBoardData || orientationChanged) {
             await this.recreateAllPieces(boardData, flipped);
+            if (orientationChanged) {
+                this.createCoordinates(flipped);
+            }
             this.currentBoardData = new Uint8Array(boardData);
             this.currentFlipped = flipped;
             return;
@@ -351,8 +400,11 @@ export default class SVGBoardView implements IBoardView {
         const y = event.clientY - rect.top;
 
         // Convert from screen coordinates to SVG coordinates
-        const svgX = x * BOARD_WIDTH / rect.width;
-        const svgY = y * BOARD_HEIGHT / rect.height;
+        // ViewBox is: -COORD_WIDTH 0 (BOARD_WIDTH + COORD_WIDTH) (BOARD_HEIGHT + COORD_HEIGHT)
+        const totalSvgWidth = BOARD_WIDTH + COORD_WIDTH;
+        const totalSvgHeight = BOARD_HEIGHT + COORD_HEIGHT;
+        const svgX = (x / rect.width) * totalSvgWidth - COORD_WIDTH;
+        const svgY = (y / rect.height) * totalSvgHeight;
 
         return this.getTileIndex(svgX, svgY);
     }
