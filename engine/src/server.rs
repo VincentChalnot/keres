@@ -23,20 +23,11 @@ async fn main() {
     // @todo Initialize the MCTS engine with configuration
     let mcts_config = EngineConfig::default();
 
-    let mcts_engine = match MctsEngine::with_config(mcts_config) {
-        Ok(e) => {
-            println!("✓ MCTS Engine initialized successfully");
-            Some(e)
-        }
-        Err(e) => {
-            eprintln!("⚠ Failed to initialize MCTS engine: {}", e);
-            eprintln!("  MCTS engine move endpoint will return errors");
-            None
-        }
-    };
+    let mcts_engine = MctsEngine::new(mcts_config);
+    println!("✓ MCTS Engine initialized successfully");
 
     let state = Arc::new(AppState {
-        mcts_engine: Mutex::new(mcts_engine),
+        mcts_engine: Mutex::new(Some(mcts_engine)),
     });
 
     let cors = CorsLayer::new()

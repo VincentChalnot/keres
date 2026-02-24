@@ -6,10 +6,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
         curl \
-        ca-certificates \
-        libvulkan1 \
-        vulkan-tools \
-        mesa-vulkan-drivers && \
+        ca-certificates && \
     curl https://sh.rustup.rs -sSf | sh -s -- -y && \
     . $HOME/.cargo/env && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -28,14 +25,6 @@ RUN . $HOME/.cargo/env && cargo build --bin server
 
 # Runtime stage
 FROM debian:stable-slim
-
-# Install Vulkan loader and tools for runtime GPU access
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        libvulkan1 \
-        vulkan-tools \
-        mesa-vulkan-drivers && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copy the binary from builder
 COPY --from=builder /app/target/debug/server /usr/local/bin/server
