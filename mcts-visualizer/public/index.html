@@ -280,9 +280,9 @@ function loadFile(file) {
 
 // ─── Tree rendering ────────────────────────────────────────────────────────────
 const NODE_RADIUS = 8;
-const NODE_SPACING_X = 220;   // horizontal gap between parent center and child center
-const NODE_SPACING_Y = 28;    // vertical gap between siblings
-const INITIAL_OFFSET_X = 80;  // initial horizontal translation for root node
+const NODE_SPACING_X = 50;    // horizontal space per node (breadth, siblings side-by-side)
+const NODE_SPACING_Y = 80;    // vertical space between levels (depth)
+const INITIAL_OFFSET_Y = 60;  // initial vertical offset for root node from top
 const MIN_NODE_RADIUS = 5;    // minimum node radius (px)
 const MAX_NODE_RADIUS = 14;   // maximum node radius (px)
 
@@ -308,16 +308,8 @@ function renderTree(rawData) {
 
   document.getElementById('empty-state').style.display = 'none';
 
-  // ── build d3 hierarchy
+  // ── build d3 hierarchy (all nodes visible by default)
   const root = d3.hierarchy(rawData, d => d.children);
-
-  // Collapse nodes beyond depth 2 by default
-  root.each(d => {
-    if (d.depth >= 2 && d.children) {
-      d._children = d.children;
-      d.children = null;
-    }
-  });
 
   globalRoot = root;
 
@@ -340,12 +332,12 @@ function renderTree(rawData) {
   document.getElementById('btn-reset').onclick = () => {
     svg.transition().duration(400).call(
       zoom.transform,
-      d3.zoomIdentity.translate(INITIAL_OFFSET_X, height / 2).scale(1)
+      d3.zoomIdentity.translate(width / 2, INITIAL_OFFSET_Y).scale(1)
     );
   };
 
   const treeLayout = d3.tree()
-    .nodeSize([NODE_SPACING_Y, NODE_SPACING_X])
+    .nodeSize([NODE_SPACING_X, NODE_SPACING_Y])
     .separation((a, b) => (a.parent === b.parent ? 1 : 1.2));
 
   const tooltip = document.getElementById('tooltip');
@@ -360,13 +352,13 @@ function renderTree(rawData) {
     linkSel.join(
       enter => enter.append('path')
         .attr('class', 'link')
-        .attr('d', d3.linkHorizontal()
-          .x(d => d.y)
-          .y(d => d.x)),
+        .attr('d', d3.linkVertical()
+          .x(d => d.x)
+          .y(d => d.y)),
       update => update.transition().duration(300)
-        .attr('d', d3.linkHorizontal()
-          .x(d => d.y)
-          .y(d => d.x))
+        .attr('d', d3.linkVertical()
+          .x(d => d.x)
+          .y(d => d.y))
     );
 
     linkSel.exit().remove();
@@ -377,7 +369,7 @@ function renderTree(rawData) {
 
     const nodeEnter = nodeSel.enter().append('g')
       .attr('class', d => 'node' + (d._children ? ' collapsed' : ''))
-      .attr('transform', d => `translate(${d.y},${d.x})`)
+      .attr('transform', d => `translate(${d.x},${d.y})`)
       .on('click', (event, d) => {
         // toggle children
         if (d._children) {
@@ -399,7 +391,7 @@ function renderTree(rawData) {
           <div class="tt-row"><span>Visits</span><span>${nd.visits?.toLocaleString() ?? '—'}</span></div>
           <div class="tt-row"><span>Mean value</span><span>${nd.mean_value?.toFixed(6) ?? '—'}</span></div>
           <div class="tt-row"><span>Total reward</span><span>${nd.total_reward?.toFixed(4) ?? '—'}</span></div>
-          <div class="tt-row"><span>Turn</span><span>${nd.white_to_move != null ? (nd.white_to_move ? '⬜ White' : '⬛ Black') : '—'}</span></div>
+          <div class="tt-row"><span>To move</span><span>${nd.white_to_move != null ? (nd.white_to_move ? '⬜ White' : '⬛ Black') : '—'}</span></div>
           <div class="tt-row"><span>Terminal</span><span>${nd.is_terminal ? 'Yes' : 'No'}</span></div>
           <div class="tt-row"><span>Children</span><span>${(d.children || d._children || []).length}</span></div>
         `;
@@ -422,17 +414,17 @@ function renderTree(rawData) {
       .attr('fill', d => colorScale(d.data.mean_value ?? 0.5))
       .attr('stroke', d => d3.color(colorScale(d.data.mean_value ?? 0.5)).darker(0.8));
 
-    // label: action name (trimmed to fit)
+    // label: action name above node
     nodeEnter.append('text')
-      .attr('x', d => (d.children || d._children) ? -NODE_RADIUS - 4 : NODE_RADIUS + 4)
-      .attr('text-anchor', d => (d.children || d._children) ? 'end' : 'start')
+      .attr('y', -NODE_RADIUS - 4)
+      .attr('text-anchor', 'middle')
       .text(d => d.data.action ?? '');
 
     // merge + update
     const nodeUpdate = nodeSel.merge(nodeEnter)
       .attr('class', d => 'node' + (d._children ? ' collapsed' : ''))
       .transition().duration(300)
-      .attr('transform', d => `translate(${d.y},${d.x})`);
+      .attr('transform', d => `translate(${d.x},${d.y})`);
 
     nodeUpdate.select('circle')
       .attr('r', d => nodeRadius(d))
@@ -440,8 +432,8 @@ function renderTree(rawData) {
       .attr('stroke', d => d3.color(colorScale(d.data.mean_value ?? 0.5)).darker(0.8));
 
     nodeUpdate.select('text')
-      .attr('x', d => (d.children || d._children) ? -NODE_RADIUS - 4 : NODE_RADIUS + 4)
-      .attr('text-anchor', d => (d.children || d._children) ? 'end' : 'start')
+      .attr('y', -NODE_RADIUS - 4)
+      .attr('text-anchor', 'middle')
       .text(d => d.data.action ?? '');
 
     nodeSel.exit().transition().duration(200)
@@ -452,10 +444,10 @@ function renderTree(rawData) {
   globalUpdate = update;
   update(root);
 
-  // Initial view: root at left-center
+  // Initial view: root at top-center
   svg.call(
     zoom.transform,
-    d3.zoomIdentity.translate(INITIAL_OFFSET_X, height / 2).scale(1)
+    d3.zoomIdentity.translate(width / 2, INITIAL_OFFSET_Y).scale(1)
   );
 }
 
