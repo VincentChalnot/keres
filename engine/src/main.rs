@@ -265,7 +265,13 @@ fn main() {
 
         let mut cfg = EngineConfig::default();
         cfg.iterations = args.iterations;
-        let engine = MctsEngine::cpu_only(cfg);
+        let engine = match MctsEngine::with_config(cfg) {
+            Ok(e) => e,
+            Err(e) => {
+                eprintln!("Failed to initialize MCTS engine for debug-tree: {}", e);
+                std::process::exit(1);
+            }
+        };
 
         let timer = Instant::now();
         match engine.find_move_debug(&game.board) {
