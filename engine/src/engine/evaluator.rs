@@ -106,8 +106,8 @@ impl CpuEvaluator {
             return stand_pat;
         }
 
-        // Sort by MVV: highest victim value first
-        captures.sort_by(|a, b| game.capture_value(b).cmp(&game.capture_value(a)));
+        // Sort by MVV: highest victim value first (precompute values to avoid redundant lookups)
+        captures.sort_by_key(|mv| std::cmp::Reverse(game.capture_value(mv)));
 
         let white_to_move = board.is_white_to_move();
         let mut best = stand_pat;
