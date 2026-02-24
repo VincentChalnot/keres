@@ -235,6 +235,7 @@ fn main() {
 
     fn run_debug_tree(args: &DebugTreeArgs) {
         use keres_engine::engine::{EngineConfig, MctsEngine};
+        use std::time::Instant;
 
         // Build the game state by replaying the encoded moves
         let mut game = Game::new();
@@ -266,13 +267,22 @@ fn main() {
         cfg.iterations = args.iterations;
         let engine = MctsEngine::cpu_only(cfg);
 
+        let timer = Instant::now();
         match engine.find_move_debug(&game.board) {
             Ok((best_mv, stats, debug_tree)) => {
+                let elapsed = timer.elapsed();
+                let elapsed_secs = elapsed.as_secs_f64();
+                let speed = if elapsed_secs > 0.0 {
+                    stats.nodes_in_tree as f64 / elapsed_secs
+                } else {
+                    0.0
+                };
                 eprintln!("Best move: {}", best_mv.to_string());
                 eprintln!("Iterations: {}, Nodes: {}, Root visits: {}",
                     stats.iterations_completed, stats.nodes_in_tree, stats.root_visit_count);
-                // Print JSON tree to stdout (can be piped to a file)
-                println!("{}", serde_json::to_string_pretty(&debug_tree).unwrap());
+                eprintln!("Engine speed: {:.2} nodes/sec ({} nodes in {:.3} seconds)", speed, stats.nodes_in_tree, elapsed_secs);
+                // Print JSONL tree to stdout (can be piped to a file)
+                dump_debug_tree_jsonl(&debug_tree);
             }
             Err(e) => {
                 eprintln!("Engine error: {}", e);
@@ -280,4 +290,28 @@ fn main() {
             }
         }
     }
+}
+
+/// Recursively dump the debug tree as JSONL, each node with parent_id
+use keres_engine::engine::search_tree::DebugTree;
+fn dump_debug_tree_jsonl(tree: &DebugTree) {
+    fn walk(node: &DebugTree, parent_id: Option<usize>) {
+        let mut obj = serde_json::json!({
+            "node_id": node.node_id,
+            "parent_id": parent_id,
+            "visits": node.visits,
+            "minimax_value": node.minimax_value,
+            "mean_value": node.mean_value,
+            "white_to_move": node.white_to_move,
+            "is_terminal": node.is_terminal,
+        });
+        if let Some(action) = &node.action {
+            obj["action"] = serde_json::json!(action);
+        }
+        println!("{}", obj);
+        for child in node.children.iter() {
+            walk(child, Some(node.node_id));
+        }
+    }
+    walk(tree, None);
 }
