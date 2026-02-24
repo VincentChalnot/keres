@@ -191,6 +191,46 @@ impl Game {
         all_moves
     }
 
+    /// Check if a move captures an enemy piece by looking at the destination square.
+    /// Returns true if there is an enemy piece at the move's destination square.
+    pub fn is_capture(&self, mv: &Move) -> bool {
+        if let Some(dest_piece) = self.board.get_piece(&mv.to) {
+            let current_color = if self.board.is_white_to_move() { Color::White } else { Color::Black };
+            dest_piece.color != current_color
+        } else {
+            false
+        }
+    }
+
+    /// Get the material value of the piece at the destination square (if any).
+    /// Returns 0 if the square is empty or occupied by a friendly piece.
+    pub fn capture_value(&self, mv: &Move) -> u32 {
+        if let Some(dest_piece) = self.board.get_piece(&mv.to) {
+            let current_color = if self.board.is_white_to_move() { Color::White } else { Color::Black };
+            if dest_piece.color != current_color {
+                let mut value = Self::piece_material_value(&dest_piece.bottom);
+                if let Some(ref top) = dest_piece.top {
+                    value += Self::piece_material_value(top);
+                }
+                return value;
+            }
+        }
+        0
+    }
+
+    fn piece_material_value(pt: &PieceType) -> u32 {
+        match pt {
+            PieceType::Soldier => 100,
+            PieceType::Bishop => 300,
+            PieceType::Rook => 500,
+            PieceType::Paladin => 300,
+            PieceType::Guard => 300,
+            PieceType::Knight => 300,
+            PieceType::Ballista => 500,
+            PieceType::King => 10_000,
+        }
+    }
+
     pub fn get_moves(&self, position: &Position) -> Vec<PotentialMove> {
         let mut moves = Vec::new();
 
