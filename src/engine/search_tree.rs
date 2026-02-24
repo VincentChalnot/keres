@@ -307,9 +307,15 @@ impl KTree {
             if minimax_val.is_finite() {
                 // Monotone update: white nodes only increase (white finds better moves
                 // over time), black nodes only decrease (black finds better moves).
-                // On the very first ancestor visit (node was never a leaf, e.g. in tests),
-                // set directly.  In normal MCTS flow visit_ct > 1 here because the node
-                // was already a leaf (visit_ct = 1) before becoming an ancestor.
+                // This prevents a single deep path from prematurely inflating a
+                // black-to-move node to 1.0 before all of black's responses are explored.
+                //
+                // On the very first ancestor visit (visit_ct was 0 before the increment
+                // above, so it is now exactly 1), set the value directly — this handles
+                // the rare case of a node that enters the ancestor loop without having
+                // previously been a leaf.  In the normal MCTS flow every ancestor was
+                // already visited as a leaf (visit_ct ≥ 1 before increment → ≥ 2 now),
+                // so the monotone rule applies from the second visit onward.
                 let new_val = if self.cols.visit_ct[key] > 1 {
                     if white_to_move {
                         minimax_val.max(self.cols.reward_acc[key])
@@ -425,7 +431,7 @@ impl KTree {
             node_id: key,
             action: action_label,
             visits: n,
-            total_reward: w,
+            minimax_value: w,
             mean_value: w,
             white_to_move,
             is_terminal: board.is_game_over(),
@@ -441,7 +447,7 @@ pub struct DebugTree {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub action: Option<String>,
     pub visits: u32,
-    pub total_reward: f32,
+    pub minimax_value: f32,
     pub mean_value: f32,
     pub white_to_move: bool,
     pub is_terminal: bool,
