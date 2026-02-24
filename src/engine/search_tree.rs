@@ -258,6 +258,34 @@ impl KTree {
             flatten_candidate(candidate, &mut moves_buf);
         }
 
+        // Sort moves: captures first (MVV ordering), then non-captures.
+        // This ensures MCTS explores high-value captures before quiet moves.
+        moves_buf.sort_by_key(|mv| {
+            let cap_val = game_ref.capture_value(mv);
+            if cap_val > 0 {
+                // Fork bonus: after this capture, count how many additional
+                // enemy pieces the moved piece can attack.
+                let fork_bonus = if let Ok(child_brd) = game_ref.apply_move_copy(*mv) {
+                    let child_game = Game::from_board(child_brd);
+                    let child_candidates = child_game.get_moves(&mv.to);
+                    let mut child_flat = Vec::new();
+                    for pm in &child_candidates {
+                        flatten_candidate(pm, &mut child_flat);
+                    }
+                    let attacks: usize = child_flat.iter().filter(|m| {
+                        child_game.is_capture(m)
+                    }).count();
+                    if attacks >= 2 { 1000 * (attacks - 1) } else { 0 }
+                } else {
+                    0
+                };
+                // Negate so that higher values sort first (sort_by_key is ascending)
+                -((10000 + cap_val + fork_bonus as u32) as i64)
+            } else {
+                0i64
+            }
+        });
+
         let mut new_arcs = Vec::<(Move, usize)>::with_capacity(moves_buf.len());
         for &mv in &moves_buf {
             if let Ok(next_brd) = game_ref.apply_move_copy(mv) {
@@ -748,7 +776,7 @@ mod tests {
     #[test]
     fn each_leaf_evaluated_at_most_once() {
         use std::sync::{Arc, Mutex};
-        use crate::engine::gpu_batch_processor::{CpuEvaluator, Evaluator};
+        use crate::engine::evaluator::{CpuEvaluator, Evaluator};
         use crate::engine::config::{EngineConfig, ScoringWeights};
 
         // Wrap a CpuEvaluator and track which boards it sees.
@@ -774,7 +802,7 @@ mod tests {
 
         let call_log: Arc<Mutex<Vec<(Board, usize)>>> = Default::default();
         let evaluator = CountingEvaluator {
-            inner: CpuEvaluator { weights: ScoringWeights::default() },
+            inner: CpuEvaluator::new(ScoringWeights::default()),
             calls: Arc::clone(&call_log),
         };
 
@@ -782,7 +810,7 @@ mod tests {
         cfg.iterations = 200;
 
         let eng = crate::engine::mcts_engine::MctsEngine::with_evaluator(
-            cfg, Box::new(evaluator));
+            cfg, std::sync::Arc::new(evaluator));
         let _ = eng.find_move(&Board::new()).expect("should find a move");
 
         // No board position should have been evaluated more than once.
