@@ -398,7 +398,7 @@ function renderTree(rawData) {
           <div class="tt-row"><span>Node ID</span><span>${nd.node_id}</span></div>
           <div class="tt-row"><span>Visits</span><span>${nd.visits?.toLocaleString() ?? '—'}</span></div>
           <div class="tt-row"><span>Minimax value</span><span>${nd.mean_value?.toFixed(6) ?? '—'}</span></div>
-          <div class="tt-row"><span>Total reward</span><span>${nd.total_reward?.toFixed(4) ?? '—'}</span></div>
+          <div class="tt-row"><span>Minimax value (raw)</span><span>${nd.minimax_value?.toFixed(4) ?? '—'}</span></div>
           <div class="tt-row"><span>Turn</span><span>${nd.white_to_move != null ? (nd.white_to_move ? '⬜ White' : '⬛ Black') : '—'}</span></div>
           <div class="tt-row"><span>Terminal</span><span>${nd.is_terminal ? 'Yes' : 'No'}</span></div>
           <div class="tt-row"><span>Children</span><span>${(d.children || d._children || []).length}</span></div>
