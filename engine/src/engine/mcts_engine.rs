@@ -204,8 +204,6 @@ mod tests {
         cfg.iterations = 5000;
         let eng = MctsEngine::cpu_only(cfg);
         let (mv, _stats) = eng.find_move(&game.board).expect("should find a move");
-
-        // After black plays, white should NOT be able to immediately capture the king
         let mut game_after = game.clone();
         game_after.apply_move(mv).expect("engine move should be legal");
 

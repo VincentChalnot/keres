@@ -66,15 +66,15 @@ fn rank_vertex(visits: u32, reward: f32,
                parent_total: u32, kappa: f32,
                maximizing: bool) -> f32 {
     if visits == 0 { return f32::MAX; }
-    let mean_payoff = reward / (visits as f32);
     let ln_parent = f32::ln(parent_total as f32);
     let uncertainty = kappa * f32::sqrt(ln_parent / (visits as f32));
-    // For white-to-move parent: high white score is good → mean_payoff + exploration
-    // For black-to-move parent: low white score is good → (1 - mean_payoff) + exploration
+    // `reward` is already the minimax value (white's perspective).
+    // For white-to-move parent: high white score is good → reward + exploration
+    // For black-to-move parent: low white score is good → (1 - reward) + exploration
     if maximizing {
-        mean_payoff + uncertainty
+        reward + uncertainty
     } else {
-        (1.0 - mean_payoff) + uncertainty
+        (1.0 - reward) + uncertainty
     }
 }
 
@@ -275,18 +275,59 @@ impl KTree {
     // ── back-propagation ──────────────────────────
     // Scores are always from white's perspective (1.0 = white winning).
     // No flipping needed — every node stores the same viewpoint.
+    // Minimax backup: the leaf receives the heuristic score directly;
+    // each ancestor takes the max (white-to-move) or min (black-to-move)
+    // of its visited children's minimax values.
 
     pub fn feed_result(&mut self, route: &[usize], reward: f32) {
-        for &key in route.iter().rev() {
+        if route.is_empty() { return; }
+
+        // Leaf node: store the heuristic score directly.
+        let leaf = *route.last().unwrap();
+        self.cols.visit_ct[leaf] += 1;
+        self.cols.reward_acc[leaf] = reward;
+        self.refresh_facade(leaf);
+
+        // Ancestors: propagate minimax value upward (leaf's parent → root).
+        for &key in route[..route.len() - 1].iter().rev() {
             self.cols.visit_ct[key] += 1;
-            self.cols.reward_acc[key] += reward;
+            let white_to_move = self.cols.boards[key].is_white_to_move();
+            // Only consider children that have been genuinely evaluated (visit_ct > 0).
+            let minimax_val = if white_to_move {
+                self.cols.arc_list[key].iter()
+                    .filter(|(_, ck)| self.cols.visit_ct[*ck] > 0)
+                    .map(|(_, ck)| self.cols.reward_acc[*ck])
+                    .fold(f32::NEG_INFINITY, f32::max)
+            } else {
+                self.cols.arc_list[key].iter()
+                    .filter(|(_, ck)| self.cols.visit_ct[*ck] > 0)
+                    .map(|(_, ck)| self.cols.reward_acc[*ck])
+                    .fold(f32::INFINITY, f32::min)
+            };
+            if minimax_val.is_finite() {
+                // Monotone update: white nodes only increase (white finds better moves
+                // over time), black nodes only decrease (black finds better moves).
+                // On the very first ancestor visit (node was never a leaf, e.g. in tests),
+                // set directly.  In normal MCTS flow visit_ct > 1 here because the node
+                // was already a leaf (visit_ct = 1) before becoming an ancestor.
+                let new_val = if self.cols.visit_ct[key] > 1 {
+                    if white_to_move {
+                        minimax_val.max(self.cols.reward_acc[key])
+                    } else {
+                        minimax_val.min(self.cols.reward_acc[key])
+                    }
+                } else {
+                    minimax_val
+                };
+                self.cols.reward_acc[key] = new_val;
+            }
             self.refresh_facade(key);
         }
     }
 
     // ── result extraction ─────────────────────────
     // Scores are from white's perspective.  White picks the child with
-    // the highest mean reward; black picks the child with the lowest.
+    // the highest minimax reward; black picks the child with the lowest.
 
     pub fn pick_best_action(&self) -> Option<Move> {
         let root_arcs = &self.cols.arc_list[self.root];
@@ -298,7 +339,7 @@ impl KTree {
         let first_key = root_arcs[0].1;
         let first_n = self.cols.visit_ct[first_key];
         let mut winner_score = if first_n > 0 {
-            self.cols.reward_acc[first_key] / (first_n as f32)
+            self.cols.reward_acc[first_key]
         } else {
             0.5
         };
@@ -309,7 +350,7 @@ impl KTree {
             let ck = root_arcs[ai].1;
             let cn = self.cols.visit_ct[ck];
             let cs = if cn > 0 {
-                self.cols.reward_acc[ck] / (cn as f32)
+                self.cols.reward_acc[ck]
             } else {
                 0.5
             };
@@ -370,7 +411,6 @@ impl KTree {
     fn export_subtree(&self, key: usize) -> DebugTree {
         let n = self.cols.visit_ct[key];
         let w = self.cols.reward_acc[key];
-        let mean = if n > 0 { w / (n as f32) } else { 0.0 };
         let board = &self.cols.boards[key];
 
         let action_label = self.cols.inbound_mv[key].map(|m| m.to_string());
@@ -386,7 +426,7 @@ impl KTree {
             action: action_label,
             visits: n,
             total_reward: w,
-            mean_value: mean,
+            mean_value: w,
             white_to_move,
             is_terminal: board.is_game_over(),
             children,
@@ -434,15 +474,15 @@ mod tests {
 
     #[test]
     fn rank_vertex_gives_finite_for_nonzero_visits() {
-        let r = rank_vertex(20, 8.0, 200, 1.414, true);
+        let r = rank_vertex(20, 0.8, 200, 1.414, true);
         assert!(r.is_finite() && r >= 0.0, "expected finite nonneg, got {r}");
     }
 
     #[test]
     fn rank_vertex_black_perspective_inverts() {
-        // 10 visits, 8.0 total reward → mean 0.8 (good for white)
-        let white_rank = rank_vertex(10, 8.0, 100, 1.414, true);
-        let black_rank = rank_vertex(10, 8.0, 100, 1.414, false);
+        // 10 visits, minimax value 0.8 (good for white)
+        let white_rank = rank_vertex(10, 0.8, 100, 1.414, true);
+        let black_rank = rank_vertex(10, 0.8, 100, 1.414, false);
         // White should prefer this (high rank), black should not (low rank)
         assert!(white_rank > black_rank,
             "white {white_rank} should exceed black {black_rank} for white-favorable position");
@@ -480,7 +520,7 @@ mod tests {
         let mut t = with_kids();
         let ck = t.cols.arc_list[0][0].1;
         t.feed_result(&[0, ck], 0.8);
-        // With white-perspective scoring, both nodes store the same reward
+        // Minimax backup: leaf stores score directly; root takes max of visited children.
         assert_approx!(t.cols.reward_acc[ck], 0.8, "child reward");
         assert_approx!(t.cols.reward_acc[0], 0.8, "root reward");
         assert_eq!(t.cols.visit_ct[ck], 1);
@@ -490,22 +530,64 @@ mod tests {
     #[test]
     fn best_action_follows_value_leader() {
         let mut t = with_kids();
-        // White to move from initial position: pick_best_action takes highest mean
+        // White to move from initial position: pick_best_action takes highest reward_acc
         let (expected_mv, boosted_key) = t.cols.arc_list[0][2];
         // Collect all child keys first to avoid borrow conflict
         let all_children: Vec<usize> = t.cols.arc_list[0].iter().map(|&(_, ck)| ck).collect();
-        // Give the boosted child a high score, others mediocre
+        // Give the boosted child a high minimax value, others mediocre
         for &ck in &all_children {
             if ck == boosted_key {
                 t.cols.visit_ct[ck] = 100;
-                t.cols.reward_acc[ck] = 95.0; // mean 0.95 — very good for white
+                t.cols.reward_acc[ck] = 0.95; // very good for white
             } else {
                 t.cols.visit_ct[ck] = 100;
-                t.cols.reward_acc[ck] = 50.0; // mean 0.5
+                t.cols.reward_acc[ck] = 0.5;
             }
             t.refresh_facade(ck);
         }
         assert_eq!(t.pick_best_action().unwrap(), expected_mv);
+    }
+
+    /// Minimax backup propagates scores correctly:
+    /// - white-to-move ancestors take max of visited children
+    /// - black-to-move ancestors take min of visited children
+    #[test]
+    fn minimax_backup_propagates_correctly() {
+        // ── White-to-move root: should take max ───────────────────────────
+        {
+            let mut t = with_kids(); // root is white-to-move
+            let ck0 = t.cols.arc_list[0][0].1;
+            let ck1 = t.cols.arc_list[0][1].1;
+
+            // Visit first child with a high score, then second with a low score.
+            t.feed_result(&[0, ck0], 0.8);
+            t.feed_result(&[0, ck1], 0.3);
+
+            // Root (white) should hold the max of its two visited children.
+            assert_approx!(t.cols.reward_acc[ck0], 0.8, "child0 reward");
+            assert_approx!(t.cols.reward_acc[ck1], 0.3, "child1 reward");
+            assert_approx!(t.cols.reward_acc[0], 0.8, "white root takes max");
+            assert_eq!(t.cols.visit_ct[0], 2);
+        }
+
+        // ── Black-to-move root: should take min ───────────────────────────
+        {
+            let mut b = Board::new();
+            b.set_white_to_move(false);
+            let mut t = KTree::with_root(b, TreeParams::default());
+            t.spawn_children(0);
+            let ck0 = t.cols.arc_list[0][0].1;
+            let ck1 = t.cols.arc_list[0][1].1;
+
+            t.feed_result(&[0, ck0], 0.8);
+            t.feed_result(&[0, ck1], 0.3);
+
+            // Root (black) should hold the min of its two visited children.
+            assert_approx!(t.cols.reward_acc[ck0], 0.8, "child0 reward");
+            assert_approx!(t.cols.reward_acc[ck1], 0.3, "child1 reward");
+            assert_approx!(t.cols.reward_acc[0], 0.3, "black root takes min");
+            assert_eq!(t.cols.visit_ct[0], 2);
+        }
     }
 
     #[test]
@@ -703,4 +785,5 @@ mod tests {
         assert_eq!(max_calls, 1,
             "at least one position was evaluated {} times (expected ≤1)", max_calls);
     }
+
 }
