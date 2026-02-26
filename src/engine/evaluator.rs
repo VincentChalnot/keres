@@ -9,11 +9,41 @@ use crate::board::{Board, Color, PieceType, Position, BOARD_SIZE};
 use crate::game::{Game, Move};
 use super::config::ScoringWeights;
 
+/// Scale factor for the sigmoid used to convert raw material scores to [0, 1].
+/// A raw difference of `SCORE_SIGMOID_SCALE` points corresponds to roughly 0.73
+/// in the sigmoid output.
+const SCORE_SIGMOID_SCALE: f32 = 2000.0;
+
+/// Additive margin (in raw points) added to a capture's victim value during
+/// delta pruning to allow for positional gains that are hard to quantify.
+const DELTA_PRUNING_MARGIN: f32 = 150.0;
+
+/// Divisor used to convert raw points into an approximate [0, 1] score delta
+/// for delta pruning comparisons.  Chosen so that at equilibrium the derivative
+/// of the sigmoid roughly matches the conversion (4 × SCORE_SIGMOID_SCALE).
+const DELTA_PRUNING_SCALE: f32 = 8000.0;
+
 /// Trait implemented by anything that can assign a [0,1] score to
 /// one or more board positions.  `Send + Sync` is required so evaluators
 /// can be shared across threads via `Arc<dyn Evaluator>`.
 pub trait Evaluator: Send + Sync {
     fn score_positions(&self, boards: &[Board]) -> Vec<f32>;
+}
+
+// ── Shared helpers ──────────────────────────────────────────────────────────
+
+/// Map a `PieceType` to the integer discriminant used by `ScoringWeights::material_value`.
+fn piece_disc(pt: &PieceType) -> u32 {
+    match pt {
+        PieceType::Soldier  => 1,
+        PieceType::Bishop   => 2,
+        PieceType::Rook     => 3,
+        PieceType::Paladin  => 4,
+        PieceType::Guard    => 5,
+        PieceType::Knight   => 6,
+        PieceType::Ballista => 7,
+        PieceType::King     => 8,
+    }
 }
 
 // ══════════  CpuEvaluator  ══════════
@@ -28,19 +58,6 @@ impl CpuEvaluator {
         CpuEvaluator {
             weights,
             cache: RwLock::new(HashMap::new()),
-        }
-    }
-
-    fn piece_disc(pt: &PieceType) -> u32 {
-        match pt {
-            PieceType::Soldier  => 1,
-            PieceType::Bishop   => 2,
-            PieceType::Rook     => 3,
-            PieceType::Paladin  => 4,
-            PieceType::Guard    => 5,
-            PieceType::Knight   => 6,
-            PieceType::Ballista => 7,
-            PieceType::King     => 8,
         }
     }
 
@@ -72,7 +89,7 @@ impl CpuEvaluator {
 
     fn quiescence(&self, board: &Board, depth: u8) -> f32 {
         let stand_pat = self.static_eval(board);
-        if depth >= 8 { return stand_pat; }
+        if depth >= 3 { return stand_pat; }
         if board.is_game_over() {
             if board.is_draw() { return 0.5; }
             return if board.white_wins() { 1.0 } else { 0.0 };
@@ -81,22 +98,32 @@ impl CpuEvaluator {
         let game = Game::from_board(*board);
         let all_moves = game.get_all_moves();
 
-        let mut captures: Vec<Move> = Vec::new();
+        // Only consider captures of pieces worth more than a soldier
+        let mut captures: Vec<(Move, u32)> = Vec::new();
         for pm in &all_moves {
             if pm.force_unstack {
                 let mv_unstack = pm.to_move(true);
                 if game.is_capture(&mv_unstack) {
-                    captures.push(mv_unstack);
+                    let val = game.capture_value(&mv_unstack);
+                    if val > self.weights.soldier_pts {
+                        captures.push((mv_unstack, val));
+                    }
                 }
             } else {
                 let mv = pm.to_move(false);
                 if game.is_capture(&mv) {
-                    captures.push(mv);
+                    let val = game.capture_value(&mv);
+                    if val > self.weights.soldier_pts {
+                        captures.push((mv, val));
+                    }
                 }
                 if pm.unstackable {
                     let mv_unstack = pm.to_move(true);
                     if game.is_capture(&mv_unstack) {
-                        captures.push(mv_unstack);
+                        let val = game.capture_value(&mv_unstack);
+                        if val > self.weights.soldier_pts {
+                            captures.push((mv_unstack, val));
+                        }
                     }
                 }
             }
@@ -106,13 +133,20 @@ impl CpuEvaluator {
             return stand_pat;
         }
 
-        // Sort by MVV: highest victim value first (precompute values to avoid redundant lookups)
-        captures.sort_by_key(|mv| std::cmp::Reverse(game.capture_value(mv)));
+        // Sort by MVV: highest victim value first
+        captures.sort_by_key(|(_, val)| std::cmp::Reverse(*val));
 
         let white_to_move = board.is_white_to_move();
         let mut best = stand_pat;
 
-        for capture in &captures {
+        for (capture, victim_pts) in &captures {
+            // Delta pruning: skip if even the best-case gain from this capture
+            // cannot improve the current best.  The score improvement is
+            // approximated in [0,1] space using the sigmoid scale constants.
+            let delta_bound = (*victim_pts as f32 + DELTA_PRUNING_MARGIN) / DELTA_PRUNING_SCALE;
+            if white_to_move && stand_pat + delta_bound < best { continue; }
+            if !white_to_move && stand_pat - delta_bound > best { continue; }
+
             if let Ok(child_board) = game.apply_move_copy(*capture) {
                 let score = self.quiescence(&child_board, depth + 1);
                 if white_to_move {
@@ -145,12 +179,12 @@ impl CpuEvaluator {
                 };
 
                 // Material for bottom piece
-                let bottom_val = self.weights.material_value(Self::piece_disc(&piece.bottom));
+                let bottom_val = self.weights.material_value(piece_disc(&piece.bottom));
                 *accumulator += bottom_val as f32;
 
                 // Material for top piece (stacked)
                 if let Some(ref top_type) = piece.top {
-                    let top_val = self.weights.material_value(Self::piece_disc(top_type));
+                    let top_val = self.weights.material_value(piece_disc(top_type));
                     *accumulator += top_val as f32;
                 }
 
@@ -177,7 +211,7 @@ impl CpuEvaluator {
         }
 
         let diff = white_score - black_score;
-        let exponent = -diff / 2000.0;
+        let exponent = -diff / SCORE_SIGMOID_SCALE;
         1.0 / (1.0 + exponent.exp())
     }
 }
@@ -186,6 +220,55 @@ impl Evaluator for CpuEvaluator {
     fn score_positions(&self, boards: &[Board]) -> Vec<f32> {
         boards.iter().map(|b| self.evaluate_single(b)).collect()
     }
+}
+
+/// Compute a cheap material + centrality score for `board` using `weights`,
+/// without quiescence search or caching.  Returns a value in [0.0, 1.0]
+/// (1.0 = white winning, 0.5 = equal, 0.0 = black winning).
+pub fn static_eval_board(board: &Board, weights: &ScoringWeights) -> f32 {
+    if board.is_game_over() {
+        if board.is_draw() { return 0.5; }
+        return if board.white_wins() { 1.0 } else { 0.0 };
+    }
+
+    let mut white_score: f32 = 0.0;
+    let mut black_score: f32 = 0.0;
+
+    for sq in 0..BOARD_SIZE {
+        let pos = Position::from_u8(sq as u8);
+        if let Some(piece) = board.get_piece(&pos) {
+            let accumulator = if piece.color == Color::White {
+                &mut white_score
+            } else {
+                &mut black_score
+            };
+
+            *accumulator += weights.material_value(piece_disc(&piece.bottom)) as f32;
+            if let Some(ref top_type) = piece.top {
+                *accumulator += weights.material_value(piece_disc(top_type)) as f32;
+            }
+
+            let dx = if pos.x > 4 { pos.x - 4 } else { 4 - pos.x };
+            let dy = if pos.y > 4 { pos.y - 4 } else { 4 - pos.y };
+            let manhattan = dx + dy;
+            *accumulator += ((8 - manhattan) as f32) * weights.centrality_wt as f32;
+
+            let top_piece_type = piece.top.as_ref().unwrap_or(&piece.bottom);
+            let is_advanceable = matches!(top_piece_type,
+                PieceType::Soldier | PieceType::Ballista);
+            if is_advanceable {
+                let advance_rank = match piece.color {
+                    Color::White => if pos.y > 0 { 8 - pos.y } else { 8 },
+                    Color::Black => pos.y,
+                };
+                *accumulator += (advance_rank as f32) * weights.advance_wt as f32;
+            }
+        }
+    }
+
+    let diff = white_score - black_score;
+    let exponent = -diff / SCORE_SIGMOID_SCALE;
+    1.0 / (1.0 + exponent.exp())
 }
 
 // ══════════  Tests  ══════════

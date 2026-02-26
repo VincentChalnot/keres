@@ -57,7 +57,7 @@ impl MctsEngine {
         }
 
         let tree_params = self.cfg.tree_params_copy();
-        let tree = Arc::new(RwLock::new(KTree::with_root(*board, tree_params)));
+        let tree = Arc::new(RwLock::new(KTree::with_root(*board, tree_params, self.cfg.weights)));
         let budget = self.cfg.iterations;
         let num_threads = self.cfg.threads;
 
@@ -89,16 +89,20 @@ impl MctsEngine {
                             }
                         }
 
-                        // 3. Evaluation (no lock needed — pure computation)
-                        let leaf_score = {
+                        // 3. Evaluation — copy board out of the read lock so
+                        //    evaluation runs with no lock held, allowing other
+                        //    threads to expand or backpropagate concurrently.
+                        let (terminal_score, leaf_board) = {
                             let t = tree.read();
-                            if let Some(forced) = t.immediate_terminal_score(leaf_key) {
-                                forced
-                            } else {
-                                let leaf_board = *t.board_of(leaf_key);
-                                let scores = evaluator.score_positions(&[leaf_board]);
-                                scores[0]
-                            }
+                            let ts = t.immediate_terminal_score(leaf_key);
+                            let lb = *t.board_of(leaf_key);
+                            (ts, lb)
+                        };
+                        let leaf_score = if let Some(forced) = terminal_score {
+                            forced
+                        } else {
+                            let scores = evaluator.score_positions(&[leaf_board]);
+                            scores[0]
                         };
 
                         // 4. Back-propagation (retract virtual loss + update)
