@@ -8,7 +8,8 @@
 
 use crate::board::Board;
 use crate::game::{Game, Move, PotentialMove};
-use super::config::TreeParams;
+use super::config::{ScoringWeights, TreeParams};
+use super::evaluator::static_eval_board;
 
 // ══════════  SoA columns  ══════════
 
@@ -114,13 +115,14 @@ pub struct KTree {
     pub pool:   Vec<KNode>,
     pub root:   usize,
     pub params: TreeParams,
+    weights:    ScoringWeights,
     cols:       Columns,
 }
 
 impl KTree {
     // ── construction ──────────────────────────────
 
-    pub fn with_root(board: Board, params: TreeParams) -> Self {
+    pub fn with_root(board: Board, params: TreeParams, weights: ScoringWeights) -> Self {
         let mut cols = Columns::with_capacity(1024);
         cols.insert_row(board, None, None);
         let root_snapshot = KNode {
@@ -128,7 +130,7 @@ impl KTree {
             edges: Vec::new(), state: board,
             edge_in: None, expanded: false,
         };
-        KTree { pool: vec![root_snapshot], root: 0, params, cols }
+        KTree { pool: vec![root_snapshot], root: 0, params, weights, cols }
     }
 
     /// Allocate a new vertex in the SoA columns and in the public pool.
@@ -250,6 +252,7 @@ impl KTree {
 
     pub fn spawn_children(&mut self, slot: usize) {
         let brd = self.cols.boards[slot];
+        let parent_eval = static_eval_board(&brd, &self.weights);
         let game_ref = Game::from_board(brd);
         let candidates = game_ref.get_all_moves();
 
@@ -258,40 +261,24 @@ impl KTree {
             flatten_candidate(candidate, &mut moves_buf);
         }
 
-        // Sort moves: captures first (MVV ordering), then non-captures.
-        // This ensures MCTS explores high-value captures before quiet moves.
-        moves_buf.sort_by_key(|mv| {
-            let cap_val = game_ref.capture_value(mv);
-            if cap_val > 0 {
-                // Fork bonus: after this capture, count how many additional
-                // enemy pieces the moved piece can attack.
-                let fork_bonus = if let Ok(child_brd) = game_ref.apply_move_copy(*mv) {
-                    let child_game = Game::from_board(child_brd);
-                    let child_candidates = child_game.get_moves(&mv.to);
-                    let mut child_flat = Vec::new();
-                    for pm in &child_candidates {
-                        flatten_candidate(pm, &mut child_flat);
-                    }
-                    let attacks: usize = child_flat.iter().filter(|m| {
-                        child_game.is_capture(m)
-                    }).count();
-                    if attacks >= 2 { 1000 * (attacks - 1) } else { 0 }
-                } else {
-                    0
-                };
-                // Negate so that higher values sort first (sort_by_key is ascending)
-                -((10000 + cap_val + fork_bonus as u32) as i64)
-            } else {
-                0i64
-            }
-        });
+        // Apply all moves and sort by eval-delta descending.
+        // Moves that most drastically change the evaluation (captures, forks,
+        // major tactical patterns) are explored first by MCTS.
+        let mut child_data: Vec<(Move, Board, f32)> = moves_buf.iter()
+            .filter_map(|&mv| {
+                game_ref.apply_move_copy(mv).ok().map(|child_brd| {
+                    let delta = (static_eval_board(&child_brd, &self.weights) - parent_eval).abs();
+                    (mv, child_brd, delta)
+                })
+            })
+            .collect();
 
-        let mut new_arcs = Vec::<(Move, usize)>::with_capacity(moves_buf.len());
-        for &mv in &moves_buf {
-            if let Ok(next_brd) = game_ref.apply_move_copy(mv) {
-                let child_key = self.alloc_vertex(next_brd, slot, mv);
-                new_arcs.push((mv, child_key));
-            }
+        child_data.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+
+        let mut new_arcs = Vec::<(Move, usize)>::with_capacity(child_data.len());
+        for (mv, next_brd, _) in child_data {
+            let child_key = self.alloc_vertex(next_brd, slot, mv);
+            new_arcs.push((mv, child_key));
         }
 
         self.cols.arc_list[slot] = new_arcs.clone();
@@ -497,7 +484,7 @@ mod tests {
         };
     }
 
-    fn fresh() -> KTree { KTree::with_root(Board::new(), TreeParams::default()) }
+    fn fresh() -> KTree { KTree::with_root(Board::new(), TreeParams::default(), super::super::config::ScoringWeights::default()) }
     fn with_kids() -> KTree { let mut t = fresh(); t.spawn_children(0); t }
 
     #[test]
@@ -608,7 +595,7 @@ mod tests {
         {
             let mut b = Board::new();
             b.set_white_to_move(false);
-            let mut t = KTree::with_root(b, TreeParams::default());
+            let mut t = KTree::with_root(b, TreeParams::default(), super::super::config::ScoringWeights::default());
             t.spawn_children(0);
             let ck0 = t.cols.arc_list[0][0].1;
             let ck1 = t.cols.arc_list[0][1].1;
@@ -628,7 +615,7 @@ mod tests {
     fn game_over_root_stays_leaf() {
         let mut b = Board::new();
         b.set_game_over(true, true, false);
-        let mut t = KTree::with_root(b, TreeParams::default());
+        let mut t = KTree::with_root(b, TreeParams::default(), super::super::config::ScoringWeights::default());
         t.spawn_children(0);
         assert_eq!(t.descend_to_leaf().0, 0);
     }
@@ -674,7 +661,7 @@ mod tests {
         // Build a tree rooted at a black-to-move position.
         let mut b = Board::new();
         b.set_white_to_move(false);
-        let mut t = KTree::with_root(b, TreeParams::default());
+        let mut t = KTree::with_root(b, TreeParams::default(), super::super::config::ScoringWeights::default());
         t.spawn_children(0);
 
         // Replace the first child's board with a black-win terminal.
@@ -708,7 +695,7 @@ mod tests {
     fn immediate_terminal_score_returns_none_for_terminal_slot() {
         let mut b = Board::new();
         b.set_game_over(true, true, false);
-        let t = KTree::with_root(b, TreeParams::default());
+        let t = KTree::with_root(b, TreeParams::default(), super::super::config::ScoringWeights::default());
         assert!(t.immediate_terminal_score(0).is_none(),
             "terminal slot itself should always return None");
     }
