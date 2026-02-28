@@ -44,6 +44,12 @@ pub const STAGE2_DEPTH: i32 = 6;
 
 const SCORE_SIGMOID_SCALE: f32 = 2000.0;
 
+// Late Move Reduction thresholds
+const LMR_MIN_MOVE_INDEX: usize = 3;
+const LMR_DEEP_MOVE_INDEX: usize = 6;
+const LMR_SHALLOW_REDUCTION: i32 = 1;
+const LMR_DEEP_REDUCTION: i32 = 2;
+
 // ── Public types ─────────────────────────────────────────────────────────────
 
 /// A move paired with its centipawn score (from the root side-to-move's
@@ -556,8 +562,8 @@ fn alphabeta_s2(
 
             // LMR: reduce late quiet moves at depth ≥ 5
             let mut reduced = false;
-            if depth >= 5 && i >= 3 && !is_capture && extension == 0 {
-                let reduction = if i >= 6 { 2 } else { 1 };
+            if depth >= 5 && i >= LMR_MIN_MOVE_INDEX && !is_capture && extension == 0 {
+                let reduction = if i >= LMR_DEEP_MOVE_INDEX { LMR_DEEP_REDUCTION } else { LMR_SHALLOW_REDUCTION };
                 search_depth = (search_depth - reduction).max(1);
                 reduced = true;
             }
