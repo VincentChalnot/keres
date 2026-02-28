@@ -222,6 +222,53 @@ impl Evaluator for CpuEvaluator {
     }
 }
 
+/// Evaluate the board in centipawns from white's perspective.
+/// Positive = white advantage, negative = black advantage.
+/// Used by the alpha-beta search engine for leaf-node evaluation.
+pub fn eval_centipawns(board: &Board, weights: &ScoringWeights) -> i32 {
+    if board.is_game_over() {
+        if board.is_draw() { return 0; }
+        return if board.white_wins() { 50_000 } else { -50_000 };
+    }
+
+    let mut white_score: i32 = 0;
+    let mut black_score: i32 = 0;
+
+    for sq in 0..BOARD_SIZE {
+        let pos = Position::from_u8(sq as u8);
+        if let Some(piece) = board.get_piece(&pos) {
+            let accumulator = if piece.color == Color::White {
+                &mut white_score
+            } else {
+                &mut black_score
+            };
+
+            *accumulator += weights.material_value(piece_disc(&piece.bottom)) as i32;
+            if let Some(ref top_type) = piece.top {
+                *accumulator += weights.material_value(piece_disc(top_type)) as i32;
+            }
+
+            let dx = if pos.x > 4 { pos.x - 4 } else { 4 - pos.x };
+            let dy = if pos.y > 4 { pos.y - 4 } else { 4 - pos.y };
+            let manhattan = dx + dy;
+            *accumulator += ((8 - manhattan) as i32) * weights.centrality_wt as i32;
+
+            let top_piece_type = piece.top.as_ref().unwrap_or(&piece.bottom);
+            let is_advanceable = matches!(top_piece_type,
+                PieceType::Soldier | PieceType::Ballista);
+            if is_advanceable {
+                let advance_rank = match piece.color {
+                    Color::White => if pos.y > 0 { 8 - pos.y } else { 8 },
+                    Color::Black => pos.y,
+                };
+                *accumulator += (advance_rank as i32) * weights.advance_wt as i32;
+            }
+        }
+    }
+
+    white_score - black_score
+}
+
 /// Compute a cheap material + centrality score for `board` using `weights`,
 /// without quiescence search or caching.  Returns a value in [0.0, 1.0]
 /// (1.0 = white winning, 0.5 = equal, 0.0 = black winning).
