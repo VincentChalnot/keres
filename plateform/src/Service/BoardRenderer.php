@@ -99,8 +99,10 @@ class BoardRenderer
             2 => ['pipe', 'w'],
         ];
 
+        $width = (string) (self::BOARD_SIZE * self::SQUARE_WIDTH + self::COORD_WIDTH);
+
         $process = proc_open(
-            ['rsvg-convert', '--format', $rsvgFormat, '--width', '925'],
+            ['rsvg-convert', '--format', $rsvgFormat, '--width', $width],
             $descriptors,
             $pipes,
         );
