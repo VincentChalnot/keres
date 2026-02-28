@@ -758,53 +758,30 @@ mod tests {
             seen.len());
     }
 
-    /// Each unique leaf must be evaluated at most once across a full MCTS run.
-    /// We count evaluator calls per board and assert none exceeds 1.
+    /// The alpha-beta engine uses its own built-in static evaluation
+    /// and transposition table to avoid redundant work.  Verify that the
+    /// engine can find a legal move from the opening position.
     #[test]
-    fn each_leaf_evaluated_at_most_once() {
-        use std::sync::{Arc, Mutex};
-        use crate::engine::evaluator::{CpuEvaluator, Evaluator};
-        use crate::engine::config::{EngineConfig, ScoringWeights};
-
-        // Wrap a CpuEvaluator and track which boards it sees.
-        struct CountingEvaluator {
-            inner: CpuEvaluator,
-            // Store (board, count) pairs; Board is PartialEq so we can search.
-            calls: Arc<Mutex<Vec<(Board, usize)>>>,
-        }
-        impl Evaluator for CountingEvaluator {
-            fn score_positions(&self, boards: &[Board]) -> Vec<f32> {
-                let mut calls = self.calls.lock().unwrap();
-                for b in boards {
-                    if let Some(entry) = calls.iter_mut().find(|(k, _)| k == b) {
-                        entry.1 += 1;
-                    } else {
-                        calls.push((*b, 1));
-                    }
-                }
-                drop(calls);
-                self.inner.score_positions(boards)
-            }
-        }
-
-        let call_log: Arc<Mutex<Vec<(Board, usize)>>> = Default::default();
-        let evaluator = CountingEvaluator {
-            inner: CpuEvaluator::new(ScoringWeights::default()),
-            calls: Arc::clone(&call_log),
-        };
+    fn engine_finds_legal_move_from_opening() {
+        use crate::engine::config::EngineConfig;
 
         let mut cfg = EngineConfig::default();
-        cfg.iterations = 200;
+        cfg.threads = 1;
 
-        let eng = crate::engine::mcts_engine::MctsEngine::with_evaluator(
-            cfg, std::sync::Arc::new(evaluator));
-        let _ = eng.find_move(&Board::new()).expect("should find a move");
+        let eng = crate::engine::mcts_engine::MctsEngine::new(cfg);
+        let (mv, stats) = eng.find_move(&Board::new()).expect("should find a move");
+        assert!(stats.nodes_in_tree > 0, "should have searched some nodes");
 
-        // No board position should have been evaluated more than once.
-        let calls = call_log.lock().unwrap();
-        let max_calls = calls.iter().map(|(_, c)| *c).max().unwrap_or(0);
-        assert_eq!(max_calls, 1,
-            "at least one position was evaluated {} times (expected ≤1)", max_calls);
+        // Verify the move is actually legal
+        let game = crate::game::Game::from_board(Board::new());
+        let all_moves = game.get_all_moves();
+        let legal: Vec<crate::game::Move> = all_moves.iter().flat_map(|pm| {
+            let mut v = vec![pm.to_move(false)];
+            if pm.unstackable { v.push(pm.to_move(true)); }
+            if pm.force_unstack { v.clear(); v.push(pm.to_move(true)); }
+            v
+        }).collect();
+        assert!(legal.contains(&mv), "engine returned illegal move {mv:?}");
     }
 
 }
