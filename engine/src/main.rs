@@ -51,9 +51,6 @@ struct DebugTreeArgs {
     /// Base64 encoded binary moves to replay before running the engine
     #[arg(long)]
     moves: Option<String>,
-    /// Only return results from Stage 1 (skip Stage 2 deep analysis)
-    #[arg(long, default_value = "false")]
-    disable_stage_2: bool,
     /// Stage 1 search depth (default: 4)
     #[arg(long, default_value = "4")]
     stage_1_depth: i32,

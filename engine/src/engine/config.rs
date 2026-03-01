@@ -42,7 +42,6 @@ pub struct EngineConfig {
     pub weights: ScoringWeights,
     pub threads: usize,
     pub stage1_depth: i32,
-    pub disable_stage2: bool,
 }
 impl Default for EngineConfig {
     fn default() -> Self {
@@ -50,7 +49,6 @@ impl Default for EngineConfig {
             weights: Default::default(),
             threads: num_cpus::get().saturating_sub(1).max(1),
             stage1_depth: 4,
-            disable_stage2: false,
         }
     }
 }
@@ -61,6 +59,5 @@ mod tests {
         let c = EngineConfig::default();
         assert!(c.threads >= 1);
         assert_eq!(c.stage1_depth, 4);
-        assert!(!c.disable_stage2);
     }
 }
