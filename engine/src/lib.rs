@@ -9,4 +9,4 @@ pub use board::{Board, Color, Piece, PieceType, Position, BOARD_DIMENSION, BOARD
 pub use game::{Game, Move, PotentialMove};
 pub use tui::run_tui;
 // Re-export main engine types (others available via engine::*)
-pub use engine::{EngineConfig, MctsEngine, SearchStatistics};
+pub use engine::{EngineConfig, Engine, SearchStatistics};
