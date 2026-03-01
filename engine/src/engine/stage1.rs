@@ -390,7 +390,7 @@ fn score_root_moves(
             // Replay PV to get leaf board state
             let mut leaf = *board;
             for pv_mv in &pv_chain {
-                leaf.make(pv_mv);
+                let _ = leaf.make(pv_mv);
             }
 
             results.push(PVLine {
@@ -448,7 +448,7 @@ fn score_root_moves(
                 // Replay PV to get leaf board state
                 let mut leaf = *board;
                 for pv_mv in &pv_chain {
-                    leaf.make(pv_mv);
+                    let _ = leaf.make(pv_mv);
                 }
 
                 PVLine {
@@ -494,7 +494,7 @@ fn alphabeta(
         let leaf_hash = hash_board(board);
         if blacklist.contains(&leaf_hash) {
             // Return worst score to force this PV to be avoided
-            return if board.is_white_to_move() { WORST_SCORE } else { WORST_SCORE };
+            return WORST_SCORE;
         }
 
         // TT probe at leaf
