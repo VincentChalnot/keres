@@ -19,7 +19,7 @@ enum Commands {
     ShowMoves(ShowMovesArgs),
     /// Request an engine move for a given board
     EngineMove(EngineMoveArgs),
-    /// Run MCTS on a board loaded from a move list, output the search tree as JSON
+    /// Run the search engine on a board loaded from a move list, output results as JSON
     DebugTree(DebugTreeArgs),
 }
 
@@ -51,9 +51,12 @@ struct DebugTreeArgs {
     /// Base64 encoded binary moves to replay before running the engine
     #[arg(long)]
     moves: Option<String>,
-    /// Number of MCTS iterations (default: 100)
-    #[arg(long, default_value = "100")]
-    iterations: usize,
+    /// Only return results from Stage 1 (skip Stage 2 deep analysis)
+    #[arg(long, default_value = "false")]
+    disable_stage_2: bool,
+    /// Stage 1 search depth (default: 4)
+    #[arg(long, default_value = "4")]
+    stage_1_depth: i32,
 }
 
 fn main() {
@@ -221,19 +224,19 @@ fn main() {
         }
     }
 
-    // Add this function to run the engine move logic
+    // Run the engine move logic
     fn run_engine_move(game: &Game) -> Result<Move, String> {
-        use keres_engine::engine::{EngineConfig, MctsEngine};
-        let mcts_config = EngineConfig::default();
-        let mcts_engine = MctsEngine::new(mcts_config);
-        let (mv, _stats) = mcts_engine
+        use keres_engine::engine::{EngineConfig, Engine};
+        let config = EngineConfig::default();
+        let engine = Engine::new(config);
+        let (mv, _stats) = engine
             .find_move(&game.board)
             .map_err(|e| format!("Engine failed to find move: {}", e))?;
         Ok(mv)
     }
 
     fn run_debug_tree(args: &DebugTreeArgs) {
-        use keres_engine::engine::{EngineConfig, MctsEngine};
+        use keres_engine::engine::{EngineConfig, Engine};
         use std::time::Instant;
 
         // Build the game state by replaying the encoded moves
@@ -263,8 +266,9 @@ fn main() {
             if game.board.is_white_to_move() { "white" } else { "black" });
 
         let mut cfg = EngineConfig::default();
-        cfg.iterations = args.iterations;
-        let engine = MctsEngine::new(cfg);
+        cfg.stage1_depth = args.stage_1_depth;
+        cfg.disable_stage2 = args.disable_stage_2;
+        let engine = Engine::new(cfg);
 
         let timer = Instant::now();
         match engine.find_move_debug(&game.board) {
@@ -272,14 +276,15 @@ fn main() {
                 let elapsed = timer.elapsed();
                 let elapsed_secs = elapsed.as_secs_f64();
                 let speed = if elapsed_secs > 0.0 {
-                    stats.nodes_in_tree as f64 / elapsed_secs
+                    stats.nodes_searched as f64 / elapsed_secs
                 } else {
                     0.0
                 };
                 eprintln!("Best move: {}", best_mv.to_string());
-                eprintln!("Iterations: {}, Nodes: {}, Root visits: {}",
-                    stats.iterations_completed, stats.nodes_in_tree, stats.root_visit_count);
-                eprintln!("Engine speed: {:.2} nodes/sec ({} nodes in {:.3} seconds)", speed, stats.nodes_in_tree, elapsed_secs);
+                eprintln!("Nodes searched: {}, Stage 1 moves: {}",
+                    stats.nodes_searched, stats.stage1_moves);
+                eprintln!("Engine speed: {:.2} nodes/sec ({} nodes in {:.3} seconds)",
+                    speed, stats.nodes_searched, elapsed_secs);
                 // Print JSONL tree to stdout (can be piped to a file)
                 dump_debug_tree_jsonl(&debug_tree);
             }
@@ -292,15 +297,15 @@ fn main() {
 }
 
 /// Recursively dump the debug tree as JSONL, each node with parent_id
-use keres_engine::engine::search_tree::DebugTree;
+use keres_engine::engine::DebugTree;
 fn dump_debug_tree_jsonl(tree: &DebugTree) {
     fn walk(node: &DebugTree, parent_id: Option<usize>) {
         let mut obj = serde_json::json!({
             "node_id": node.node_id,
             "parent_id": parent_id,
-            "visits": node.visits,
-            "minimax_value": node.minimax_value,
-            "mean_value": node.mean_value,
+            "score": node.score,
+            "stage1_score": node.stage1_score,
+            "zobrist_key": format!("{:#018x}", node.zobrist_key),
             "white_to_move": node.white_to_move,
             "is_terminal": node.is_terminal,
         });

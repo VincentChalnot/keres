@@ -38,25 +38,21 @@ impl Default for ScoringWeights {
     }
 }
 #[derive(Clone, Debug)]
-pub struct TreeParams { pub vl_penalty: u32, pub uct_c: f32, pub max_nodes: usize }
-impl Default for TreeParams {
-    fn default() -> Self { Self { vl_penalty: 10, uct_c: 1.414, max_nodes: 1_000_000 } }
-}
-#[derive(Clone, Debug)]
 pub struct EngineConfig {
-    pub tree: TreeParams,
-    pub weights: ScoringWeights, pub threads: usize, pub iterations: usize,
+    pub weights: ScoringWeights,
+    pub threads: usize,
+    pub stage1_depth: i32,
+    pub disable_stage2: bool,
 }
 impl Default for EngineConfig {
     fn default() -> Self {
-        Self { tree: Default::default(),
-               weights: Default::default(),
-               threads: num_cpus::get().saturating_sub(1).max(1),
-               iterations: 10_000 }
+        Self {
+            weights: Default::default(),
+            threads: num_cpus::get().saturating_sub(1).max(1),
+            stage1_depth: 4,
+            disable_stage2: false,
+        }
     }
-}
-impl EngineConfig {
-    pub fn tree_params_copy(&self) -> TreeParams { self.tree.clone() }
 }
 #[cfg(test)]
 mod tests {
@@ -64,12 +60,7 @@ mod tests {
     #[test] fn engine_defaults() {
         let c = EngineConfig::default();
         assert!(c.threads >= 1);
-        assert_eq!(c.iterations, 10_000);
-        assert!((c.tree.uct_c - 1.414f32).abs() < 0.01);
-    }
-    #[test] fn param_copies_independent() {
-        let c = EngineConfig::default();
-        let mut t = c.tree_params_copy(); t.vl_penalty = 42;
-        assert_ne!(t.vl_penalty, c.tree.vl_penalty);
+        assert_eq!(c.stage1_depth, 4);
+        assert!(!c.disable_stage2);
     }
 }

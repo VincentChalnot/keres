@@ -1,39 +1,26 @@
 //! Public engine API for the Keres board game.
 //!
-//! Wraps the two-stage alpha-beta search pipeline, preserving the same
-//! public interface (`MctsEngine`, `SearchStatistics`) for callers.
+//! Wraps the two-stage alpha-beta search pipeline.
 
-use std::sync::Arc;
 use crate::board::Board;
 use crate::game::Move;
 use super::config::EngineConfig;
-use super::evaluator::Evaluator;
 
 /// Aggregate statistics returned alongside the chosen move.
 pub struct SearchStatistics {
-    pub iterations_completed: usize,
-    pub nodes_in_tree: usize,
-    pub root_visit_count: u32,
+    pub nodes_searched: usize,
+    pub stage1_moves: usize,
 }
 
 /// The main engine entry point.
-pub struct MctsEngine {
+pub struct Engine {
     cfg: EngineConfig,
 }
 
-impl MctsEngine {
+impl Engine {
     /// Build an engine using the built-in static evaluator.
     pub fn new(cfg: EngineConfig) -> Self {
-        MctsEngine { cfg }
-    }
-
-    /// Build an engine with a caller-supplied evaluator.
-    ///
-    /// The evaluator parameter is accepted for API compatibility but
-    /// is not used by the alpha-beta search engine, which relies on
-    /// its own centipawn-based static evaluation.
-    pub fn with_evaluator(cfg: EngineConfig, _eval: Arc<dyn Evaluator>) -> Self {
-        MctsEngine { cfg }
+        Engine { cfg }
     }
 
     /// Run the two-stage search from the given board position and
@@ -41,24 +28,22 @@ impl MctsEngine {
     pub fn find_move(&self, board: &Board) -> Result<(Move, SearchStatistics), String> {
         let (mv, stats) = super::search::two_stage_search(board, &self.cfg)?;
         Ok((mv, SearchStatistics {
-            iterations_completed: stats.nodes_searched,
-            nodes_in_tree: stats.nodes_searched,
-            root_visit_count: stats.stage1_moves as u32,
+            nodes_searched: stats.nodes_searched,
+            stage1_moves: stats.stage1_moves,
         }))
     }
 
     /// Run the search and also return a debug tree snapshot (for the
     /// debug-tree CLI command).
     pub fn find_move_debug(&self, board: &Board)
-        -> Result<(Move, SearchStatistics, super::search_tree::DebugTree), String>
+        -> Result<(Move, SearchStatistics, super::search::DebugTree), String>
     {
         let (mv, stats, stage1, stage2) =
             super::search::two_stage_search_debug(board, &self.cfg)?;
         let debug = super::search::build_debug_tree(board, &stage1, &stage2);
         Ok((mv, SearchStatistics {
-            iterations_completed: stats.nodes_searched,
-            nodes_in_tree: stats.nodes_searched,
-            root_visit_count: stats.stage1_moves as u32,
+            nodes_searched: stats.nodes_searched,
+            stage1_moves: stats.stage1_moves,
         }, debug))
     }
 }
@@ -78,9 +63,9 @@ mod tests {
 
     #[test]
     fn engine_finds_legal_move_from_opening() {
-        let eng = MctsEngine::new(default_cfg());
+        let eng = Engine::new(default_cfg());
         let (mv, stats) = eng.find_move(&Board::new()).expect("should find a move");
-        assert!(stats.nodes_in_tree > 1);
+        assert!(stats.nodes_searched > 1);
         // Verify the move is actually legal
         let game = crate::game::Game::from_board(Board::new());
         let all_moves = game.get_all_moves();
@@ -95,18 +80,7 @@ mod tests {
 
     #[test]
     fn new_constructor_works() {
-        let eng = MctsEngine::new(default_cfg());
-        let result = eng.find_move(&Board::new());
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn with_evaluator_constructor_works() {
-        use crate::engine::evaluator::CpuEvaluator;
-        let eng = MctsEngine::with_evaluator(
-            default_cfg(),
-            Arc::new(CpuEvaluator::new(crate::engine::config::ScoringWeights::default())),
-        );
+        let eng = Engine::new(default_cfg());
         let result = eng.find_move(&Board::new());
         assert!(result.is_ok());
     }
@@ -115,7 +89,7 @@ mod tests {
     fn terminal_board_returns_error() {
         let mut b = Board::new();
         b.set_game_over(true, true, false);
-        let eng = MctsEngine::new(default_cfg());
+        let eng = Engine::new(default_cfg());
         assert!(eng.find_move(&b).is_err());
     }
 
@@ -135,7 +109,7 @@ mod tests {
         }
         assert!(!game.board.is_white_to_move(), "should be black to move");
 
-        let eng = MctsEngine::new(EngineConfig::default());
+        let eng = Engine::new(EngineConfig::default());
         let (mv, _stats) = eng.find_move(&game.board).expect("should find a move");
         let mut game_after = game.clone();
         game_after.apply_move(mv).expect("engine move should be legal");
@@ -165,18 +139,18 @@ mod tests {
             game.apply_move(mv).expect("replayed move should be valid");
         }
 
-        let eng = MctsEngine::new(EngineConfig::default());
+        let eng = Engine::new(EngineConfig::default());
         let (best_mv, stats, tree_debug) = eng.find_move_debug(&game.board).unwrap();
         eprintln!("Best move: {} | nodes: {}",
-            best_mv.to_string(), stats.nodes_in_tree);
+            best_mv.to_string(), stats.nodes_searched);
 
-        eprintln!("\nRoot children (sorted by minimax_value):");
+        eprintln!("\nRoot children (sorted by score):");
         let mut children_info: Vec<_> = tree_debug.children.iter().map(|c| {
-            (c.action.clone().unwrap_or_default(), c.minimax_value, c.mean_value)
+            (c.action.clone().unwrap_or_default(), c.score, c.stage1_score)
         }).collect();
         children_info.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-        for (action, minimax, mean) in &children_info {
-            eprintln!("  {} : minimax={:.4}, stage1={:.4}", action, minimax, mean);
+        for (action, score, stage1) in &children_info {
+            eprintln!("  {} : score={:.4}, stage1={:.4}", action, score, stage1);
         }
     }
 }

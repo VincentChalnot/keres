@@ -7,7 +7,7 @@ use axum::{
     Router,
 };
 use keres_engine::board::{Board, BOARD_SIZE};
-use keres_engine::engine::{EngineConfig, MctsEngine};
+use keres_engine::engine::{EngineConfig, Engine};
 use keres_engine::game::{Game, Move};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
@@ -15,19 +15,18 @@ use tower_http::cors::{Any, CorsLayer};
 
 // Shared engine state
 struct AppState {
-    mcts_engine: Mutex<Option<MctsEngine>>,
+    engine: Mutex<Option<Engine>>,
 }
 
 #[tokio::main]
 async fn main() {
-    // @todo Initialize the MCTS engine with configuration
-    let mcts_config = EngineConfig::default();
+    let config = EngineConfig::default();
 
-    let mcts_engine = MctsEngine::new(mcts_config);
-    println!("✓ MCTS Engine initialized successfully");
+    let engine = Engine::new(config);
+    println!("✓ Engine initialized successfully");
 
     let state = Arc::new(AppState {
-        mcts_engine: Mutex::new(Some(mcts_engine)),
+        engine: Mutex::new(Some(engine)),
     });
 
     let cors = CorsLayer::new()
@@ -130,7 +129,7 @@ async fn engine_move(
 
     let board = Board::from_binary(board_array).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let guard = state.mcts_engine.lock().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let guard = state.engine.lock().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let engine = guard.as_ref().ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
 
     let (mv, _stats) = engine
