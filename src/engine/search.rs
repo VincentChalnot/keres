@@ -13,7 +13,6 @@ use crate::board::Board;
 use crate::game::{Game, Move, PotentialMove};
 use super::config::{EngineConfig, ScoringWeights};
 use super::evaluator::eval_centipawns;
-use super::search_tree::DebugTree;
 use super::tt::{TranspositionTable, TtEntry, Bound};
 use super::zobrist::hash_board;
 use super::see;
@@ -623,10 +622,20 @@ pub fn two_stage_search(
 
     // Stage 1
     let (stage1_results, s1_nodes) = stage1_search(
-        board, STAGE1_DEPTH, weights, Arc::clone(&tt), config.threads,
+        board, config.stage1_depth, weights, Arc::clone(&tt), config.threads,
     );
     if stage1_results.is_empty() {
         return Err("no legal moves found".into());
+    }
+
+    if config.disable_stage2 {
+        let best = &stage1_results[0];
+        return Ok((best.mv, SearchStats {
+            stage1_moves: stage1_results.len(),
+            stage2_candidates: 0,
+            best_score: best.score,
+            nodes_searched: s1_nodes,
+        }));
     }
 
     // Filter → Stage 2
@@ -662,10 +671,20 @@ pub fn two_stage_search_debug(
     let weights = config.weights;
 
     let (stage1_results, s1_nodes) = stage1_search(
-        board, STAGE1_DEPTH, weights, Arc::clone(&tt), config.threads,
+        board, config.stage1_depth, weights, Arc::clone(&tt), config.threads,
     );
     if stage1_results.is_empty() {
         return Err("no legal moves found".into());
+    }
+
+    if config.disable_stage2 {
+        let best = &stage1_results[0];
+        return Ok((best.mv, SearchStats {
+            stage1_moves: stage1_results.len(),
+            stage2_candidates: 0,
+            best_score: best.score,
+            nodes_searched: s1_nodes,
+        }, stage1_results, Vec::new()));
     }
 
     let candidates = filter_candidates(&stage1_results, board, &weights);
@@ -687,11 +706,26 @@ pub fn two_stage_search_debug(
     }, stage1_results, stage2_results))
 }
 
+/// Serialisable snapshot of the search tree for external debugging tools.
+#[derive(serde::Serialize)]
+pub struct DebugTree {
+    pub node_id: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action: Option<String>,
+    pub score: f32,
+    pub stage1_score: f32,
+    pub zobrist_key: u64,
+    pub white_to_move: bool,
+    pub is_terminal: bool,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub children: Vec<DebugTree>,
+}
+
 /// Build a `DebugTree` from the two-stage search results.
 ///
 /// The root node represents the position analyzed; its children are
-/// the Stage 1 scored moves.  The `minimax_value` of each child
-/// reflects the Stage 2 score (if available) or Stage 1 score otherwise.
+/// the Stage 1 scored moves.  The `score` of each child reflects the
+/// Stage 2 score (if available) or Stage 1 score otherwise.
 pub fn build_debug_tree(
     board: &Board,
     stage1: &[ScoredMove],
@@ -700,6 +734,7 @@ pub fn build_debug_tree(
     let white_to_move = board.is_white_to_move();
     let best_cp = stage2.first().or(stage1.first()).map(|sm| sm.score).unwrap_or(0);
     let best_sigmoid = cp_stm_to_white_sigmoid(best_cp, white_to_move);
+    let root_hash = hash_board(board);
 
     let children: Vec<DebugTree> = stage1.iter().enumerate().map(|(i, sm)| {
         let s2_score = stage2.iter().find(|s| s.mv == sm.mv).map(|s| s.score);
@@ -707,9 +742,9 @@ pub fn build_debug_tree(
         DebugTree {
             node_id: i + 1,
             action: Some(sm.mv.to_string()),
-            visits: 1,
-            minimax_value: cp_stm_to_white_sigmoid(final_cp, white_to_move),
-            mean_value: cp_stm_to_white_sigmoid(sm.score, white_to_move),
+            score: cp_stm_to_white_sigmoid(final_cp, white_to_move),
+            stage1_score: cp_stm_to_white_sigmoid(sm.score, white_to_move),
+            zobrist_key: 0, // child zobrist not computed here
             white_to_move: !white_to_move,
             is_terminal: false,
             children: Vec::new(),
@@ -719,9 +754,9 @@ pub fn build_debug_tree(
     DebugTree {
         node_id: 0,
         action: None,
-        visits: 1,
-        minimax_value: best_sigmoid,
-        mean_value: best_sigmoid,
+        score: best_sigmoid,
+        stage1_score: best_sigmoid,
+        zobrist_key: root_hash,
         white_to_move,
         is_terminal: board.is_game_over(),
         children,

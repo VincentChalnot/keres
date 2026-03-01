@@ -1,4 +1,4 @@
-//! Board position evaluators for the Keres MCTS engine.
+//! Board position evaluators for the Keres search engine.
 //!
 //! One implementation is provided:
 //! - `CpuEvaluator`: pure-Rust heuristic evaluation with quiescence search
