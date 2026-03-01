@@ -19,6 +19,7 @@ num_cpus = "1.16"
 rand = "0.8"
 rayon = "1.10"
 parking_lot = "0.12"
+ahash = "0.8.12"
 
 [lib]
 name = "keres_engine"

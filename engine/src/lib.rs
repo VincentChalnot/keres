@@ -5,8 +5,10 @@ pub mod game;
 pub mod tui;
 
 // Re-export main types
-pub use board::{Board, Color, Piece, PieceType, Position, BOARD_DIMENSION, BOARD_SIZE};
+pub use board::{Board, Color, Piece, PieceType, Position, UndoInfo, BOARD_DIMENSION, BOARD_SIZE};
 pub use game::{Game, Move, PotentialMove};
 pub use tui::run_tui;
 // Re-export main engine types (others available via engine::*)
 pub use engine::{EngineConfig, Engine, SearchStatistics};
+pub use engine::{SearchConfig, SearchResult, PVLine, SearchStats, SearchEngine, MockStage2};
+pub use engine::{NodeVisitor, NoopVisitor, TreeRecorder, DebugNode};

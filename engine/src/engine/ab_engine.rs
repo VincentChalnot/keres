@@ -1,10 +1,13 @@
 //! Public engine API for the Keres board game.
 //!
-//! Wraps the two-stage alpha-beta search pipeline.
+//! Wraps the Stage 1 alpha-beta search pipeline.
+//! Stage 2 is mocked: it simply returns the best move from Stage 1.
 
 use crate::board::Board;
 use crate::game::Move;
 use super::config::EngineConfig;
+use super::search_config::SearchConfig;
+use super::stage1;
 
 /// Aggregate statistics returned alongside the chosen move.
 pub struct SearchStatistics {
@@ -23,13 +26,23 @@ impl Engine {
         Engine { cfg }
     }
 
-    /// Run the two-stage search from the given board position and
+    /// Run the search from the given board position and
     /// return the best move together with search statistics.
     pub fn find_move(&self, board: &Board) -> Result<(Move, SearchStatistics), String> {
-        let (mv, stats) = super::search::two_stage_search(board, &self.cfg)?;
-        Ok((mv, SearchStatistics {
-            nodes_searched: stats.nodes_searched,
-            stage1_moves: stats.stage1_moves,
+        if board.is_game_over() {
+            return Err("cannot search from a terminal position".into());
+        }
+
+        let config = self.to_search_config();
+        let (result, _stats) = stage1::stage1_search(board, &config);
+
+        if result.top_moves.is_empty() {
+            return Err("no legal moves found".into());
+        }
+
+        Ok((result.best_move, SearchStatistics {
+            nodes_searched: result.nodes_visited as usize,
+            stage1_moves: result.top_moves.len(),
         }))
     }
 
@@ -38,13 +51,38 @@ impl Engine {
     pub fn find_move_debug(&self, board: &Board)
         -> Result<(Move, SearchStatistics, super::search::DebugTree), String>
     {
-        let (mv, stats, stage1, stage2) =
-            super::search::two_stage_search_debug(board, &self.cfg)?;
-        let debug = super::search::build_debug_tree(board, &stage1, &stage2);
-        Ok((mv, SearchStatistics {
-            nodes_searched: stats.nodes_searched,
-            stage1_moves: stats.stage1_moves,
+        if board.is_game_over() {
+            return Err("cannot search from a terminal position".into());
+        }
+
+        let config = self.to_search_config();
+        let (result, _stats) = stage1::stage1_search(board, &config);
+
+        if result.top_moves.is_empty() {
+            return Err("no legal moves found".into());
+        }
+
+        // Build debug tree from Stage 1 results
+        let scored_moves: Vec<super::search::ScoredMove> = result.top_moves.iter().map(|pv| {
+            super::search::ScoredMove { mv: pv.root_move, score: pv.score }
+        }).collect();
+
+        // Stage 2 is mocked: just use Stage 1 results
+        let debug = super::search::build_debug_tree(board, &scored_moves, &[]);
+
+        Ok((result.best_move, SearchStatistics {
+            nodes_searched: result.nodes_visited as usize,
+            stage1_moves: result.top_moves.len(),
         }, debug))
+    }
+
+    fn to_search_config(&self) -> SearchConfig {
+        SearchConfig {
+            depth: self.cfg.stage1_depth,
+            top_moves: 3,
+            threads: self.cfg.threads,
+            ..SearchConfig::default()
+        }
     }
 }
 
