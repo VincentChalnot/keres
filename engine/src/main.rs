@@ -57,6 +57,24 @@ struct DebugTreeArgs {
     /// Stage 1 search depth (default: 4)
     #[arg(long, default_value = "4")]
     stage_1_depth: i32,
+    /// Number of top moves to find (MultiPV passes, default: 3)
+    #[arg(long, default_value = "3")]
+    top_moves: usize,
+    /// Disable transposition table
+    #[arg(long, default_value = "false")]
+    no_tt: bool,
+    /// Disable alpha-beta pruning (pure minimax)
+    #[arg(long, default_value = "false")]
+    no_alpha_beta: bool,
+    /// Disable MVV-LVA + history move ordering
+    #[arg(long, default_value = "false")]
+    no_move_ordering: bool,
+    /// Disable killer move heuristic
+    #[arg(long, default_value = "false")]
+    no_killers: bool,
+    /// Override number of threads (default: num_cpus)
+    #[arg(long)]
+    threads: Option<usize>,
 }
 
 fn main() {
@@ -236,7 +254,8 @@ fn main() {
     }
 
     fn run_debug_tree(args: &DebugTreeArgs) {
-        use keres_engine::engine::{EngineConfig, Engine};
+        use keres_engine::engine::{SearchConfig};
+        use keres_engine::engine::stage1;
         use std::time::Instant;
 
         // Build the game state by replaying the encoded moves
@@ -265,34 +284,55 @@ fn main() {
         eprintln!("Board after replay ({} to move):",
             if game.board.is_white_to_move() { "white" } else { "black" });
 
-        let mut cfg = EngineConfig::default();
-        cfg.stage1_depth = args.stage_1_depth;
-        cfg.disable_stage2 = args.disable_stage_2;
-        let engine = Engine::new(cfg);
+        if game.board.is_game_over() {
+            eprintln!("Position is terminal — no search to run");
+            std::process::exit(1);
+        }
+
+        let cfg = SearchConfig {
+            depth: args.stage_1_depth,
+            top_moves: args.top_moves,
+            no_tt: args.no_tt,
+            no_alpha_beta: args.no_alpha_beta,
+            no_move_ordering: args.no_move_ordering,
+            no_killers: args.no_killers,
+            debug_tree: true,
+            threads: args.threads.unwrap_or(num_cpus::get().max(1)),
+        };
 
         let timer = Instant::now();
-        match engine.find_move_debug(&game.board) {
-            Ok((best_mv, stats, debug_tree)) => {
-                let elapsed = timer.elapsed();
-                let elapsed_secs = elapsed.as_secs_f64();
-                let speed = if elapsed_secs > 0.0 {
-                    stats.nodes_searched as f64 / elapsed_secs
-                } else {
-                    0.0
-                };
-                eprintln!("Best move: {}", best_mv.to_string());
-                eprintln!("Nodes searched: {}, Stage 1 moves: {}",
-                    stats.nodes_searched, stats.stage1_moves);
-                eprintln!("Engine speed: {:.2} nodes/sec ({} nodes in {:.3} seconds)",
-                    speed, stats.nodes_searched, elapsed_secs);
-                // Print JSONL tree to stdout (can be piped to a file)
-                dump_debug_tree_jsonl(&debug_tree);
-            }
-            Err(e) => {
-                eprintln!("Engine error: {}", e);
-                std::process::exit(1);
-            }
+        let (result, stats) = stage1::stage1_search(&game.board, &cfg);
+        let elapsed = timer.elapsed();
+        let elapsed_secs = elapsed.as_secs_f64();
+
+        let nodes = result.nodes_visited;
+        let nps = if elapsed_secs > 0.0 { nodes as f64 / elapsed_secs } else { 0.0 };
+
+        eprintln!("Best move: {}", result.best_move.to_string());
+        eprintln!("Score: {}", result.score);
+        eprintln!("Depth: {}", result.depth);
+        eprintln!("Nodes visited: {}", nodes);
+        eprintln!("TT hit rate: {:.1}% ({} hits / {} probes)",
+            stats.tt_hit_rate(), stats.tt_hits, stats.tt_probes);
+        eprintln!("Time: {:.3}s", elapsed_secs);
+        eprintln!("Speed: {:.0} nodes/sec", nps);
+        eprintln!("Top moves ({}):", result.top_moves.len());
+
+        for (i, pv) in result.top_moves.iter().enumerate() {
+            let pv_str: Vec<String> = pv.moves.iter().map(|m| m.to_string()).collect();
+            eprintln!("  {}. {} (score={}) PV: {}",
+                i + 1, pv.root_move.to_string(), pv.score, pv_str.join(" → "));
         }
+
+        // Output JSONL debug tree to stdout
+        let scored_moves: Vec<keres_engine::engine::search::ScoredMove> =
+            result.top_moves.iter().map(|pv| {
+                keres_engine::engine::search::ScoredMove { mv: pv.root_move, score: pv.score }
+            }).collect();
+        let debug_tree = keres_engine::engine::search::build_debug_tree(
+            &game.board, &scored_moves, &[],
+        );
+        dump_debug_tree_jsonl(&debug_tree);
     }
 }
 
