@@ -63,12 +63,7 @@ impl Engine {
         }
 
         // Build debug tree from Stage 1 results
-        let scored_moves: Vec<super::search::ScoredMove> = result.top_moves.iter().map(|pv| {
-            super::search::ScoredMove { mv: pv.root_move, score: pv.score }
-        }).collect();
-
-        // Stage 2 is mocked: just use Stage 1 results
-        let debug = super::search::build_debug_tree(board, &scored_moves, &[]);
+        let debug = super::search::build_debug_tree(board, &result.top_moves);
 
         Ok((result.best_move, SearchStatistics {
             nodes_searched: result.nodes_visited as usize,
