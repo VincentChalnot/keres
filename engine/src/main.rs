@@ -57,6 +57,12 @@ struct DebugTreeArgs {
     /// Number of top moves to find (MultiPV passes, default: 3)
     #[arg(long, default_value = "3")]
     top_moves: usize,
+    /// Target number of distinct PV lines to collect across all passes (default: 5)
+    #[arg(long, default_value = "5")]
+    expected_leaves: usize,
+    /// Hard cap on the number of MultiPV passes regardless of expected-leaves (default: 3)
+    #[arg(long, default_value = "3")]
+    max_passes: usize,
     /// Disable transposition table
     #[arg(long, default_value = "false")]
     no_tt: bool,
@@ -289,6 +295,8 @@ fn main() {
         let cfg = SearchConfig {
             depth: args.stage_1_depth,
             top_moves: args.top_moves,
+            expected_leaves: args.expected_leaves,
+            max_passes: args.max_passes,
             no_tt: args.no_tt,
             no_alpha_beta: args.no_alpha_beta,
             no_move_ordering: args.no_move_ordering,
@@ -342,7 +350,7 @@ fn dump_debug_tree_jsonl(tree: &DebugTree) {
             "parent_id": parent_id,
             "score": node.score,
             "stage1_score": node.stage1_score,
-            "zobrist_key": format!("{:#018x}", node.zobrist_key),
+            "hash": format!("{:#018x}", node.hash),
             "white_to_move": node.white_to_move,
             "is_terminal": node.is_terminal,
         });

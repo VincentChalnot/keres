@@ -290,9 +290,13 @@ pub fn stage1_search(board: &Board, config: &SearchConfig) -> (SearchResult, Sea
     let total_tt_hits = Arc::new(AtomicU64::new(0));
     let total_tt_probes = Arc::new(AtomicU64::new(0));
 
-    let num_passes = config.top_moves.min(all_moves.len());
+    let max_passes = config.max_passes.min(all_moves.len());
 
-    for _pass in 0..num_passes {
+    for _pass in 0..max_passes {
+        if all_pvs.len() >= config.expected_leaves {
+            break;
+        }
+
         // Score all root moves for this pass
         let scored = score_root_moves(
             board,
@@ -309,15 +313,14 @@ pub fn stage1_search(board: &Board, config: &SearchConfig) -> (SearchResult, Sea
             break;
         }
 
-        // Best move for this pass
-        let best = &scored[0];
-
-        // Record the PV
-        all_pvs.push(best.clone());
-
-        // Add the leaf hash to the blacklist for next pass
-        let leaf_hash = hash_board(&best.leaf_board);
-        blacklist.insert(leaf_hash);
+        // Collect ALL PV lines that share the best score for this pass.
+        // `scored` is sorted descending so take_while stops as soon as score drops.
+        let best_score = scored[0].score;
+        for pv in scored.iter().take_while(|p| p.score == best_score) {
+            let leaf_hash = hash_board(&pv.leaf_board);
+            blacklist.insert(leaf_hash);
+            all_pvs.push(pv.clone());
+        }
     }
 
     let nodes = total_nodes.load(Ordering::Relaxed);
