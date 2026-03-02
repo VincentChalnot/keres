@@ -330,12 +330,8 @@ fn main() {
         }
 
         // Output JSONL debug tree to stdout
-        let scored_moves: Vec<keres_engine::engine::search::ScoredMove> =
-            result.top_moves.iter().map(|pv| {
-                keres_engine::engine::search::ScoredMove { mv: pv.root_move, score: pv.score }
-            }).collect();
         let debug_tree = keres_engine::engine::search::build_debug_tree(
-            &game.board, &scored_moves, &[],
+            &game.board, &result.top_moves,
         );
         dump_debug_tree_jsonl(&debug_tree);
     }
@@ -350,12 +346,14 @@ fn dump_debug_tree_jsonl(tree: &DebugTree) {
             "parent_id": parent_id,
             "score": node.score,
             "stage1_score": node.stage1_score,
-            "hash": format!("{:#018x}", node.hash),
             "white_to_move": node.white_to_move,
             "is_terminal": node.is_terminal,
         });
         if let Some(action) = &node.action {
             obj["action"] = serde_json::json!(action);
+        }
+        if let Some(hash) = node.hash {
+            obj["hash"] = serde_json::json!(format!("{:#018x}", hash));
         }
         println!("{}", obj);
         for child in node.children.iter() {
