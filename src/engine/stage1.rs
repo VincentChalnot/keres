@@ -539,6 +539,19 @@ pub fn stage1_search_with_config(
 
     let max_passes = (config.max_passes as usize).min(all_moves.len());
 
+    // Build the Rayon thread pool once and reuse it across passes (Bug 3 fix).
+    let pool: Option<rayon::ThreadPool> = if threads > 1 && all_moves.len() > 1 {
+        match rayon::ThreadPoolBuilder::new().num_threads(threads).build() {
+            Ok(p) => Some(p),
+            Err(e) => {
+                eprintln!("Warning: failed to create Rayon thread pool ({e}); falling back to single-threaded search");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     for _pass in 0..max_passes {
         if all_pvs.len() >= config.expected_leaves {
             break;
@@ -549,6 +562,7 @@ pub fn stage1_search_with_config(
             &all_moves,
             config,
             threads,
+            pool.as_ref(),
             &tt,
             &blacklist,
             &total_nodes,
@@ -716,11 +730,14 @@ fn score_root_moves(
 }
 
 /// Score all root moves using StageConfig. Returns sorted PVLines.
+///
+/// `pool`: optional pre-built Rayon thread pool to reuse across passes (Bug 3 fix).
 fn score_root_moves_with_config(
     board: &Board,
     moves: &[Move],
     config: &StageConfig,
     threads: usize,
+    pool: Option<&rayon::ThreadPool>,
     tt: &Arc<LeafTT>,
     blacklist: &HashSet<u64>,
     total_nodes: &Arc<AtomicU64>,
@@ -729,7 +746,7 @@ fn score_root_moves_with_config(
 ) -> Vec<PVLine> {
     let depth = config.effective_depth() as i32;
 
-    if threads <= 1 || moves.len() <= 1 {
+    if threads <= 1 || moves.len() <= 1 || pool.is_none() {
         let mut state = SearchState::new();
         let mut results: Vec<PVLine> = Vec::new();
 
@@ -778,10 +795,7 @@ fn score_root_moves_with_config(
     } else {
         use rayon::prelude::*;
 
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap();
+        let pool = pool.unwrap();
 
         let results: Vec<PVLine> = pool.install(|| {
             moves.par_iter().map(|&mv| {
@@ -1286,10 +1300,22 @@ mod tests {
             s2_config.depth = 2; // shallow for test speed
 
             let candidate_moves = extract_candidate_moves(&s1_result.top_moves);
+            let n_candidates = candidate_moves.len();
+            // Bug 1 fix: max_passes and expected_leaves must cover all candidates
+            s2_config.max_passes = n_candidates as u8;
+            s2_config.expected_leaves = n_candidates;
             let (s2_result, _, _) = stage1_search_with_config(
                 &board, &s2_config, 1, Some(candidate_moves), Some(tt),
             );
             assert!(!s2_result.top_moves.is_empty());
+            // Verify Stage 2 returns a PV for every candidate root move
+            let unique_roots: std::collections::HashSet<_> = s2_result.top_moves
+                .iter()
+                .map(|pv| pv.root_move)
+                .collect();
+            assert_eq!(unique_roots.len(), n_candidates,
+                "Stage 2 should return a PV for each of the {} candidate root moves, got {}",
+                n_candidates, unique_roots.len());
         }
     }
 

@@ -365,6 +365,10 @@ fn main() {
             log_stage1_stats_and_pvs(&result, &stats);
             // Deduplicate root moves from Stage 1 candidates
             let candidate_moves = stage1::extract_candidate_moves(&result.top_moves);
+            let mut s2_config = s2_config;
+            // Bug 1 fix: set max_passes and expected_leaves to cover all candidates
+            s2_config.max_passes = candidate_moves.len() as u8;
+            s2_config.expected_leaves = candidate_moves.len();
             let (s2_result, _, _) = stage1::stage1_search_with_config(
                 &game.board, &s2_config, threads, Some(candidate_moves), Some(tt),
             );
@@ -400,7 +404,7 @@ fn main() {
 
         // Output JSONL debug tree to stdout
         let debug_tree = keres_engine::engine::search::build_debug_tree(
-            &game.board, &result.top_moves,
+            &game.board, &final_result.top_moves,
         );
         dump_debug_tree_jsonl(&debug_tree);
     }
