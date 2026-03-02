@@ -11,4 +11,5 @@ pub use tui::run_tui;
 // Re-export main engine types (others available via engine::*)
 pub use engine::{EngineConfig, Engine, SearchStatistics};
 pub use engine::{SearchConfig, SearchResult, PVLine, SearchStats, SearchEngine, MockStage2};
+pub use engine::{StageConfig};
 pub use engine::{NodeVisitor, NoopVisitor, TreeRecorder, DebugNode};

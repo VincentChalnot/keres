@@ -5,6 +5,7 @@ use keres_engine::{
     cli_rendering::display_stack, run_tui, Game, Position, BOARD_DIMENSION, BOARD_SIZE,
 };
 use keres_engine::game::Move;
+use keres_engine::engine::StageConfig;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -78,6 +79,29 @@ struct DebugTreeArgs {
     /// Override number of threads (default: num_cpus)
     #[arg(long)]
     threads: Option<usize>,
+
+    // ── Stage 2 overrides ────────────────────────────────────────────────────
+    /// Override Stage 2 search depth (default: 6)
+    #[arg(long)]
+    s2_depth: Option<u8>,
+    /// Disable null move pruning in Stage 2
+    #[arg(long, default_value = "false")]
+    s2_no_null_move: bool,
+    /// Disable LMR in Stage 2
+    #[arg(long, default_value = "false")]
+    s2_no_lmr: bool,
+    /// Disable selective extensions in Stage 2
+    #[arg(long, default_value = "false")]
+    s2_no_extensions: bool,
+    /// Disable TT in Stage 2
+    #[arg(long, default_value = "false")]
+    s2_no_tt: bool,
+    /// Enable TreeRecorder for Stage 2, output JSONL to stderr
+    #[arg(long, default_value = "false")]
+    s2_debug_tree: bool,
+    /// Print the final resolved StageConfig for both stages as JSON before running
+    #[arg(long, default_value = "false")]
+    config_dump: bool,
 }
 
 fn main() {
@@ -257,7 +281,7 @@ fn main() {
     }
 
     fn run_debug_tree(args: &DebugTreeArgs) {
-        use keres_engine::engine::{SearchConfig};
+        use keres_engine::engine::SearchConfig;
         use keres_engine::engine::stage1;
         use std::time::Instant;
 
@@ -292,6 +316,35 @@ fn main() {
             std::process::exit(1);
         }
 
+        // Build Stage 1 StageConfig from CLI args
+        let mut s1_config = StageConfig::stage1();
+        s1_config.depth = args.stage_1_depth as u8;
+        s1_config.max_passes = args.max_passes as u8;
+        s1_config.expected_leaves = args.expected_leaves;
+        if args.no_tt { s1_config.transposition_table = false; }
+        if args.no_alpha_beta { s1_config.alpha_beta = false; }
+        if args.no_move_ordering { s1_config.move_ordering = false; }
+        if args.no_killers { s1_config.killer_moves = false; }
+        s1_config.tree_recorder = true;
+
+        // Build Stage 2 StageConfig from CLI args
+        let mut s2_config = StageConfig::stage2();
+        if let Some(d) = args.s2_depth { s2_config.depth = d; }
+        if args.s2_no_null_move { s2_config.null_move_pruning = false; }
+        if args.s2_no_lmr { s2_config.lmr = false; }
+        if args.s2_no_extensions { s2_config.selective_extensions = false; }
+        if args.s2_no_tt { s2_config.transposition_table = false; }
+        if args.s2_debug_tree { s2_config.tree_recorder = true; }
+
+        // Config dump
+        if args.config_dump {
+            eprintln!("Stage 1 config: {}", serde_json::to_string_pretty(&s1_config).unwrap());
+            eprintln!("Stage 2 config: {}", serde_json::to_string_pretty(&s2_config).unwrap());
+        }
+
+        let threads = args.threads.unwrap_or(num_cpus::get().max(1));
+
+        // Also keep the legacy SearchConfig path for debug tree output
         let cfg = SearchConfig {
             depth: args.stage_1_depth,
             top_moves: args.top_moves,
@@ -302,24 +355,42 @@ fn main() {
             no_move_ordering: args.no_move_ordering,
             no_killers: args.no_killers,
             debug_tree: true,
-            threads: args.threads.unwrap_or(num_cpus::get().max(1)),
+            threads,
         };
 
         let timer = Instant::now();
         let (result, stats) = stage1::stage1_search(&game.board, &cfg);
+        let s1_elapsed = timer.elapsed();
+
+        // Stage 2
+        let (final_result, s2_nodes) = if result.top_moves.len() <= 1
+            || stage1::all_same_root_move(&result.top_moves)
+        {
+            eprintln!("Stage 2 skipped (all candidates share the same root move)");
+            (result.clone(), 0u64)
+        } else {
+            let (_, _, tt) = stage1::stage1_search_with_config(&game.board, &s1_config, threads);
+            let s2_engine = stage1::Stage2Engine::new(s2_config, tt);
+            let s2_result = s2_engine.search(&game.board, &result.top_moves);
+            let s2_n = s2_result.nodes_visited;
+            eprintln!("Stage 2 refined {} candidates, best: {} (score={})",
+                result.top_moves.len(), s2_result.best_move.to_string(), s2_result.score);
+            (s2_result, s2_n)
+        };
+
         let elapsed = timer.elapsed();
         let elapsed_secs = elapsed.as_secs_f64();
 
-        let nodes = result.nodes_visited;
+        let nodes = result.nodes_visited + s2_nodes;
         let nps = if elapsed_secs > 0.0 { nodes as f64 / elapsed_secs } else { 0.0 };
 
-        eprintln!("Best move: {}", result.best_move.to_string());
-        eprintln!("Score: {}", result.score);
+        eprintln!("Best move: {}", final_result.best_move.to_string());
+        eprintln!("Score: {}", final_result.score);
         eprintln!("Depth: {}", result.depth);
-        eprintln!("Nodes visited: {}", nodes);
+        eprintln!("Nodes visited: {} (S1: {}, S2: {})", nodes, result.nodes_visited, s2_nodes);
         eprintln!("TT hit rate: {:.1}% ({} hits / {} probes)",
             stats.tt_hit_rate(), stats.tt_hits, stats.tt_probes);
-        eprintln!("Time: {:.3}s", elapsed_secs);
+        eprintln!("Time: {:.3}s (S1: {:.3}s)", elapsed_secs, s1_elapsed.as_secs_f64());
         eprintln!("Speed: {:.0} nodes/sec", nps);
         eprintln!("Top moves ({}):", result.top_moves.len());
 
