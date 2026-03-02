@@ -42,7 +42,7 @@ pub struct DebugTree {
     pub action: Option<String>,
     pub score: f32,
     pub stage1_score: f32,
-    pub zobrist_key: u64,
+    pub hash: u64,
     pub white_to_move: bool,
     pub is_terminal: bool,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -67,12 +67,17 @@ pub fn build_debug_tree(
     let children: Vec<DebugTree> = stage1.iter().enumerate().map(|(i, sm)| {
         let s2_score = stage2.iter().find(|s| s.mv == sm.mv).map(|s| s.score);
         let final_cp = s2_score.unwrap_or(sm.score);
+        // Compute the board hash after applying this move.
+        // The undo token is intentionally discarded — we only need the resulting position.
+        let mut child_board = *board;
+        let _ = child_board.make(&sm.mv);
+        let child_hash = hash_board(&child_board);
         DebugTree {
             node_id: i + 1,
             action: Some(sm.mv.to_string()),
             score: cp_stm_to_white_sigmoid(final_cp, white_to_move),
             stage1_score: cp_stm_to_white_sigmoid(sm.score, white_to_move),
-            zobrist_key: 0, // child zobrist not computed here
+            hash: child_hash,
             white_to_move: !white_to_move,
             is_terminal: false,
             children: Vec::new(),
@@ -84,7 +89,7 @@ pub fn build_debug_tree(
         action: None,
         score: best_sigmoid,
         stage1_score: best_sigmoid,
-        zobrist_key: root_hash,
+        hash: root_hash,
         white_to_move,
         is_terminal: board.is_game_over(),
         children,

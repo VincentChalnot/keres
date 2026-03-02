@@ -14,7 +14,7 @@ pub trait NodeVisitor: Send {
     fn on_leaf(&mut self, path: &[Move], score: i32, board: &Board);
 
     /// Called when entering an internal node (optional, for full tree recording).
-    fn on_node(&mut self, depth: u8, mv: Move, alpha: i32, beta: i32);
+    fn on_node(&mut self, depth: u8, mv: Move, alpha: i32, beta: i32, hash: u64);
 }
 
 /// No-op visitor with zero overhead. Used in production.
@@ -25,7 +25,7 @@ impl NodeVisitor for NoopVisitor {
     fn on_leaf(&mut self, _path: &[Move], _score: i32, _board: &Board) {}
 
     #[inline(always)]
-    fn on_node(&mut self, _depth: u8, _mv: Move, _alpha: i32, _beta: i32) {}
+    fn on_node(&mut self, _depth: u8, _mv: Move, _alpha: i32, _beta: i32, _hash: u64) {}
 }
 
 /// Debug node for tree recording.
@@ -37,7 +37,7 @@ pub struct DebugNode {
     pub alpha: i32,
     pub beta: i32,
     pub is_leaf: bool,
-    pub board_hash: u64,
+    pub hash: u64,
 }
 
 /// Records the full search tree for debugging.
@@ -64,7 +64,7 @@ impl TreeRecorder {
 impl NodeVisitor for TreeRecorder {
     fn on_leaf(&mut self, path: &[Move], score: i32, board: &Board) {
         let binary = board.to_binary();
-        let board_hash = ahash::RandomState::with_seeds(0, 0, 0, 0)
+        let hash = ahash::RandomState::with_seeds(0, 0, 0, 0)
             .hash_one(&binary[..81]);
         self.nodes.push(DebugNode {
             depth: path.len() as u8,
@@ -73,11 +73,11 @@ impl NodeVisitor for TreeRecorder {
             alpha: i32::MIN,
             beta: i32::MAX,
             is_leaf: true,
-            board_hash,
+            hash,
         });
     }
 
-    fn on_node(&mut self, depth: u8, mv: Move, alpha: i32, beta: i32) {
+    fn on_node(&mut self, depth: u8, mv: Move, alpha: i32, beta: i32, hash: u64) {
         self.nodes.push(DebugNode {
             depth,
             path: vec![mv.to_string()],
@@ -85,7 +85,7 @@ impl NodeVisitor for TreeRecorder {
             alpha,
             beta,
             is_leaf: false,
-            board_hash: 0,
+            hash,
         });
     }
 }
@@ -104,7 +104,7 @@ mod tests {
             unstack: false,
         };
         v.on_leaf(&[mv], 42, &Board::new());
-        v.on_node(0, mv, -100, 100);
+        v.on_node(0, mv, -100, 100, 0);
     }
 
     #[test]
@@ -129,7 +129,7 @@ mod tests {
             to: Position::new(1, 1),
             unstack: false,
         };
-        r.on_node(2, mv, -100, 100);
+        r.on_node(2, mv, -100, 100, 0);
         assert_eq!(r.nodes.len(), 1);
         assert!(!r.nodes[0].is_leaf);
         assert_eq!(r.nodes[0].alpha, -100);
