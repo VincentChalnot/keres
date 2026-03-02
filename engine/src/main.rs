@@ -363,9 +363,7 @@ fn main() {
         let s1_elapsed = timer.elapsed();
 
         // Stage 2
-        let (final_result, s2_nodes) = if result.top_moves.len() <= 1
-            || stage1::all_same_root_move(&result.top_moves)
-        {
+        let (final_result, s2_nodes) = if stage1::all_same_root_move(&result.top_moves) {
             eprintln!("Stage 2 skipped (all candidates share the same root move)");
             (result.clone(), 0u64)
         } else {
