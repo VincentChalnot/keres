@@ -39,7 +39,7 @@ impl Engine {
         let s2_config = StageConfig::stage2();
         let threads = self.cfg.threads;
 
-        let (s1_result, _s1_stats, tt) = stage1::stage1_search_with_config(board, &s1_config, threads);
+        let (s1_result, _s1_stats, tt) = stage1::stage1_search_with_config(board, &s1_config, threads, None, None);
 
         if s1_result.top_moves.is_empty() {
             return Err("no legal moves found".into());
@@ -49,8 +49,11 @@ impl Engine {
         let final_result = if stage1::all_same_root_move(&s1_result.top_moves) {
             s1_result
         } else {
-            let s2_engine = stage1::Stage2Engine::new(s2_config, tt);
-            s2_engine.search(board, &s1_result.top_moves)
+            let candidate_moves = stage1::extract_candidate_moves(&s1_result.top_moves);
+            let (s2_result, _, _) = stage1::stage1_search_with_config(
+                board, &s2_config, threads, Some(candidate_moves), Some(tt),
+            );
+            s2_result
         };
 
         Ok((final_result.best_move, SearchStatistics {

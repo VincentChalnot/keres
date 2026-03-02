@@ -284,7 +284,6 @@ fn main() {
     }
 
     fn run_debug_tree(args: &DebugTreeArgs) {
-        use keres_engine::engine::SearchConfig;
         use keres_engine::engine::stage1;
         use std::time::Instant;
 
@@ -347,22 +346,8 @@ fn main() {
 
         let threads = args.threads.unwrap_or(num_cpus::get().max(1));
 
-        // Also keep the legacy SearchConfig path for debug tree output
-        let cfg = SearchConfig {
-            depth: args.stage_1_depth,
-            top_moves: args.top_moves,
-            expected_leaves: args.expected_leaves,
-            max_passes: args.max_passes,
-            no_tt: args.no_tt,
-            no_alpha_beta: args.no_alpha_beta,
-            no_move_ordering: args.no_move_ordering,
-            no_killers: args.no_killers,
-            debug_tree: true,
-            threads,
-        };
-
         let timer = Instant::now();
-        let (result, stats) = stage1::stage1_search(&game.board, &cfg);
+        let (result, stats, tt) = stage1::stage1_search_with_config(&game.board, &s1_config, threads, None, None);
         let s1_elapsed = timer.elapsed();
 
         // Stage 2
@@ -387,9 +372,11 @@ fn main() {
             eprintln!("Nodes visited: {}", result.nodes_visited);
             eprintln!("TT hit rate: {:.1}% ({} hits / {} probes)",
                 stats.tt_hit_rate(), stats.tt_hits, stats.tt_probes);
-            let (_, _, tt) = stage1::stage1_search_with_config(&game.board, &s1_config, threads);
-            let s2_engine = stage1::Stage2Engine::new(s2_config, tt);
-            let s2_result = s2_engine.search(&game.board, &result.top_moves);
+            // Deduplicate root moves from Stage 1 candidates
+            let candidate_moves = stage1::extract_candidate_moves(&result.top_moves);
+            let (s2_result, _, _) = stage1::stage1_search_with_config(
+                &game.board, &s2_config, threads, Some(candidate_moves), Some(tt),
+            );
             let s2_n = s2_result.nodes_visited;
             eprintln!("Stage 2 refined {} candidates, best: {} (score={})",
                 result.top_moves.len(), s2_result.best_move.to_string(), s2_result.score);
@@ -410,9 +397,9 @@ fn main() {
             stats.tt_hit_rate(), stats.tt_hits, stats.tt_probes);
         eprintln!("Time: {:.3}s (S1: {:.3}s)", elapsed_secs, s1_elapsed.as_secs_f64());
         eprintln!("Speed: {:.0} nodes/sec", nps);
-        eprintln!("Top moves ({}):", result.top_moves.len());
+        eprintln!("Top moves ({}):", final_result.top_moves.len());
 
-        for (i, pv) in result.top_moves.iter().enumerate() {
+        for (i, pv) in final_result.top_moves.iter().enumerate() {
             let pv_str: Vec<String> = pv.moves.iter().map(|m| m.to_string()).collect();
             eprintln!("  {}. {} (score={}) PV: {}",
                 i + 1, pv.root_move.to_string(), pv.score, pv_str.join(" → "));
