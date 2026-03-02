@@ -10,8 +10,8 @@ use crate::game::Game;
 
 /// Heuristic weights.
 pub const MOBILITY_WEIGHT: i32 = 2;
-pub const HANGING_WEIGHT: i32 = 3;
-pub const KING_SAFETY_WEIGHT: i32 = 4;
+pub const HANGING_WEIGHT: i32 = 1;
+pub const KING_SAFETY_WEIGHT: i32 = 1;
 pub const CENTER_WEIGHT: i32 = 1;
 
 /// Piece values for static evaluation (in centipawns).
