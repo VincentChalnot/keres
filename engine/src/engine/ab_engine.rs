@@ -50,6 +50,10 @@ impl Engine {
             s1_result
         } else {
             let candidate_moves = stage1::extract_candidate_moves(&s1_result.top_moves);
+            let mut s2_config = s2_config;
+            // Bug 1 fix: set max_passes and expected_leaves to cover all candidates
+            s2_config.max_passes = candidate_moves.len() as u8;
+            s2_config.expected_leaves = candidate_moves.len();
             let (s2_result, _, _) = stage1::stage1_search_with_config(
                 board, &s2_config, threads, Some(candidate_moves), Some(tt),
             );
