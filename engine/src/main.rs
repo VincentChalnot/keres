@@ -6,6 +6,9 @@ use keres_engine::{
 };
 use keres_engine::game::Move;
 use keres_engine::engine::StageConfig;
+use keres_engine::engine::stage1;
+use keres_engine::engine::search_engine::{SearchResult, SearchStats, PVLine};
+use std::collections::HashMap;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -284,7 +287,6 @@ fn main() {
     }
 
     fn run_debug_tree(args: &DebugTreeArgs) {
-        use keres_engine::engine::stage1;
         use std::time::Instant;
 
         // Build the game state by replaying the encoded moves
@@ -356,22 +358,11 @@ fn main() {
             (result.clone(), 0u64)
         } else if args.disable_stage2 {
             eprintln!("Stage 2 disabled by CLI flag");
-            // Log Stage 1 stats before skipping
-            eprintln!("Best move: {}", result.best_move.to_string());
-            eprintln!("Score: {}", result.score);
-            eprintln!("Depth: {}", result.depth);
-            eprintln!("Nodes visited: {}", result.nodes_visited);
-            eprintln!("TT hit rate: {:.1}% ({} hits / {} probes)",
-                stats.tt_hit_rate(), stats.tt_hits, stats.tt_probes);
+            log_stage1_stats_and_pvs(&result, &stats);
             (result.clone(), 0u64)
         } else {
             // Log Stage 1 stats before launching Stage 2
-            eprintln!("Best move: {}", result.best_move.to_string());
-            eprintln!("Score: {}", result.score);
-            eprintln!("Depth: {}", result.depth);
-            eprintln!("Nodes visited: {}", result.nodes_visited);
-            eprintln!("TT hit rate: {:.1}% ({} hits / {} probes)",
-                stats.tt_hit_rate(), stats.tt_hits, stats.tt_probes);
+            log_stage1_stats_and_pvs(&result, &stats);
             // Deduplicate root moves from Stage 1 candidates
             let candidate_moves = stage1::extract_candidate_moves(&result.top_moves);
             let (s2_result, _, _) = stage1::stage1_search_with_config(
@@ -397,9 +388,11 @@ fn main() {
             stats.tt_hit_rate(), stats.tt_hits, stats.tt_probes);
         eprintln!("Time: {:.3}s (S1: {:.3}s)", elapsed_secs, s1_elapsed.as_secs_f64());
         eprintln!("Speed: {:.0} nodes/sec", nps);
-        eprintln!("Top moves ({}):", final_result.top_moves.len());
 
-        for (i, pv) in final_result.top_moves.iter().enumerate() {
+        // Print deduplicated Stage 2 PVs as Top moves (Stage 2)
+        let deduped_stage2 = dedup_pvs_by_root_move(&final_result.top_moves);
+        eprintln!("Top moves ({}): (Stage 2)", deduped_stage2.len());
+        for (i, pv) in deduped_stage2.iter().enumerate() {
             let pv_str: Vec<String> = pv.moves.iter().map(|m| m.to_string()).collect();
             eprintln!("  {}. {} (score={}) PV: {}",
                 i + 1, pv.root_move.to_string(), pv.score, pv_str.join(" → "));
@@ -410,6 +403,38 @@ fn main() {
             &game.board, &result.top_moves,
         );
         dump_debug_tree_jsonl(&debug_tree);
+    }
+
+    fn log_stage1_stats_and_pvs(result: &SearchResult, stats: &SearchStats) {
+        eprintln!("Best move: {}", result.best_move.to_string());
+        eprintln!("Score: {}", result.score);
+        eprintln!("Depth: {}", result.depth);
+        eprintln!("Nodes visited: {}", result.nodes_visited);
+        eprintln!("TT hit rate: {:.1}% ({} hits / {} probes)",
+            stats.tt_hit_rate(), stats.tt_hits, stats.tt_probes);
+        eprintln!("Top moves ({}): (Stage 1)", result.top_moves.len());
+        for (i, pv) in result.top_moves.iter().enumerate() {
+            let pv_str: Vec<String> = pv.moves.iter().map(|m| m.to_string()).collect();
+            eprintln!("  {}. {} (score={}) PV: {}",
+                i + 1, pv.root_move.to_string(), pv.score, pv_str.join(" → "));
+        }
+    }
+
+    fn dedup_pvs_by_root_move<'a>(pvs: &'a [PVLine]) -> Vec<&'a PVLine> {
+        let mut map: HashMap<Move, &PVLine> = HashMap::new();
+        for pv in pvs {
+            map.entry(pv.root_move)
+                .and_modify(|existing| {
+                    if pv.score > existing.score {
+                        *existing = pv;
+                    }
+                })
+                .or_insert(pv);
+        }
+        // Sort by score descending
+        let mut deduped: Vec<&PVLine> = map.values().copied().collect();
+        deduped.sort_by(|a, b| b.score.cmp(&a.score));
+        deduped
     }
 }
 
