@@ -46,9 +46,7 @@ impl Engine {
         }
 
         // Decide whether to run Stage 2
-        let final_result = if s1_result.top_moves.len() == 1
-            || stage1::all_same_root_move(&s1_result.top_moves)
-        {
+        let final_result = if stage1::all_same_root_move(&s1_result.top_moves) {
             s1_result
         } else {
             let s2_engine = stage1::Stage2Engine::new(s2_config, tt);

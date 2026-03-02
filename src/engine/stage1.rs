@@ -963,7 +963,7 @@ pub(crate) fn alphabeta_staged(
             if has_see_ge_zero_captures(board) {
                 state.extension_plies += 1;
                 let score = alphabeta_staged(
-                    board, 1, alpha, beta, config, state, tt, blacklist, ply, pv,
+                    board, 1, alpha, beta, config, state, tt, blacklist, ply + 1, pv,
                 );
                 state.extension_plies -= 1;
                 return score;
