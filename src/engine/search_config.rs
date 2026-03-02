@@ -10,6 +10,10 @@ pub struct SearchConfig {
     pub depth: i32,
     /// Number of MultiPV passes to collect top-K moves (default: 3)
     pub top_moves: usize,
+    /// Target number of distinct PV lines to collect across all passes (default: 5)
+    pub expected_leaves: usize,
+    /// Hard cap on the number of MultiPV passes regardless of expected_leaves (default: 3)
+    pub max_passes: usize,
     /// Disable transposition table
     pub no_tt: bool,
     /// Disable alpha-beta pruning (pure minimax)
@@ -29,6 +33,8 @@ impl Default for SearchConfig {
         Self {
             depth: 4,
             top_moves: 3,
+            expected_leaves: 5,
+            max_passes: 3,
             no_tt: false,
             no_alpha_beta: false,
             no_move_ordering: false,
