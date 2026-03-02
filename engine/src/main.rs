@@ -102,6 +102,9 @@ struct DebugTreeArgs {
     /// Print the final resolved StageConfig for both stages as JSON before running
     #[arg(long, default_value = "false")]
     config_dump: bool,
+    /// Disable Stage 2 search (skip refinement)
+    #[arg(long, default_value = "false")]
+    disable_stage2: bool,
 }
 
 fn main() {
@@ -366,7 +369,24 @@ fn main() {
         let (final_result, s2_nodes) = if stage1::all_same_root_move(&result.top_moves) {
             eprintln!("Stage 2 skipped (all candidates share the same root move)");
             (result.clone(), 0u64)
+        } else if args.disable_stage2 {
+            eprintln!("Stage 2 disabled by CLI flag");
+            // Log Stage 1 stats before skipping
+            eprintln!("Best move: {}", result.best_move.to_string());
+            eprintln!("Score: {}", result.score);
+            eprintln!("Depth: {}", result.depth);
+            eprintln!("Nodes visited: {}", result.nodes_visited);
+            eprintln!("TT hit rate: {:.1}% ({} hits / {} probes)",
+                stats.tt_hit_rate(), stats.tt_hits, stats.tt_probes);
+            (result.clone(), 0u64)
         } else {
+            // Log Stage 1 stats before launching Stage 2
+            eprintln!("Best move: {}", result.best_move.to_string());
+            eprintln!("Score: {}", result.score);
+            eprintln!("Depth: {}", result.depth);
+            eprintln!("Nodes visited: {}", result.nodes_visited);
+            eprintln!("TT hit rate: {:.1}% ({} hits / {} probes)",
+                stats.tt_hit_rate(), stats.tt_hits, stats.tt_probes);
             let (_, _, tt) = stage1::stage1_search_with_config(&game.board, &s1_config, threads);
             let s2_engine = stage1::Stage2Engine::new(s2_config, tt);
             let s2_result = s2_engine.search(&game.board, &result.top_moves);
