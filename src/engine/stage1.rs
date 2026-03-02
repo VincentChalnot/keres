@@ -30,6 +30,9 @@ const CAPTURE_BASE_SCORE: i32 = 100_000;
 const KILLER_SCORE_1: i32 = 90_000;
 const KILLER_SCORE_2: i32 = 80_000;
 
+/// Default transposition table size (number of entries, must be a power of two).
+const DEFAULT_TT_SIZE: usize = 1 << 20;
+
 // ── Transposition table (leaf-only, ahash-based) ────────────────────────────
 
 /// Hash the board binary (excluding last 2 bytes: flags + counter)
@@ -403,7 +406,7 @@ pub fn stage1_search(board: &Board, config: &SearchConfig) -> (SearchResult, Sea
         }, SearchStats::default());
     }
 
-    let tt = Arc::new(LeafTT::new(1 << 20, !config.no_tt));
+    let tt = Arc::new(LeafTT::new(DEFAULT_TT_SIZE, !config.no_tt));
     let mut blacklist: HashSet<u64> = HashSet::new();
     let mut all_pvs: Vec<PVLine> = Vec::new();
 
@@ -473,7 +476,20 @@ pub fn stage1_search(board: &Board, config: &SearchConfig) -> (SearchResult, Sea
 }
 
 /// Run Stage 1 search using a `StageConfig` (new API).
-pub fn stage1_search_with_config(board: &Board, config: &StageConfig, threads: usize) -> (SearchResult, SearchStats, Arc<LeafTT>) {
+///
+/// - `candidate_moves`: if `Some`, search only those root moves (Stage 2 usage);
+///   if `None`, generate all legal moves from `board` (Stage 1 usage).
+/// - `tt`: if `Some`, reuse an existing transposition table (e.g. from Stage 1);
+///   if `None`, create a fresh one.
+pub fn stage1_search_with_config(
+    board: &Board,
+    config: &StageConfig,
+    threads: usize,
+    candidate_moves: Option<Vec<Move>>,
+    tt: Option<Arc<LeafTT>>,
+) -> (SearchResult, SearchStats, Arc<LeafTT>) {
+    let new_tt = || Arc::new(LeafTT::new(DEFAULT_TT_SIZE, config.transposition_table));
+
     if board.is_game_over() {
         let dummy_mv = Move {
             from: Position::new(0, 0),
@@ -486,12 +502,17 @@ pub fn stage1_search_with_config(board: &Board, config: &StageConfig, threads: u
             depth: config.depth,
             nodes_visited: 0,
             top_moves: Vec::new(),
-        }, SearchStats::default(), Arc::new(LeafTT::new(1 << 20, config.transposition_table)));
+        }, SearchStats::default(), tt.unwrap_or_else(new_tt));
     }
 
-    let game = Game::from_board(*board);
-    let candidates = game.get_all_moves();
-    let all_moves = flatten_moves(&candidates);
+    let all_moves: Vec<Move> = match candidate_moves {
+        Some(moves) => moves,
+        None => {
+            let game = Game::from_board(*board);
+            let candidates = game.get_all_moves();
+            flatten_moves(&candidates)
+        }
+    };
 
     if all_moves.is_empty() {
         let dummy_mv = Move {
@@ -505,10 +526,10 @@ pub fn stage1_search_with_config(board: &Board, config: &StageConfig, threads: u
             depth: config.depth,
             nodes_visited: 0,
             top_moves: Vec::new(),
-        }, SearchStats::default(), Arc::new(LeafTT::new(1 << 20, config.transposition_table)));
+        }, SearchStats::default(), tt.unwrap_or_else(new_tt));
     }
 
-    let tt = Arc::new(LeafTT::new(1 << 20, config.transposition_table));
+    let tt = tt.unwrap_or_else(new_tt);
     let mut blacklist: HashSet<u64> = HashSet::new();
     let mut all_pvs: Vec<PVLine> = Vec::new();
 
@@ -1123,80 +1144,7 @@ pub(crate) fn alphabeta_staged(
     best_score
 }
 
-// ── Stage 2 Engine ───────────────────────────────────────────────────────────
-
-/// Stage 2 refines the selection among Stage 1 candidates.
-pub struct Stage2Engine {
-    pub config: StageConfig,
-    pub tt: Arc<LeafTT>,
-}
-
-impl Stage2Engine {
-    /// Create a new Stage2Engine reusing the given TT from Stage 1.
-    pub fn new(config: StageConfig, tt: Arc<LeafTT>) -> Self {
-        Stage2Engine { config, tt }
-    }
-
-    /// Search: for each candidate PVLine from Stage 1, replay only the root move,
-    /// then run alpha-beta from that position. Return the candidate with the best score.
-    pub fn search(&self, board: &Board, candidates: &[PVLine]) -> SearchResult {
-        let depth = self.config.effective_depth() as i32;
-        let mut best_score = -INFINITY;
-        let mut best_idx = 0;
-        let mut total_nodes: u64 = 0;
-
-        let mut refined: Vec<(usize, i32)> = Vec::new();
-
-        for (i, pv) in candidates.iter().enumerate() {
-            let mut board_copy = *board;
-            let undo = board_copy.make(&pv.root_move);
-
-            let mut state = SearchState::new();
-            let mut child_pv = Vec::new();
-
-            let score = -alphabeta_staged(
-                &mut board_copy,
-                depth - 1,
-                -INFINITY,
-                INFINITY,
-                &self.config,
-                &mut state,
-                &self.tt,
-                &HashSet::new(),
-                1,
-                &mut child_pv,
-            );
-
-            board_copy.unmake(&pv.root_move, undo);
-            total_nodes += state.nodes;
-
-            refined.push((i, score));
-
-            if score > best_score {
-                best_score = score;
-                best_idx = i;
-            }
-        }
-
-        let best_pv = &candidates[best_idx];
-
-        // Build top_moves with refined scores
-        let mut top_moves: Vec<PVLine> = refined.iter().map(|&(idx, score)| {
-            let mut pv = candidates[idx].clone();
-            pv.score = score;
-            pv
-        }).collect();
-        top_moves.sort_by(|a, b| b.score.cmp(&a.score));
-
-        SearchResult {
-            best_move: best_pv.root_move,
-            score: best_score,
-            depth: self.config.effective_depth(),
-            nodes_visited: total_nodes,
-            top_moves,
-        }
-    }
-}
+// ── Stage 2 helper ───────────────────────────────────────────────────────────
 
 /// Check whether all PVLines share the same root move.
 pub fn all_same_root_move(top_moves: &[PVLine]) -> bool {
@@ -1205,6 +1153,17 @@ pub fn all_same_root_move(top_moves: &[PVLine]) -> bool {
     }
     let first = top_moves[0].root_move;
     top_moves.iter().all(|pv| pv.root_move == first)
+}
+
+/// Extract deduplicated root moves from a set of Stage 1 PV lines.
+/// Used to build the candidate move list for Stage 2.
+pub fn extract_candidate_moves(top_moves: &[PVLine]) -> Vec<Move> {
+    let mut seen = HashSet::new();
+    top_moves.iter()
+        .filter_map(|pv| {
+            if seen.insert(pv.root_move) { Some(pv.root_move) } else { None }
+        })
+        .collect()
 }
 
 // ══════════  Tests  ══════════
@@ -1311,22 +1270,25 @@ mod tests {
     fn stage_config_stage1_search_works() {
         let board = Board::new();
         let config = StageConfig::stage1();
-        let (result, stats, _tt) = stage1_search_with_config(&board, &config, 1);
+        let (result, stats, _tt) = stage1_search_with_config(&board, &config, 1, None, None);
         assert!(!result.top_moves.is_empty(), "should find legal moves");
         assert!(stats.nodes_visited > 0, "should search some nodes");
     }
 
     #[test]
-    fn stage2_engine_refines_candidates() {
+    fn stage2_refines_candidates_via_search_with_config() {
         let board = Board::new();
         let s1_config = StageConfig::stage1();
-        let (s1_result, _, tt) = stage1_search_with_config(&board, &s1_config, 1);
+        let (s1_result, _, tt) = stage1_search_with_config(&board, &s1_config, 1, None, None);
 
         if s1_result.top_moves.len() > 1 && !all_same_root_move(&s1_result.top_moves) {
             let mut s2_config = StageConfig::stage2();
             s2_config.depth = 2; // shallow for test speed
-            let s2_engine = Stage2Engine::new(s2_config, tt);
-            let s2_result = s2_engine.search(&board, &s1_result.top_moves);
+
+            let candidate_moves = extract_candidate_moves(&s1_result.top_moves);
+            let (s2_result, _, _) = stage1_search_with_config(
+                &board, &s2_config, 1, Some(candidate_moves), Some(tt),
+            );
             assert!(!s2_result.top_moves.is_empty());
         }
     }
