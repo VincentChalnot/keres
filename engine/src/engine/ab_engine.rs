@@ -1,12 +1,14 @@
 //! Public engine API for the Keres board game.
 //!
-//! Wraps the Stage 1 alpha-beta search pipeline.
-//! Stage 2 is mocked: it simply returns the best move from Stage 1.
+//! Wraps the two-stage search pipeline:
+//! - Stage 1: exhaustive alpha-beta MultiPV search
+//! - Stage 2: refined search on Stage 1 candidates (null move, LMR, selective extensions)
 
 use crate::board::Board;
 use crate::game::Move;
 use super::config::EngineConfig;
 use super::search_config::SearchConfig;
+use super::stage_config::StageConfig;
 use super::stage1;
 
 /// Aggregate statistics returned alongside the chosen move.
@@ -26,23 +28,36 @@ impl Engine {
         Engine { cfg }
     }
 
-    /// Run the search from the given board position and
+    /// Run the two-stage search from the given board position and
     /// return the best move together with search statistics.
     pub fn find_move(&self, board: &Board) -> Result<(Move, SearchStatistics), String> {
         if board.is_game_over() {
             return Err("cannot search from a terminal position".into());
         }
 
-        let config = self.to_search_config();
-        let (result, _stats) = stage1::stage1_search(board, &config);
+        let s1_config = self.to_stage1_config();
+        let s2_config = StageConfig::stage2();
+        let threads = self.cfg.threads;
 
-        if result.top_moves.is_empty() {
+        let (s1_result, _s1_stats, tt) = stage1::stage1_search_with_config(board, &s1_config, threads);
+
+        if s1_result.top_moves.is_empty() {
             return Err("no legal moves found".into());
         }
 
-        Ok((result.best_move, SearchStatistics {
-            nodes_searched: result.nodes_visited as usize,
-            stage1_moves: result.top_moves.len(),
+        // Decide whether to run Stage 2
+        let final_result = if s1_result.top_moves.len() == 1
+            || stage1::all_same_root_move(&s1_result.top_moves)
+        {
+            s1_result
+        } else {
+            let s2_engine = stage1::Stage2Engine::new(s2_config, tt);
+            s2_engine.search(board, &s1_result.top_moves)
+        };
+
+        Ok((final_result.best_move, SearchStatistics {
+            nodes_searched: final_result.nodes_visited as usize,
+            stage1_moves: final_result.top_moves.len(),
         }))
     }
 
@@ -78,6 +93,12 @@ impl Engine {
             threads: self.cfg.threads,
             ..SearchConfig::default()
         }
+    }
+
+    fn to_stage1_config(&self) -> StageConfig {
+        let mut cfg = StageConfig::stage1();
+        cfg.depth = self.cfg.stage1_depth as u8;
+        cfg
     }
 }
 

@@ -702,6 +702,19 @@ impl Board {
         self.white_wins = undo.was_white_wins;
         self.draw = undo.was_draw;
     }
+
+    /// Apply a null move (pass turn without moving a piece).
+    /// Returns the previous `white_to_move` value for undo.
+    pub fn make_null_move(&mut self) -> bool {
+        let prev = self.white_to_move;
+        self.white_to_move = !self.white_to_move;
+        prev
+    }
+
+    /// Undo a null move by restoring the side to move.
+    pub fn unmake_null_move(&mut self, prev_white_to_move: bool) {
+        self.white_to_move = prev_white_to_move;
+    }
 }
 
 #[cfg(test)]
