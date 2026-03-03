@@ -24,12 +24,12 @@ pub fn get_game_hash(game: &Game) -> String {
 pub fn piece_to_char(piece_type: &PieceType) -> String {
     match piece_type {
         PieceType::Soldier => "S".to_string(),
-        PieceType::Bishop => "J".to_string(),
-        PieceType::Rook => "C".to_string(),
+        PieceType::Bishop => "B".to_string(),
+        PieceType::Rook => "R".to_string(),
         PieceType::Paladin => "P".to_string(),
         PieceType::Guard => "G".to_string(),
-        PieceType::Knight => "D".to_string(),
-        PieceType::Ballista => "B".to_string(),
+        PieceType::Knight => "N".to_string(),
+        PieceType::Ballista => "L".to_string(),
         PieceType::King => "K".to_string(),
     }
 }
