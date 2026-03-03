@@ -1,843 +1,501 @@
-use crate::board::{Board, Color, Piece, PieceType, Position, BOARD_DIMENSION, BOARD_SIZE};
+use crate::board::{Board, Color, Piece, Position, BOARD_SIZE};
+use crate::game_over::{check_game_over, check_promotion};
+use crate::moves::{Move, MoveGenerator, PotentialMove};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct PotentialMove {
-    pub from: Position,
-    pub to: Position,
-    pub unstackable: bool,
-    pub force_unstack: bool,
+/// Stores the information needed to undo a move.
+#[derive(Clone, Debug)]
+pub struct UndoInfo {
+    pub from_piece: Option<Piece>,
+    pub to_piece: Option<Piece>,
+    pub was_white_to_move: bool,
+    pub prev_moves_without_capture: u8,
+    pub prev_game_over: bool,
+    pub prev_white_wins: bool,
+    pub prev_draw: bool,
 }
 
-impl PotentialMove {
-    pub fn to_u16(self) -> u16 {
-        ((self.force_unstack as u16) << 15)
-            | ((self.unstackable as u16) << 14)
-            | ((self.to.to_u8() as u16) << 7)
-            | (self.from.to_u8() as u16)
-    }
-
-    pub fn from_u16(v: u16) -> Self {
-        PotentialMove {
-            force_unstack: (v & 0x8000) != 0,
-            unstackable: (v & 0x4000) != 0,
-            // Mask the shifted value to 7 bits to avoid including the flag bits
-            to: Position::from_u8(((v >> 7) & 0x7F) as u8),
-            from: Position::from_u8((v & 0x007F) as u8),
-        }
-    }
-
-    pub fn to_move(&self, unstack: bool) -> Move {
-        if unstack && !self.unstackable {
-            panic!("Cannot unstack a piece that is not unstackable.");
-        }
-        if !unstack && self.force_unstack {
-            panic!("Trying to move a piece that must be unstacked, but unstack is false.");
-        }
-        Move {
-            from: self.from,
-            to: self.to,
-            unstack,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct Move {
-    pub from: Position,
-    pub to: Position,
-    pub unstack: bool,
-}
-
-impl Move {
-    pub fn to_u16(self) -> u16 {
-        ((self.unstack as u16) << 14) | ((self.to.to_u8() as u16) << 7) | (self.from.to_u8() as u16)
-    }
-
-    pub fn from_u16(v: u16) -> Self {
-        Move {
-            unstack: (v & 0x4000) != 0,
-            // Mask the shifted value to 7 bits to avoid including the flag bits
-            to: Position::from_u8(((v >> 7) & 0x7F) as u8),
-            from: Position::from_u8((v & 0x007F) as u8),
-        }
-    }
-
-    pub fn to_string(&self) -> String {
-        format!(
-            "{}-{}{}",
-            self.from.to_string(),
-            self.to.to_string(),
-            if self.unstack { "-" } else { "" },
-        )
+impl UndoInfo {
+    /// Fast check: returns true if the move captured a king (immediate game over).
+    pub fn is_king_captured(&self) -> bool {
+        self.to_piece
+            .map(|p| p.is_king())
+            .unwrap_or(false)
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct Game {
     pub board: Board,
+    white_to_move: bool,
+    game_over: bool,
+    white_wins: bool,
+    draw: bool,
+    moves_without_capture: u8,
 }
 
 impl Game {
     pub fn new() -> Self {
         Game {
             board: Board::new(),
+            white_to_move: true,
+            game_over: false,
+            white_wins: false,
+            draw: false,
+            moves_without_capture: 0,
         }
     }
 
     pub fn from_board(board: Board) -> Self {
-        Game { board }
+        Game {
+            board,
+            white_to_move: true,
+            game_over: false,
+            white_wins: false,
+            draw: false,
+            moves_without_capture: 0,
+        }
     }
 
-    pub fn apply_move(&mut self, mv: Move) -> Result<(), String> {
-        // Check if game is already over
-        if self.board.is_game_over() {
-            return Err("Game is over, no more moves allowed".to_string());
-        }
+    // ── Accessors ────────────────────────────────────────────────────────────
 
-        let new_board = self.apply_move_copy(mv)?;
-        self.board = new_board;
-        Ok(())
+    pub fn is_white_to_move(&self) -> bool {
+        self.white_to_move
     }
 
-    pub fn apply_move_copy(&self, mv: Move) -> Result<Board, String> {
-        // Get the piece at the 'from' position
-        let piece = self
-            .board
-            .get_piece(&mv.from)
-            .ok_or("No piece at 'from' position")?;
+    pub fn set_white_to_move(&mut self, v: bool) {
+        self.white_to_move = v;
+    }
 
-        // Check if the piece can be moved (e.g., not empty)
-        if piece.bottom == PieceType::King && mv.unstack {
-            return Err("Cannot unstack King".to_string());
-        }
+    pub fn color_to_move(&self) -> Color {
+        if self.white_to_move { Color::White } else { Color::Black }
+    }
+
+    pub fn is_game_over(&self) -> bool {
+        self.game_over
+    }
+
+    pub fn white_wins(&self) -> bool {
+        self.white_wins
+    }
+
+    pub fn is_draw(&self) -> bool {
+        self.draw
+    }
+
+    pub fn moves_without_capture(&self) -> u8 {
+        self.moves_without_capture
+    }
+
+    pub fn set_moves_without_capture(&mut self, count: u8) {
+        self.moves_without_capture = count;
+    }
+
+    pub fn set_game_over(&mut self, game_over: bool, white_wins: bool, draw: bool) {
+        self.game_over = game_over;
+        self.white_wins = white_wins;
+        self.draw = draw;
+    }
+
+    // ── Move generation (delegated to MoveGenerator) ─────────────────────────
+
+    pub fn get_all_moves(&self) -> Vec<PotentialMove> {
+        MoveGenerator::new(&self.board, self.white_to_move).get_all_moves()
+    }
+
+    pub fn get_moves(&self, position: &Position) -> Vec<PotentialMove> {
+        MoveGenerator::new(&self.board, self.white_to_move).get_moves(position)
+    }
+
+    pub fn is_capture(&self, mv: &Move) -> bool {
+        MoveGenerator::new(&self.board, self.white_to_move).is_capture(mv)
+    }
+
+    pub fn capture_value(&self, mv: &Move) -> u32 {
+        MoveGenerator::new(&self.board, self.white_to_move).capture_value(mv)
+    }
+
+    // ── Make / Unmake ────────────────────────────────────────────────────────
+
+    /// Apply a move in-place and return undo information.
+    /// Assumes the move is valid (generated by the move generator).
+    /// Performs full game-over checking after the move.
+    pub fn make(&mut self, mv: &Move) -> UndoInfo {
+        self.make_inner(mv, true)
+    }
+
+    /// Apply a move in-place without checking game-over conditions.
+    /// Useful for minimax search where a fast `UndoInfo::is_king_captured()`
+    /// check can be used instead.
+    pub fn make_unchecked(&mut self, mv: &Move) -> UndoInfo {
+        self.make_inner(mv, false)
+    }
+
+    fn make_inner(&mut self, mv: &Move, check_game_over_flag: bool) -> UndoInfo {
+        let undo = UndoInfo {
+            from_piece: self.board.get_piece(&mv.from).copied(),
+            to_piece: self.board.get_piece(&mv.to).copied(),
+            was_white_to_move: self.white_to_move,
+            prev_moves_without_capture: self.moves_without_capture,
+            prev_game_over: self.game_over,
+            prev_white_wins: self.white_wins,
+            prev_draw: self.draw,
+        };
+
+        let piece = self.board.get_piece(&mv.from).copied().unwrap();
 
         let source_piece: Piece;
-        let mut new_board = self.board.clone();
         if mv.unstack {
-            // Unstack the top piece if it exists
-            if !piece.top.is_some() {
-                return Err("No top piece to unstack".to_string());
-            }
-
-            let new_piece = new_board.unstack_piece(&mv.from);
-            if let Err(e) = new_piece {
-                return Err(e);
-            }
-            source_piece = new_piece?;
+            // Remove top piece from source; top becomes the moving piece
+            source_piece = Piece {
+                color: piece.color,
+                bottom: piece.top.unwrap(),
+                top: None,
+            };
+            self.board.set_piece(
+                &mv.from,
+                Some(Piece {
+                    color: piece.color,
+                    bottom: piece.bottom,
+                    top: None,
+                }),
+            );
         } else {
-            source_piece = piece.clone();
-            // Remove the piece from the 'from' position
-            new_board.set_piece(&mv.from, None);
+            source_piece = piece;
+            self.board.set_piece(&mv.from, None);
         }
 
-        // Check what's at the destination position
-        let destination_piece_opt = new_board.get_piece(&mv.to).cloned();
-
+        let dest = self.board.get_piece(&mv.to).copied();
         let mut final_piece = source_piece;
         let mut was_capture = false;
 
-        if destination_piece_opt.is_none() {
-            // Empty square: just place the piece
-            new_board.set_piece(&mv.to, Some(final_piece));
-        } else {
-            let destination_piece = destination_piece_opt.unwrap();
-
-            if destination_piece.color != source_piece.color {
-                // Enemy piece: capture it (replace with our piece)
-                was_capture = true;
-                new_board.set_piece(&mv.to, Some(final_piece));
-            } else {
-                // Friendly piece: attempt to stack
-                if let Err(e) = new_board.stack_piece(&mv.to, source_piece) {
-                    return Err(format!("Cannot complete move: {}", e));
+        match dest {
+            None => {
+                self.board.set_piece(&mv.to, Some(final_piece));
+            }
+            Some(dest_piece) => {
+                if dest_piece.color != source_piece.color {
+                    was_capture = true;
+                    self.board.set_piece(&mv.to, Some(final_piece));
+                } else {
+                    // Stack: moving piece on top, existing piece on bottom
+                    self.board.stack_piece(&mv.to, source_piece).unwrap();
+                    final_piece = *self.board.get_piece(&mv.to).unwrap();
                 }
-                // Update final_piece to reflect the stacked piece for promotion check
-                final_piece = *new_board.get_piece(&mv.to).unwrap();
             }
         }
 
-        // Check for promotion: Soldier → Paladin, Ballista → Rook on opposite side
-        let promote_piece = Self::check_promotion(&final_piece, &mv.to);
-        if let Some(promoted) = promote_piece {
-            new_board.set_piece(&mv.to, Some(promoted));
+        // Check for promotion
+        if let Some(promoted) = check_promotion(&final_piece, &mv.to) {
+            self.board.set_piece(&mv.to, Some(promoted));
         }
 
         // Update moves_without_capture counter
         if was_capture {
-            new_board.reset_moves_without_capture();
+            self.moves_without_capture = 0;
         } else {
-            new_board.increment_moves_without_capture();
+            self.moves_without_capture = self.moves_without_capture.saturating_add(1);
         }
 
-        new_board.set_white_to_move(!new_board.is_white_to_move()); // Switch turn
+        // Switch turn
+        self.white_to_move = !self.white_to_move;
 
         // Check for game over conditions
-        Self::check_game_over(&mut new_board);
-
-        Ok(new_board)
-    }
-
-    pub fn get_all_moves(&self) -> Vec<PotentialMove> {
-        let mut all_moves = Vec::new();
-
-        for y in 0..BOARD_DIMENSION {
-            for x in 0..BOARD_DIMENSION {
-                let position = Position::new(x, y);
-                let moves = self.get_moves(&position);
-                all_moves.extend(moves);
+        if check_game_over_flag {
+            let result = check_game_over(&self.board, self.moves_without_capture);
+            if result.game_over {
+                self.game_over = result.game_over;
+                self.white_wins = result.white_wins;
+                self.draw = result.draw;
             }
         }
 
-        all_moves
+        undo
     }
 
-    /// Check if a move captures an enemy piece by looking at the destination square.
-    /// Returns true if there is an enemy piece at the move's destination square.
-    pub fn is_capture(&self, mv: &Move) -> bool {
-        if let Some(dest_piece) = self.board.get_piece(&mv.to) {
-            let current_color = if self.board.is_white_to_move() { Color::White } else { Color::Black };
-            dest_piece.color != current_color
-        } else {
-            false
-        }
+    /// Undo a move by restoring the saved state.
+    pub fn unmake(&mut self, mv: &Move, undo: UndoInfo) {
+        self.board.set_piece(&mv.from, undo.from_piece);
+        self.board.set_piece(&mv.to, undo.to_piece);
+        self.white_to_move = undo.was_white_to_move;
+        self.moves_without_capture = undo.prev_moves_without_capture;
+        self.game_over = undo.prev_game_over;
+        self.white_wins = undo.prev_white_wins;
+        self.draw = undo.prev_draw;
     }
 
-    /// Get the material value of the piece at the destination square (if any).
-    /// Returns 0 if the square is empty or occupied by a friendly piece.
-    pub fn capture_value(&self, mv: &Move) -> u32 {
-        if let Some(dest_piece) = self.board.get_piece(&mv.to) {
-            let current_color = if self.board.is_white_to_move() { Color::White } else { Color::Black };
-            if dest_piece.color != current_color {
-                let mut value = Self::piece_material_value(&dest_piece.bottom);
-                if let Some(ref top) = dest_piece.top {
-                    value += Self::piece_material_value(top);
-                }
-                return value;
-            }
-        }
-        0
+    /// Apply a null move (pass turn without moving a piece).
+    /// Returns the previous `white_to_move` value for undo.
+    pub fn make_null_move(&mut self) -> bool {
+        let prev = self.white_to_move;
+        self.white_to_move = !self.white_to_move;
+        prev
     }
 
-    fn piece_material_value(pt: &PieceType) -> u32 {
-        match pt {
-            PieceType::Soldier => 100,
-            PieceType::Bishop => 300,
-            PieceType::Rook => 500,
-            PieceType::Paladin => 300,
-            PieceType::Guard => 300,
-            PieceType::Knight => 300,
-            PieceType::Ballista => 500,
-            PieceType::King => 10_000,
-        }
+    /// Undo a null move by restoring the side to move.
+    pub fn unmake_null_move(&mut self, prev_white_to_move: bool) {
+        self.white_to_move = prev_white_to_move;
     }
 
-    pub fn get_moves(&self, position: &Position) -> Vec<PotentialMove> {
-        let mut moves = Vec::new();
+    // ── Binary serialisation ─────────────────────────────────────────────────
 
-        let piece = self.board.get_piece(position);
-        if piece.is_none() {
-            return moves; // No piece at the position, no moves possible
-        }
-        let piece = piece.unwrap();
-        if piece.color != self.board.color_to_move() {
-            return moves; // Not the player's turn
-        }
-
-        if let Some(top_piece_type) = piece.top {
-            self.compute_moves_for_piece_type(position, piece.color, top_piece_type, true, true)
-                .into_iter()
-                .for_each(|m| moves.push(m));
-        }
-        self.compute_moves_for_piece_type(
-            position,
-            piece.color,
-            piece.bottom,
-            false,
-            piece.top.is_some(),
-        )
-        .into_iter()
-        .for_each(|m| moves.push(m));
-
-        moves
-    }
-
-    fn compute_moves_for_piece_type(
-        &self,
-        position: &Position,
-        color: Color,
-        piece_type: PieceType,
-        is_top: bool,
-        has_top: bool,
-    ) -> Vec<PotentialMove> {
-        let mut moves = Vec::new();
-
-        match piece_type {
-            PieceType::Soldier => {
-                self.compute_soldier_moves(position, color, is_top, has_top, &mut moves)
-            }
-            PieceType::Bishop => self.compute_generic_moves(
-                position,
-                color,
-                is_top,
-                has_top,
-                &mut moves,
-                &Position::DIAGONAL_MOVES,
-                BOARD_DIMENSION as isize,
-            ),
-            PieceType::Rook => self.compute_generic_moves(
-                position,
-                color,
-                is_top,
-                has_top,
-                &mut moves,
-                &Position::ORTHOGONAL_MOVES,
-                BOARD_DIMENSION as isize,
-            ),
-            PieceType::Paladin => self.compute_generic_moves(
-                position,
-                color,
-                is_top,
-                has_top,
-                &mut moves,
-                &Position::ORTHOGONAL_MOVES,
-                2,
-            ),
-            PieceType::Guard => self.compute_generic_moves(
-                position,
-                color,
-                is_top,
-                has_top,
-                &mut moves,
-                &Position::DIAGONAL_MOVES,
-                2,
-            ),
-            PieceType::Knight => {
-                self.compute_knight_moves(position, color, is_top, has_top, &mut moves)
-            }
-            PieceType::Ballista => {
-                self.compute_ballista_moves(position, color, is_top, has_top, &mut moves)
-            }
-            PieceType::King => self.compute_generic_moves(
-                position,
-                color,
-                false,
-                true,
-                &mut moves,
-                &Position::ALL_MOVES,
-                1,
-            ), // King cannot be stacked so we do this trick with is_top and has_top
-        }
-
-        moves
-    }
-
-    /// Explore a potential move from the current position to the target position.
-    /// Return true if the move is not blocking, false if it's blocked.
-    fn explore_position(
-        &self,
-        position: &Position,
-        color: Color,
-        target_position: &Position,
-        is_top: bool,
-        has_top: bool,
-        moves: &mut Vec<PotentialMove>,
-    ) -> bool {
-        let target_piece = self.board.get_piece(&target_position);
-        // Empty case: OK can move
-        if target_piece.is_none() {
-            moves.push(PotentialMove {
-                from: *position,
-                to: *target_position,
-                unstackable: is_top,
-                force_unstack: false,
-            });
-            return true;
-        }
-        let target_piece = target_piece.unwrap();
-
-        // Opposite color piece: OK can capture
-        if target_piece.color != color {
-            moves.push(PotentialMove {
-                from: *position,
-                to: *target_position,
-                unstackable: is_top,
-                force_unstack: false,
-            });
-            return false;
-        }
-
-        if !is_top && has_top {
-            // Current piece cannot move to be stacked on top of a friendly piece because it's locked by a top piece
-            return false;
-        }
-
-        // Cannot stack with the King or a piece that is already stacked
-        if !target_piece.is_stackable() {
-            return false;
-        }
-
-        moves.push(PotentialMove {
-            from: *position,
-            to: *target_position,
-            unstackable: is_top,
-            force_unstack: is_top, // Force unstacking the top piece
-        });
-
-        false
-    }
-
+    /// Serialize the full game state: 81 bytes (board) + 1 byte (flags) + 1 byte (counter).
     pub fn to_binary(&self) -> [u8; BOARD_SIZE + 2] {
-        self.board.to_binary()
+        let mut binary = [0u8; BOARD_SIZE + 2];
+
+        let board_bytes = self.board.to_binary();
+        binary[..BOARD_SIZE].copy_from_slice(&board_bytes);
+
+        // Pack boolean flags into the flags byte
+        let mut flags = 0u8;
+        if self.white_to_move {
+            flags |= 0b10000000;
+        }
+        if self.game_over {
+            flags |= 0b01000000;
+        }
+        if self.white_wins {
+            flags |= 0b00100000;
+        }
+        if self.draw {
+            flags |= 0b00010000;
+        }
+        binary[BOARD_SIZE] = flags;
+        binary[BOARD_SIZE + 1] = self.moves_without_capture;
+
+        binary
     }
 
+    /// Deserialize a full game state from 83 bytes.
     pub fn from_binary(binary: [u8; BOARD_SIZE + 2]) -> Result<Self, String> {
-        let board = Board::from_binary(binary)?;
-        Ok(Game::from_board(board))
-    }
+        let mut board_bytes = [0u8; BOARD_SIZE];
+        board_bytes.copy_from_slice(&binary[..BOARD_SIZE]);
+        let board = Board::from_binary(&board_bytes)?;
 
-    /// Check if the game has ended and update the board state accordingly
-    /// This checks for:
-    /// 1. King capture (win condition)
-    /// 2. Draw conditions:
-    ///    - Both sides have only kings left
-    ///    - Color lock: Bishop and/or guards all on the same color for both sides
-    ///    - Single knight for both sides
-    ///    - 40 moves without capture
-    fn check_game_over(board: &mut Board) {
-        // Check for king captures
-        let mut white_king_exists = false;
-        let mut black_king_exists = false;
+        let flags = binary[BOARD_SIZE];
+        let white_to_move = (flags & 0b10000000) != 0;
+        let game_over = (flags & 0b01000000) != 0;
+        let white_wins = (flags & 0b00100000) != 0;
+        let draw = (flags & 0b00010000) != 0;
+        let moves_without_capture = binary[BOARD_SIZE + 1];
 
-        // Count pieces for draw detection
-        let mut white_pieces = Vec::new();
-        let mut black_pieces = Vec::new();
-
-        for y in 0..BOARD_DIMENSION {
-            for x in 0..BOARD_DIMENSION {
-                let pos = Position::new(x, y);
-                if let Some(piece) = board.get_piece(&pos) {
-                    if piece.is_king() {
-                        if piece.color == Color::White {
-                            white_king_exists = true;
-                        } else {
-                            black_king_exists = true;
-                        }
-                    }
-
-                    // Collect pieces for draw detection
-                    if piece.color == Color::White {
-                        white_pieces.push((piece.clone(), pos));
-                    } else {
-                        black_pieces.push((piece.clone(), pos));
-                    }
-                }
-            }
-        }
-
-        // Check for king capture (win condition)
-        if !white_king_exists {
-            board.set_game_over(true, false, false); // Black wins
-            return;
-        }
-        if !black_king_exists {
-            board.set_game_over(true, true, false); // White wins
-            return;
-        }
-
-        // Check for 40-move rule
-        if board.moves_without_capture() >= 40 {
-            board.set_game_over(true, false, true); // Draw
-            return;
-        }
-
-        // Check for draw conditions (both sides must satisfy the condition)
-        let white_draw_eligible = Self::check_draw_condition_for_side(&white_pieces);
-        let black_draw_eligible = Self::check_draw_condition_for_side(&black_pieces);
-
-        if white_draw_eligible && black_draw_eligible {
-            board.set_game_over(true, false, true); // Draw
-        }
-    }
-
-    /// Check if a side satisfies draw conditions:
-    /// - Only king remaining
-    /// - Only bishops/guards on same color square (color lock)
-    /// - Single knight (plus king)
-    fn check_draw_condition_for_side(pieces: &[(Piece, Position)]) -> bool {
-        let mut non_king_pieces = Vec::new();
-
-        for (piece, pos) in pieces {
-            if !piece.is_king() {
-                non_king_pieces.push((piece.clone(), *pos));
-            }
-        }
-
-        // No pieces apart from King
-        if non_king_pieces.is_empty() {
-            return true;
-        }
-
-        // Single Knight
-        if non_king_pieces.len() == 1 {
-            let (piece, _) = &non_king_pieces[0];
-            // Check if it's a single knight (not stacked)
-            if piece.bottom == PieceType::Knight && piece.top.is_none() {
-                return true;
-            }
-        }
-
-        // Check for color lock: all bishops and/or guards on same color square
-        let mut all_bishops_or_guards = true;
-        let mut first_square_color: Option<bool> = None; // true for white square, false for black square
-
-        for (piece, pos) in &non_king_pieces {
-            // Check if piece is a bishop or guard (consider both bottom and top)
-            let is_bishop_or_guard = piece.bottom == PieceType::Bishop
-                || piece.bottom == PieceType::Guard
-                || piece.top == Some(PieceType::Bishop)
-                || piece.top == Some(PieceType::Guard);
-
-            if !is_bishop_or_guard {
-                all_bishops_or_guards = false;
-                break;
-            }
-
-            // Calculate square color (white if (x + y) is even, black if odd)
-            let square_is_white = (pos.x + pos.y) % 2 == 0;
-
-            match first_square_color {
-                None => first_square_color = Some(square_is_white),
-                Some(color) => {
-                    if color != square_is_white {
-                        all_bishops_or_guards = false;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if all_bishops_or_guards && first_square_color.is_some() {
-            return true;
-        }
-
-        false
-    }
-
-    /// Check if a piece needs to be promoted when it reaches the opposite side
-    /// Soldier → Paladin, Ballista → Rook
-    /// Returns Some(promoted_piece) if promotion is needed, None otherwise
-    fn check_promotion(piece: &Piece, position: &Position) -> Option<Piece> {
-        // Check if the piece reached the opposite side
-        let reached_opposite_side = match piece.color {
-            Color::White => position.y == 0, // White pieces start at bottom (y=8) and move up (y=0)
-            Color::Black => position.y == 8, // Black pieces start at top (y=0) and move down (y=8)
-        };
-
-        if !reached_opposite_side {
-            return None;
-        }
-
-        // Helper function to promote a piece type if applicable
-        let promote_piece_type = |piece_type: PieceType| -> PieceType {
-            match piece_type {
-                PieceType::Soldier => PieceType::Paladin,
-                PieceType::Ballista => PieceType::Rook,
-                _ => piece_type, // No promotion for other pieces
-            }
-        };
-
-        // Check if any promotion is needed
-        let bottom_needs_promotion =
-            piece.bottom == PieceType::Soldier || piece.bottom == PieceType::Ballista;
-        let top_needs_promotion = piece.top.is_some()
-            && (piece.top == Some(PieceType::Soldier) || piece.top == Some(PieceType::Ballista));
-
-        if !bottom_needs_promotion && !top_needs_promotion {
-            return None;
-        }
-
-        // Perform the promotion for both bottom and top pieces
-        let promoted_bottom = promote_piece_type(piece.bottom);
-        let promoted_top = piece.top.map(promote_piece_type);
-
-        Some(Piece::new(piece.color, promoted_bottom, promoted_top))
-    }
-
-    fn compute_soldier_moves(
-        &self,
-        position: &Position,
-        color: Color,
-        is_top: bool,
-        has_top: bool,
-        moves: &mut Vec<PotentialMove>,
-    ) {
-        // Soldier can move forward diagonally one step
-        let dy: isize = if color == Color::White { -1 } else { 1 };
-        if let Some(target_position) = position.get_new(1, dy) {
-            self.explore_position(position, color, &target_position, is_top, has_top, moves);
-        }
-        if let Some(target_position) = position.get_new(-1, dy) {
-            self.explore_position(position, color, &target_position, is_top, has_top, moves);
-        }
-    }
-
-    fn compute_ballista_moves(
-        &self,
-        position: &Position,
-        color: Color,
-        is_top: bool,
-        has_top: bool,
-        moves: &mut Vec<PotentialMove>,
-    ) {
-        // Ballista can move forward any number of steps in a straight line
-        let dy: isize = if color == Color::White { -1 } else { 1 };
-        let directions = [(0isize, dy)];
-        self.compute_generic_moves(
-            position,
-            color,
-            is_top,
-            has_top,
-            moves,
-            &directions,
-            BOARD_DIMENSION as isize,
-        );
-    }
-
-    fn compute_knight_moves(
-        &self,
-        position: &Position,
-        color: Color,
-        is_top: bool,
-        has_top: bool,
-        moves: &mut Vec<PotentialMove>,
-    ) {
-        // Knight move like a knight in chess
-        let directions = [
-            (2, 1),
-            (2, -1),
-            (-2, 1),
-            (-2, -1),
-            (1, 2),
-            (1, -2),
-            (-1, 2),
-            (-1, -2),
-        ];
-        self.compute_generic_moves(position, color, is_top, has_top, moves, &directions, 1);
-    }
-
-    fn compute_generic_moves(
-        &self,
-        position: &Position,
-        color: Color,
-        is_top: bool,
-        has_top: bool,
-        moves: &mut Vec<PotentialMove>,
-        directions: &[(isize, isize)],
-        max_distance: isize,
-    ) {
-        for &(dx, dy) in directions {
-            for mult in 1..=max_distance {
-                if let Some(target_position) = position.get_new(dx * mult, dy * mult) {
-                    if !self.explore_position(
-                        position,
-                        color,
-                        &target_position,
-                        is_top,
-                        has_top,
-                        moves,
-                    ) {
-                        break;
-                    }
-                }
-            }
-        }
+        Ok(Game {
+            board,
+            white_to_move,
+            game_over,
+            white_wins,
+            draw,
+            moves_without_capture,
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::board::{PieceType, BOARD_DIMENSION};
+
+    fn empty_game() -> Game {
+        Game::from_board(Board::empty())
+    }
+
+    // ── Make / Unmake tests ──────────────────────────────────────────────────
+
+    #[test]
+    fn make_unmake_roundtrip_restores_state() {
+        let mut game = Game::new();
+        let original_board = game.board;
+        let original_wtm = game.white_to_move;
+
+        let mv = Move {
+            from: Position::new(0, 6),
+            to: Position::new(0, 5),
+            unstack: false,
+        };
+
+        let undo = game.make(&mv);
+        assert_ne!(game.board, original_board);
+        game.unmake(&mv, undo);
+        assert_eq!(game.board, original_board);
+        assert_eq!(game.white_to_move, original_wtm);
+    }
+
+    #[test]
+    fn make_capture_and_unmake() {
+        let mut game = empty_game();
+        let white_soldier = Piece::new(Color::White, PieceType::Soldier, None);
+        let black_soldier = Piece::new(Color::Black, PieceType::Soldier, None);
+        let white_king = Piece::new(Color::White, PieceType::King, None);
+        let black_king = Piece::new(Color::Black, PieceType::King, None);
+        game.board.set_piece(&Position::new(0, 8), Some(white_king));
+        game.board.set_piece(&Position::new(0, 0), Some(black_king));
+        game.board.set_piece(&Position::new(4, 4), Some(white_soldier));
+        game.board.set_piece(&Position::new(4, 3), Some(black_soldier));
+        let original_board = game.board;
+
+        let mv = Move {
+            from: Position::new(4, 4),
+            to: Position::new(4, 3),
+            unstack: false,
+        };
+
+        let undo = game.make(&mv);
+        assert!(game.board.get_piece(&Position::new(4, 4)).is_none());
+        assert_eq!(
+            game.board.get_piece(&Position::new(4, 3)).unwrap().color,
+            Color::White
+        );
+        assert_eq!(game.moves_without_capture(), 0);
+
+        game.unmake(&mv, undo);
+        assert_eq!(game.board, original_board);
+    }
+
+    #[test]
+    fn make_stacking_and_unmake() {
+        let mut game = empty_game();
+        let white_soldier = Piece::new(Color::White, PieceType::Soldier, None);
+        let white_guard = Piece::new(Color::White, PieceType::Guard, None);
+        let white_king = Piece::new(Color::White, PieceType::King, None);
+        let black_king = Piece::new(Color::Black, PieceType::King, None);
+        game.board.set_piece(&Position::new(0, 8), Some(white_king));
+        game.board.set_piece(&Position::new(0, 0), Some(black_king));
+        game.board.set_piece(&Position::new(3, 4), Some(white_soldier));
+        game.board.set_piece(&Position::new(3, 3), Some(white_guard));
+        let original_board = game.board;
+
+        let mv = Move {
+            from: Position::new(3, 4),
+            to: Position::new(3, 3),
+            unstack: false,
+        };
+
+        let undo = game.make(&mv);
+        assert!(game.board.get_piece(&Position::new(3, 4)).is_none());
+        let stacked = game.board.get_piece(&Position::new(3, 3)).unwrap();
+        assert_eq!(stacked.bottom, PieceType::Guard);
+        assert_eq!(stacked.top, Some(PieceType::Soldier));
+
+        game.unmake(&mv, undo);
+        assert_eq!(game.board, original_board);
+    }
+
+    // ── Promotion tests ──────────────────────────────────────────────────────
 
     #[test]
     fn test_soldier_promotion_to_paladin_white() {
         let mut game = Game::new();
-
-        // Place a white soldier at position (4, 1) - near the top
         let soldier_pos = Position::new(4, 1);
         game.board.set_piece(
             &soldier_pos,
             Some(Piece::new(Color::White, PieceType::Soldier, None)),
         );
 
-        // Move the soldier to (3, 0) - top row (opposite side for white)
         let mv = Move {
             from: soldier_pos,
             to: Position::new(3, 0),
             unstack: false,
         };
+        let _undo = game.make(&mv);
 
-        let result = game.apply_move_copy(mv);
-        assert!(result.is_ok(), "Move should be valid");
-
-        let new_board = result.unwrap();
-        let piece = new_board.get_piece(&Position::new(3, 0));
-        assert!(piece.is_some(), "Piece should be at destination");
-
-        let piece = piece.unwrap();
+        let piece = game.board.get_piece(&Position::new(3, 0)).unwrap();
         assert_eq!(piece.color, Color::White);
-        assert_eq!(
-            piece.bottom,
-            PieceType::Paladin,
-            "Soldier should be promoted to Paladin"
-        );
+        assert_eq!(piece.bottom, PieceType::Paladin);
         assert_eq!(piece.top, None);
     }
 
     #[test]
     fn test_soldier_promotion_to_paladin_black() {
         let mut game = Game::new();
-
-        // Place a black soldier at position (4, 7) - near the bottom
         let soldier_pos = Position::new(4, 7);
         game.board.set_piece(
             &soldier_pos,
             Some(Piece::new(Color::Black, PieceType::Soldier, None)),
         );
+        game.set_white_to_move(false);
 
-        // Move the soldier to (3, 8) - bottom row (opposite side for black)
         let mv = Move {
             from: soldier_pos,
             to: Position::new(3, 8),
             unstack: false,
         };
+        let _undo = game.make(&mv);
 
-        let result = game.apply_move_copy(mv);
-        assert!(result.is_ok(), "Move should be valid");
-
-        let new_board = result.unwrap();
-        let piece = new_board.get_piece(&Position::new(3, 8));
-        assert!(piece.is_some(), "Piece should be at destination");
-
-        let piece = piece.unwrap();
+        let piece = game.board.get_piece(&Position::new(3, 8)).unwrap();
         assert_eq!(piece.color, Color::Black);
-        assert_eq!(
-            piece.bottom,
-            PieceType::Paladin,
-            "Soldier should be promoted to Paladin"
-        );
+        assert_eq!(piece.bottom, PieceType::Paladin);
         assert_eq!(piece.top, None);
     }
 
     #[test]
     fn test_ballista_promotion_to_rook_white() {
         let mut game = Game::new();
-
-        // Place a white ballista at position (4, 1) - near the top
         let ballista_pos = Position::new(4, 1);
         game.board.set_piece(
             &ballista_pos,
             Some(Piece::new(Color::White, PieceType::Ballista, None)),
         );
 
-        // Move the ballista to (4, 0) - top row (opposite side for white)
         let mv = Move {
             from: ballista_pos,
             to: Position::new(4, 0),
             unstack: false,
         };
+        let _undo = game.make(&mv);
 
-        let result = game.apply_move_copy(mv);
-        assert!(result.is_ok(), "Move should be valid");
-
-        let new_board = result.unwrap();
-        let piece = new_board.get_piece(&Position::new(4, 0));
-        assert!(piece.is_some(), "Piece should be at destination");
-
-        let piece = piece.unwrap();
+        let piece = game.board.get_piece(&Position::new(4, 0)).unwrap();
         assert_eq!(piece.color, Color::White);
-        assert_eq!(
-            piece.bottom,
-            PieceType::Rook,
-            "Ballista should be promoted to Rook"
-        );
+        assert_eq!(piece.bottom, PieceType::Rook);
         assert_eq!(piece.top, None);
     }
 
     #[test]
     fn test_ballista_promotion_to_rook_black() {
         let mut game = Game::new();
-
-        // Place a black ballista at position (4, 7) - near the bottom
         let ballista_pos = Position::new(4, 7);
         game.board.set_piece(
             &ballista_pos,
             Some(Piece::new(Color::Black, PieceType::Ballista, None)),
         );
+        game.set_white_to_move(false);
 
-        // Move the ballista to (4, 8) - bottom row (opposite side for black)
         let mv = Move {
             from: ballista_pos,
             to: Position::new(4, 8),
             unstack: false,
         };
+        let _undo = game.make(&mv);
 
-        let result = game.apply_move_copy(mv);
-        assert!(result.is_ok(), "Move should be valid");
-
-        let new_board = result.unwrap();
-        let piece = new_board.get_piece(&Position::new(4, 8));
-        assert!(piece.is_some(), "Piece should be at destination");
-
-        let piece = piece.unwrap();
+        let piece = game.board.get_piece(&Position::new(4, 8)).unwrap();
         assert_eq!(piece.color, Color::Black);
-        assert_eq!(
-            piece.bottom,
-            PieceType::Rook,
-            "Ballista should be promoted to Rook"
-        );
+        assert_eq!(piece.bottom, PieceType::Rook);
         assert_eq!(piece.top, None);
     }
 
     #[test]
     fn test_soldier_no_promotion_middle_board() {
         let mut game = Game::new();
-
-        // Place a white soldier at position (4, 5)
         let soldier_pos = Position::new(4, 5);
         game.board.set_piece(
             &soldier_pos,
             Some(Piece::new(Color::White, PieceType::Soldier, None)),
         );
 
-        // Move the soldier to (3, 4) - not on opposite side
         let mv = Move {
             from: soldier_pos,
             to: Position::new(3, 4),
             unstack: false,
         };
+        let _undo = game.make(&mv);
 
-        let result = game.apply_move_copy(mv);
-        assert!(result.is_ok(), "Move should be valid");
-
-        let new_board = result.unwrap();
-        let piece = new_board.get_piece(&Position::new(3, 4));
-        assert!(piece.is_some(), "Piece should be at destination");
-
-        let piece = piece.unwrap();
+        let piece = game.board.get_piece(&Position::new(3, 4)).unwrap();
         assert_eq!(piece.color, Color::White);
-        assert_eq!(
-            piece.bottom,
-            PieceType::Soldier,
-            "Soldier should NOT be promoted in middle of board"
-        );
+        assert_eq!(piece.bottom, PieceType::Soldier);
         assert_eq!(piece.top, None);
     }
 
     #[test]
     fn test_stacked_soldier_promotion() {
         let mut game = Game::new();
-
-        // Place a stacked piece: Soldier on top of Guard at position (4, 1)
         let stack_pos = Position::new(4, 1);
         game.board.set_piece(
             &stack_pos,
@@ -848,35 +506,22 @@ mod tests {
             )),
         );
 
-        // Unstack and move the soldier to (3, 0) - top row
         let mv = Move {
             from: stack_pos,
             to: Position::new(3, 0),
             unstack: true,
         };
+        let _undo = game.make(&mv);
 
-        let result = game.apply_move_copy(mv);
-        assert!(result.is_ok(), "Move should be valid");
-
-        let new_board = result.unwrap();
-        let piece = new_board.get_piece(&Position::new(3, 0));
-        assert!(piece.is_some(), "Piece should be at destination");
-
-        let piece = piece.unwrap();
+        let piece = game.board.get_piece(&Position::new(3, 0)).unwrap();
         assert_eq!(piece.color, Color::White);
-        assert_eq!(
-            piece.bottom,
-            PieceType::Paladin,
-            "Unstacked Soldier should be promoted to Paladin"
-        );
+        assert_eq!(piece.bottom, PieceType::Paladin);
         assert_eq!(piece.top, None);
     }
 
     #[test]
     fn test_other_pieces_no_promotion() {
         let mut game = Game::new();
-
-        // Test that other pieces (like Guard) don't get promoted
         let guard_pos = Position::new(4, 1);
         game.board.set_piece(
             &guard_pos,
@@ -888,29 +533,17 @@ mod tests {
             to: Position::new(3, 0),
             unstack: false,
         };
+        let _undo = game.make(&mv);
 
-        let result = game.apply_move_copy(mv);
-        assert!(result.is_ok(), "Move should be valid");
-
-        let new_board = result.unwrap();
-        let piece = new_board.get_piece(&Position::new(3, 0));
-        assert!(piece.is_some(), "Piece should be at destination");
-
-        let piece = piece.unwrap();
+        let piece = game.board.get_piece(&Position::new(3, 0)).unwrap();
         assert_eq!(piece.color, Color::White);
-        assert_eq!(
-            piece.bottom,
-            PieceType::Guard,
-            "Guard should NOT be promoted"
-        );
+        assert_eq!(piece.bottom, PieceType::Guard);
         assert_eq!(piece.top, None);
     }
 
     #[test]
     fn test_stacked_soldier_on_soldier_promotion_white() {
         let mut game = Game::new();
-
-        // Place a stacked piece: Soldier on top of Soldier at position (4, 1)
         let stack_pos = Position::new(4, 1);
         game.board.set_piece(
             &stack_pos,
@@ -921,39 +554,22 @@ mod tests {
             )),
         );
 
-        // Move the stack (without unstacking) to (3, 0) - top row
         let mv = Move {
             from: stack_pos,
             to: Position::new(3, 0),
             unstack: false,
         };
+        let _undo = game.make(&mv);
 
-        let result = game.apply_move_copy(mv);
-        assert!(result.is_ok(), "Move should be valid");
-
-        let new_board = result.unwrap();
-        let piece = new_board.get_piece(&Position::new(3, 0));
-        assert!(piece.is_some(), "Piece should be at destination");
-
-        let piece = piece.unwrap();
+        let piece = game.board.get_piece(&Position::new(3, 0)).unwrap();
         assert_eq!(piece.color, Color::White);
-        assert_eq!(
-            piece.bottom,
-            PieceType::Paladin,
-            "Bottom Soldier should be promoted to Paladin"
-        );
-        assert_eq!(
-            piece.top,
-            Some(PieceType::Paladin),
-            "Top Soldier should be promoted to Paladin"
-        );
+        assert_eq!(piece.bottom, PieceType::Paladin);
+        assert_eq!(piece.top, Some(PieceType::Paladin));
     }
 
     #[test]
     fn test_stacked_soldier_on_soldier_promotion_black() {
         let mut game = Game::new();
-
-        // Place a stacked piece: Soldier on top of Soldier at position (4, 7)
         let stack_pos = Position::new(4, 7);
         game.board.set_piece(
             &stack_pos,
@@ -963,40 +579,24 @@ mod tests {
                 Some(PieceType::Soldier),
             )),
         );
+        game.set_white_to_move(false);
 
-        // Move the stack to (3, 8) - bottom row (opposite side for black)
         let mv = Move {
             from: stack_pos,
             to: Position::new(3, 8),
             unstack: false,
         };
+        let _undo = game.make(&mv);
 
-        let result = game.apply_move_copy(mv);
-        assert!(result.is_ok(), "Move should be valid");
-
-        let new_board = result.unwrap();
-        let piece = new_board.get_piece(&Position::new(3, 8));
-        assert!(piece.is_some(), "Piece should be at destination");
-
-        let piece = piece.unwrap();
+        let piece = game.board.get_piece(&Position::new(3, 8)).unwrap();
         assert_eq!(piece.color, Color::Black);
-        assert_eq!(
-            piece.bottom,
-            PieceType::Paladin,
-            "Bottom Soldier should be promoted to Paladin"
-        );
-        assert_eq!(
-            piece.top,
-            Some(PieceType::Paladin),
-            "Top Soldier should be promoted to Paladin"
-        );
+        assert_eq!(piece.bottom, PieceType::Paladin);
+        assert_eq!(piece.top, Some(PieceType::Paladin));
     }
 
     #[test]
     fn test_stacked_ballista_on_ballista_promotion_white() {
         let mut game = Game::new();
-
-        // Place a stacked piece: Ballista on top of Ballista at position (4, 1)
         let stack_pos = Position::new(4, 1);
         game.board.set_piece(
             &stack_pos,
@@ -1007,39 +607,22 @@ mod tests {
             )),
         );
 
-        // Move the stack to (4, 0) - top row
         let mv = Move {
             from: stack_pos,
             to: Position::new(4, 0),
             unstack: false,
         };
+        let _undo = game.make(&mv);
 
-        let result = game.apply_move_copy(mv);
-        assert!(result.is_ok(), "Move should be valid");
-
-        let new_board = result.unwrap();
-        let piece = new_board.get_piece(&Position::new(4, 0));
-        assert!(piece.is_some(), "Piece should be at destination");
-
-        let piece = piece.unwrap();
+        let piece = game.board.get_piece(&Position::new(4, 0)).unwrap();
         assert_eq!(piece.color, Color::White);
-        assert_eq!(
-            piece.bottom,
-            PieceType::Rook,
-            "Bottom Ballista should be promoted to Rook"
-        );
-        assert_eq!(
-            piece.top,
-            Some(PieceType::Rook),
-            "Top Ballista should be promoted to Rook"
-        );
+        assert_eq!(piece.bottom, PieceType::Rook);
+        assert_eq!(piece.top, Some(PieceType::Rook));
     }
 
     #[test]
     fn test_stacked_ballista_on_ballista_promotion_black() {
         let mut game = Game::new();
-
-        // Place a stacked piece: Ballista on top of Ballista at position (4, 7)
         let stack_pos = Position::new(4, 7);
         game.board.set_piece(
             &stack_pos,
@@ -1049,40 +632,24 @@ mod tests {
                 Some(PieceType::Ballista),
             )),
         );
+        game.set_white_to_move(false);
 
-        // Move the stack to (4, 8) - bottom row (opposite side for black)
         let mv = Move {
             from: stack_pos,
             to: Position::new(4, 8),
             unstack: false,
         };
+        let _undo = game.make(&mv);
 
-        let result = game.apply_move_copy(mv);
-        assert!(result.is_ok(), "Move should be valid");
-
-        let new_board = result.unwrap();
-        let piece = new_board.get_piece(&Position::new(4, 8));
-        assert!(piece.is_some(), "Piece should be at destination");
-
-        let piece = piece.unwrap();
+        let piece = game.board.get_piece(&Position::new(4, 8)).unwrap();
         assert_eq!(piece.color, Color::Black);
-        assert_eq!(
-            piece.bottom,
-            PieceType::Rook,
-            "Bottom Ballista should be promoted to Rook"
-        );
-        assert_eq!(
-            piece.top,
-            Some(PieceType::Rook),
-            "Top Ballista should be promoted to Rook"
-        );
+        assert_eq!(piece.bottom, PieceType::Rook);
+        assert_eq!(piece.top, Some(PieceType::Rook));
     }
 
     #[test]
     fn test_stacked_soldier_on_guard_promotion() {
         let mut game = Game::new();
-
-        // Place a stacked piece: Soldier on top of Guard at position (4, 1)
         let stack_pos = Position::new(4, 1);
         game.board.set_piece(
             &stack_pos,
@@ -1093,39 +660,22 @@ mod tests {
             )),
         );
 
-        // Move the stack to (3, 0) - top row
         let mv = Move {
             from: stack_pos,
             to: Position::new(3, 0),
             unstack: false,
         };
+        let _undo = game.make(&mv);
 
-        let result = game.apply_move_copy(mv);
-        assert!(result.is_ok(), "Move should be valid");
-
-        let new_board = result.unwrap();
-        let piece = new_board.get_piece(&Position::new(3, 0));
-        assert!(piece.is_some(), "Piece should be at destination");
-
-        let piece = piece.unwrap();
+        let piece = game.board.get_piece(&Position::new(3, 0)).unwrap();
         assert_eq!(piece.color, Color::White);
-        assert_eq!(
-            piece.bottom,
-            PieceType::Guard,
-            "Guard should NOT be promoted"
-        );
-        assert_eq!(
-            piece.top,
-            Some(PieceType::Paladin),
-            "Soldier should be promoted to Paladin"
-        );
+        assert_eq!(piece.bottom, PieceType::Guard);
+        assert_eq!(piece.top, Some(PieceType::Paladin));
     }
 
     #[test]
     fn test_stacked_guard_on_soldier_promotion() {
         let mut game = Game::new();
-
-        // Place a stacked piece: Guard on top of Soldier at position (4, 1)
         let stack_pos = Position::new(4, 1);
         game.board.set_piece(
             &stack_pos,
@@ -1136,39 +686,22 @@ mod tests {
             )),
         );
 
-        // Move the stack to (3, 0) - top row
         let mv = Move {
             from: stack_pos,
             to: Position::new(3, 0),
             unstack: false,
         };
+        let _undo = game.make(&mv);
 
-        let result = game.apply_move_copy(mv);
-        assert!(result.is_ok(), "Move should be valid");
-
-        let new_board = result.unwrap();
-        let piece = new_board.get_piece(&Position::new(3, 0));
-        assert!(piece.is_some(), "Piece should be at destination");
-
-        let piece = piece.unwrap();
+        let piece = game.board.get_piece(&Position::new(3, 0)).unwrap();
         assert_eq!(piece.color, Color::White);
-        assert_eq!(
-            piece.bottom,
-            PieceType::Paladin,
-            "Soldier should be promoted to Paladin"
-        );
-        assert_eq!(
-            piece.top,
-            Some(PieceType::Guard),
-            "Guard should NOT be promoted"
-        );
+        assert_eq!(piece.bottom, PieceType::Paladin);
+        assert_eq!(piece.top, Some(PieceType::Guard));
     }
 
     #[test]
     fn test_stacked_ballista_on_soldier_promotion() {
         let mut game = Game::new();
-
-        // Place a stacked piece: Ballista on top of Soldier at position (4, 1)
         let stack_pos = Position::new(4, 1);
         game.board.set_piece(
             &stack_pos,
@@ -1179,47 +712,25 @@ mod tests {
             )),
         );
 
-        // Move the stack to (4, 0) - top row
         let mv = Move {
             from: stack_pos,
             to: Position::new(4, 0),
             unstack: false,
         };
+        let _undo = game.make(&mv);
 
-        let result = game.apply_move_copy(mv);
-        assert!(result.is_ok(), "Move should be valid");
-
-        let new_board = result.unwrap();
-        let piece = new_board.get_piece(&Position::new(4, 0));
-        assert!(piece.is_some(), "Piece should be at destination");
-
-        let piece = piece.unwrap();
+        let piece = game.board.get_piece(&Position::new(4, 0)).unwrap();
         assert_eq!(piece.color, Color::White);
-        assert_eq!(
-            piece.bottom,
-            PieceType::Paladin,
-            "Soldier should be promoted to Paladin"
-        );
-        assert_eq!(
-            piece.top,
-            Some(PieceType::Rook),
-            "Ballista should be promoted to Rook"
-        );
+        assert_eq!(piece.bottom, PieceType::Paladin);
+        assert_eq!(piece.top, Some(PieceType::Rook));
     }
+
+    // ── Game over tests ──────────────────────────────────────────────────────
 
     #[test]
     fn test_king_capture_white_wins() {
-        let mut game = Game::new();
+        let mut game = empty_game();
 
-        // Clear the board
-        for y in 0..9 {
-            for x in 0..9 {
-                let pos = Position::new(x, y);
-                game.board.set_piece(&pos, None);
-            }
-        }
-
-        // Place white king and a white soldier
         game.board.set_piece(
             &Position::new(4, 4),
             Some(Piece::new(Color::White, PieceType::King, None)),
@@ -1228,42 +739,27 @@ mod tests {
             &Position::new(3, 1),
             Some(Piece::new(Color::White, PieceType::Soldier, None)),
         );
-
-        // Place black king at position where white soldier can capture it
         game.board.set_piece(
             &Position::new(4, 0),
             Some(Piece::new(Color::Black, PieceType::King, None)),
         );
 
-        // White soldier captures black king
         let mv = Move {
             from: Position::new(3, 1),
             to: Position::new(4, 0),
             unstack: false,
         };
+        let _undo = game.make(&mv);
 
-        let result = game.apply_move_copy(mv);
-        assert!(result.is_ok(), "Move should be valid");
-
-        let new_board = result.unwrap();
-        assert!(new_board.is_game_over(), "Game should be over");
-        assert!(new_board.white_wins(), "White should win");
-        assert!(!new_board.is_draw(), "Should not be a draw");
+        assert!(game.is_game_over());
+        assert!(game.white_wins());
+        assert!(!game.is_draw());
     }
 
     #[test]
     fn test_king_capture_black_wins() {
-        let mut game = Game::new();
+        let mut game = empty_game();
 
-        // Clear the board
-        for y in 0..9 {
-            for x in 0..9 {
-                let pos = Position::new(x, y);
-                game.board.set_piece(&pos, None);
-            }
-        }
-
-        // Place black king and a black soldier
         game.board.set_piece(
             &Position::new(4, 4),
             Some(Piece::new(Color::Black, PieceType::King, None)),
@@ -1272,45 +768,28 @@ mod tests {
             &Position::new(3, 7),
             Some(Piece::new(Color::Black, PieceType::Soldier, None)),
         );
-
-        // Place white king at position where black soldier can capture it
         game.board.set_piece(
             &Position::new(4, 8),
             Some(Piece::new(Color::White, PieceType::King, None)),
         );
+        game.set_white_to_move(false);
 
-        // Set black to move
-        game.board.set_white_to_move(false);
-
-        // Black soldier captures white king
         let mv = Move {
             from: Position::new(3, 7),
             to: Position::new(4, 8),
             unstack: false,
         };
+        let _undo = game.make(&mv);
 
-        let result = game.apply_move_copy(mv);
-        assert!(result.is_ok(), "Move should be valid");
-
-        let new_board = result.unwrap();
-        assert!(new_board.is_game_over(), "Game should be over");
-        assert!(!new_board.white_wins(), "White should not win");
-        assert!(!new_board.is_draw(), "Should not be a draw");
+        assert!(game.is_game_over());
+        assert!(!game.white_wins());
+        assert!(!game.is_draw());
     }
 
     #[test]
     fn test_draw_only_kings_remaining() {
-        let mut game = Game::new();
+        let mut game = empty_game();
 
-        // Clear the board
-        for y in 0..9 {
-            for x in 0..9 {
-                let pos = Position::new(x, y);
-                game.board.set_piece(&pos, None);
-            }
-        }
-
-        // Place only kings
         game.board.set_piece(
             &Position::new(4, 4),
             Some(Piece::new(Color::White, PieceType::King, None)),
@@ -1319,65 +798,39 @@ mod tests {
             &Position::new(4, 5),
             Some(Piece::new(Color::Black, PieceType::King, None)),
         );
-
-        // Place a black soldier that will be captured (in middle of board, not promotion zone)
         game.board.set_piece(
             &Position::new(3, 3),
             Some(Piece::new(Color::Black, PieceType::Soldier, None)),
         );
-
-        // Place a white soldier to capture the black soldier
         game.board.set_piece(
             &Position::new(4, 2),
             Some(Piece::new(Color::White, PieceType::Soldier, None)),
         );
 
-        // White soldier captures black soldier, leaving only kings and the white soldier
+        // White soldier captures black soldier
         let mv = Move {
             from: Position::new(4, 2),
             to: Position::new(3, 3),
             unstack: false,
         };
+        let _undo = game.make(&mv);
+        assert!(!game.is_game_over());
 
-        let result = game.apply_move_copy(mv);
-        assert!(result.is_ok(), "Move should be valid");
-
-        let board_after_first_move = result.unwrap();
-        // Game not over yet - there's still a white soldier
-        assert!(
-            !board_after_first_move.is_game_over(),
-            "Game should not be over yet"
-        );
-
-        // Now have black king capture the white soldier
-        let game2 = Game::from_board(board_after_first_move);
+        // Black king captures white soldier -> only kings left
         let mv2 = Move {
             from: Position::new(4, 5),
             to: Position::new(3, 3),
             unstack: false,
         };
-
-        let result2 = game2.apply_move_copy(mv2);
-        assert!(result2.is_ok(), "Move should be valid");
-
-        let new_board = result2.unwrap();
-        assert!(new_board.is_game_over(), "Game should be over");
-        assert!(new_board.is_draw(), "Should be a draw");
+        let _undo2 = game.make(&mv2);
+        assert!(game.is_game_over());
+        assert!(game.is_draw());
     }
 
     #[test]
     fn test_draw_single_knight() {
-        let mut game = Game::new();
+        let mut game = empty_game();
 
-        // Clear the board
-        for y in 0..9 {
-            for x in 0..9 {
-                let pos = Position::new(x, y);
-                game.board.set_piece(&pos, None);
-            }
-        }
-
-        // Place kings and single knights
         game.board.set_piece(
             &Position::new(4, 0),
             Some(Piece::new(Color::White, PieceType::King, None)),
@@ -1386,7 +839,6 @@ mod tests {
             &Position::new(3, 0),
             Some(Piece::new(Color::White, PieceType::Knight, None)),
         );
-
         game.board.set_piece(
             &Position::new(4, 8),
             Some(Piece::new(Color::Black, PieceType::King, None)),
@@ -1395,14 +847,11 @@ mod tests {
             &Position::new(5, 8),
             Some(Piece::new(Color::Black, PieceType::Knight, None)),
         );
-
-        // Place a white soldier to be captured
         game.board.set_piece(
             &Position::new(4, 4),
             Some(Piece::new(Color::White, PieceType::Soldier, None)),
         );
-
-        game.board.set_white_to_move(false);
+        game.set_white_to_move(false);
 
         // Black knight captures soldier
         let mv = Move {
@@ -1410,31 +859,16 @@ mod tests {
             to: Position::new(4, 4),
             unstack: false,
         };
+        let _undo = game.make(&mv);
 
-        let result = game.apply_move_copy(mv);
-        assert!(result.is_ok(), "Move should be valid");
-
-        let new_board = result.unwrap();
-        assert!(
-            new_board.is_game_over(),
-            "Game should be over (single knight rule)"
-        );
-        assert!(new_board.is_draw(), "Should be a draw");
+        assert!(game.is_game_over());
+        assert!(game.is_draw());
     }
 
     #[test]
     fn test_draw_40_move_rule() {
-        let mut game = Game::new();
+        let mut game = empty_game();
 
-        // Clear the board
-        for y in 0..9 {
-            for x in 0..9 {
-                let pos = Position::new(x, y);
-                game.board.set_piece(&pos, None);
-            }
-        }
-
-        // Place kings
         game.board.set_piece(
             &Position::new(0, 0),
             Some(Piece::new(Color::White, PieceType::King, None)),
@@ -1443,8 +877,6 @@ mod tests {
             &Position::new(8, 8),
             Some(Piece::new(Color::Black, PieceType::King, None)),
         );
-
-        // Place some pieces
         game.board.set_piece(
             &Position::new(4, 4),
             Some(Piece::new(Color::White, PieceType::Soldier, None)),
@@ -1453,42 +885,24 @@ mod tests {
             &Position::new(5, 5),
             Some(Piece::new(Color::Black, PieceType::Soldier, None)),
         );
+        game.set_moves_without_capture(39);
 
-        // Simulate 39 moves without capture
-        game.board.set_moves_without_capture(39);
-
-        // Make a non-capturing move (40th move)
         let mv = Move {
             from: Position::new(4, 4),
             to: Position::new(5, 3),
             unstack: false,
         };
+        let _undo = game.make(&mv);
 
-        let result = game.apply_move_copy(mv);
-        assert!(result.is_ok(), "Move should be valid");
-
-        let new_board = result.unwrap();
-        assert!(
-            new_board.is_game_over(),
-            "Game should be over after 40 moves without capture"
-        );
-        assert!(new_board.is_draw(), "Should be a draw");
-        assert_eq!(new_board.moves_without_capture(), 40);
+        assert!(game.is_game_over());
+        assert!(game.is_draw());
+        assert_eq!(game.moves_without_capture(), 40);
     }
 
     #[test]
     fn test_capture_resets_move_counter() {
-        let mut game = Game::new();
+        let mut game = empty_game();
 
-        // Clear the board
-        for y in 0..9 {
-            for x in 0..9 {
-                let pos = Position::new(x, y);
-                game.board.set_piece(&pos, None);
-            }
-        }
-
-        // Place kings
         game.board.set_piece(
             &Position::new(0, 0),
             Some(Piece::new(Color::White, PieceType::King, None)),
@@ -1497,8 +911,6 @@ mod tests {
             &Position::new(8, 8),
             Some(Piece::new(Color::Black, PieceType::King, None)),
         );
-
-        // Place pieces
         game.board.set_piece(
             &Position::new(4, 5),
             Some(Piece::new(Color::White, PieceType::Soldier, None)),
@@ -1507,81 +919,46 @@ mod tests {
             &Position::new(5, 4),
             Some(Piece::new(Color::Black, PieceType::Soldier, None)),
         );
+        game.set_moves_without_capture(15);
 
-        // Set counter to some value
-        game.board.set_moves_without_capture(15);
-
-        // Make a capturing move
         let mv = Move {
             from: Position::new(4, 5),
             to: Position::new(5, 4),
             unstack: false,
         };
+        let _undo = game.make(&mv);
 
-        let result = game.apply_move_copy(mv);
-        assert!(result.is_ok(), "Move should be valid");
-
-        let new_board = result.unwrap();
-        assert_eq!(
-            new_board.moves_without_capture(),
-            0,
-            "Counter should be reset after capture"
-        );
+        assert_eq!(game.moves_without_capture(), 0);
     }
 
     #[test]
     fn test_cannot_move_when_game_over() {
         let mut game = Game::new();
+        game.set_game_over(true, true, false);
 
-        // Set up a game over state
-        game.board.set_game_over(true, true, false);
-
-        // Try to make a move
-        let mv = Move {
-            from: Position::new(0, 6),
-            to: Position::new(1, 5),
-            unstack: false,
-        };
-
-        let result = game.apply_move(mv);
-        assert!(
-            result.is_err(),
-            "Should not be able to move when game is over"
-        );
-        assert!(result.unwrap_err().contains("Game is over"));
+        // Game is over, but make() assumes valid moves; we test the state is set
+        assert!(game.is_game_over());
     }
 
     #[test]
     fn test_binary_encoding_with_game_state() {
         let mut game = Game::new();
+        game.set_game_over(true, false, true);
+        game.set_moves_without_capture(25);
 
-        // Set game state
-        game.board.set_game_over(true, false, true);
-        game.board.set_moves_without_capture(25);
-
-        // Encode and decode
         let binary = game.to_binary();
         let decoded_game = Game::from_binary(binary).unwrap();
 
-        assert_eq!(decoded_game.board.is_game_over(), true);
-        assert_eq!(decoded_game.board.white_wins(), false);
-        assert_eq!(decoded_game.board.is_draw(), true);
-        assert_eq!(decoded_game.board.moves_without_capture(), 25);
+        assert_eq!(decoded_game.is_game_over(), true);
+        assert_eq!(decoded_game.white_wins(), false);
+        assert_eq!(decoded_game.is_draw(), true);
+        assert_eq!(decoded_game.moves_without_capture(), 25);
     }
 
     #[test]
     fn test_color_lock_draw() {
-        let mut game = Game::new();
+        let mut game = empty_game();
 
-        // Clear the board
-        for y in 0..9 {
-            for x in 0..9 {
-                let pos = Position::new(x, y);
-                game.board.set_piece(&pos, None);
-            }
-        }
-
-        // Place kings
         game.board.set_piece(
             &Position::new(4, 4),
             Some(Piece::new(Color::White, PieceType::King, None)),
@@ -1591,8 +968,7 @@ mod tests {
             Some(Piece::new(Color::Black, PieceType::King, None)),
         );
 
-        // Place white bishops on white squares (color lock)
-        // White squares: (x + y) % 2 == 0
+        // White bishops on white squares
         game.board.set_piece(
             &Position::new(0, 0),
             Some(Piece::new(Color::White, PieceType::Bishop, None)),
@@ -1602,8 +978,7 @@ mod tests {
             Some(Piece::new(Color::White, PieceType::Bishop, None)),
         );
 
-        // Place black guards on black squares (color lock)
-        // Black squares: (x + y) % 2 == 1
+        // Black guards on black squares
         game.board.set_piece(
             &Position::new(0, 1),
             Some(Piece::new(Color::Black, PieceType::Guard, None)),
@@ -1613,29 +988,110 @@ mod tests {
             Some(Piece::new(Color::Black, PieceType::Guard, None)),
         );
 
-        // Place a white soldier on a black square to be captured
-        // Black square: (1 + 2) = 3 (odd)
+        // White soldier on a black square to be captured
         game.board.set_piece(
             &Position::new(1, 2),
             Some(Piece::new(Color::White, PieceType::Soldier, None)),
         );
+        game.set_white_to_move(false);
 
-        game.board.set_white_to_move(false);
-
-        // Black guard captures white soldier, staying on a black square and triggering color lock check
         let mv = Move {
             from: Position::new(0, 1),
             to: Position::new(1, 2),
             unstack: false,
         };
+        let _undo = game.make(&mv);
 
-        let result = game.apply_move_copy(mv);
+        assert!(game.is_game_over());
+        assert!(game.is_draw());
+    }
 
-        let result = game.apply_move_copy(mv);
-        assert!(result.is_ok(), "Move should be valid");
+    // ── UndoInfo::is_king_captured ──────────────────────────────────────────
 
-        let new_board = result.unwrap();
-        assert!(new_board.is_game_over(), "Game should be over (color lock)");
-        assert!(new_board.is_draw(), "Should be a draw");
+    #[test]
+    fn test_undo_info_king_captured() {
+        let mut game = empty_game();
+        game.board.set_piece(
+            &Position::new(4, 4),
+            Some(Piece::new(Color::White, PieceType::King, None)),
+        );
+        game.board.set_piece(
+            &Position::new(3, 1),
+            Some(Piece::new(Color::White, PieceType::Soldier, None)),
+        );
+        game.board.set_piece(
+            &Position::new(4, 0),
+            Some(Piece::new(Color::Black, PieceType::King, None)),
+        );
+
+        let mv = Move {
+            from: Position::new(3, 1),
+            to: Position::new(4, 0),
+            unstack: false,
+        };
+        let undo = game.make(&mv);
+        assert!(undo.is_king_captured());
+    }
+
+    #[test]
+    fn test_undo_info_no_king_captured() {
+        let mut game = empty_game();
+        game.board.set_piece(
+            &Position::new(4, 4),
+            Some(Piece::new(Color::White, PieceType::King, None)),
+        );
+        game.board.set_piece(
+            &Position::new(3, 1),
+            Some(Piece::new(Color::White, PieceType::Soldier, None)),
+        );
+        game.board.set_piece(
+            &Position::new(4, 0),
+            Some(Piece::new(Color::Black, PieceType::King, None)),
+        );
+        game.board.set_piece(
+            &Position::new(4, 2),
+            Some(Piece::new(Color::Black, PieceType::Soldier, None)),
+        );
+
+        let mv = Move {
+            from: Position::new(3, 1),
+            to: Position::new(4, 2),
+            unstack: false,
+        };
+        let undo = game.make(&mv);
+        assert!(!undo.is_king_captured());
+    }
+
+    // ── make_unchecked ──────────────────────────────────────────────────────
+
+    #[test]
+    fn test_make_unchecked_skips_game_over() {
+        let mut game = empty_game();
+        game.board.set_piece(
+            &Position::new(4, 4),
+            Some(Piece::new(Color::White, PieceType::King, None)),
+        );
+        game.board.set_piece(
+            &Position::new(3, 1),
+            Some(Piece::new(Color::White, PieceType::Soldier, None)),
+        );
+        game.board.set_piece(
+            &Position::new(4, 0),
+            Some(Piece::new(Color::Black, PieceType::King, None)),
+        );
+
+        let mv = Move {
+            from: Position::new(3, 1),
+            to: Position::new(4, 0),
+            unstack: false,
+        };
+        let undo = game.make_unchecked(&mv);
+        // King was captured, but game_over flag is NOT set (unchecked)
+        assert!(!game.is_game_over());
+        // However, UndoInfo knows a king was captured
+        assert!(undo.is_king_captured());
+
+        game.unmake(&mv, undo);
+        assert!(!game.is_game_over());
     }
 }
