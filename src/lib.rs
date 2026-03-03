@@ -1,6 +1,5 @@
 pub mod board;
 pub mod cli_rendering;
-pub mod engine;
 pub mod game;
 pub mod tui;
 
@@ -8,8 +7,4 @@ pub mod tui;
 pub use board::{Board, Color, Piece, PieceType, Position, UndoInfo, BOARD_DIMENSION, BOARD_SIZE};
 pub use game::{Game, Move, PotentialMove};
 pub use tui::run_tui;
-// Re-export main engine types (others available via engine::*)
-pub use engine::{EngineConfig, Engine, SearchStatistics};
-pub use engine::{SearchConfig, SearchResult, PVLine, SearchStats, SearchEngine, MockStage2};
-pub use engine::{StageConfig};
-pub use engine::{NodeVisitor, NoopVisitor, TreeRecorder, DebugNode};
+

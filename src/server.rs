@@ -1,34 +1,18 @@
 use axum::{
     body::Bytes,
-    extract::State,
     http::StatusCode,
     response::IntoResponse,
     routing::{get, post},
     Router,
 };
 use keres_engine::board::{Board, BOARD_SIZE};
-use keres_engine::engine::{EngineConfig, Engine};
 use keres_engine::game::{Game, Move};
 use std::net::SocketAddr;
-use std::sync::{Arc, Mutex};
 use tower_http::cors::{Any, CorsLayer};
 
-// Shared engine state
-struct AppState {
-    engine: Mutex<Option<Engine>>,
-}
 
 #[tokio::main]
 async fn main() {
-    let config = EngineConfig::default();
-
-    let engine = Engine::new(config);
-    println!("✓ Engine initialized successfully");
-
-    let state = Arc::new(AppState {
-        engine: Mutex::new(Some(engine)),
-    });
-
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
@@ -40,7 +24,6 @@ async fn main() {
         .route("/play", post(play_move))
         .route("/replay-moves", post(replay_moves))
         .route("/engine-move", post(engine_move))
-        .with_state(state)
         .layer(cors);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
@@ -116,7 +99,6 @@ async fn replay_moves(payload: Bytes) -> Result<Vec<u8>, StatusCode> {
 }
 
 async fn engine_move(
-    State(state): State<Arc<AppState>>,
     payload: Bytes,
 ) -> Result<Vec<u8>, StatusCode> {
     let board_bytes = payload;
@@ -129,13 +111,7 @@ async fn engine_move(
 
     let board = Board::from_binary(board_array).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let guard = state.engine.lock().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let engine = guard.as_ref().ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
+    // @todo implement me
 
-    let (mv, _stats) = engine
-        .find_move(&board)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let move_encoding = mv.to_u16();
-    Ok(move_encoding.to_le_bytes().to_vec())
+    Err(StatusCode::IM_A_TEAPOT)
 }
