@@ -178,8 +178,10 @@ impl Game {
                     self.board.set_piece(&mv.to, Some(final_piece));
                 } else {
                     // Stack: moving piece on top, existing piece on bottom
-                    self.board.stack_piece(&mv.to, source_piece).unwrap();
-                    final_piece = *self.board.get_piece(&mv.to).unwrap();
+                    self.board.stack_piece(&mv.to, source_piece)
+                        .expect("stack_piece failed during make: invalid stacking");
+                    final_piece = *self.board.get_piece(&mv.to)
+                        .expect("piece missing after stack_piece");
                 }
             }
         }
@@ -292,7 +294,7 @@ impl Game {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::board::{PieceType, BOARD_DIMENSION};
+    use crate::board::PieceType;
 
     fn empty_game() -> Game {
         Game::from_board(Board::empty())

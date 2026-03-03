@@ -66,7 +66,7 @@ async fn play_move(payload: Bytes) -> Result<Vec<u8>, StatusCode> {
     board_array.copy_from_slice(board_bytes);
     let mut game = Game::from_binary(board_array).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let mv = Move::from_u16(u16::from_le_bytes([move_bytes[0], move_bytes[1]]));
-    game.make(&mv);
+    let _undo = game.make(&mv);
     let new_binary_board = game.to_binary();
     Ok(new_binary_board.to_vec())
 }
@@ -87,7 +87,7 @@ async fn replay_moves(payload: Bytes) -> Result<Vec<u8>, StatusCode> {
     for i in (0..move_bytes.len()).step_by(2) {
         let move_u16 = u16::from_le_bytes([move_bytes[i], move_bytes[i + 1]]);
         let mv = Move::from_u16(move_u16);
-        game.make(&mv);
+        let _undo = game.make(&mv);
     }
     
     // Return the final board state
