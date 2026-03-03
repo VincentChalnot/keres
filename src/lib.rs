@@ -6,8 +6,8 @@ pub mod moves;
 pub mod tui;
 
 // Re-export main types
-pub use board::{Board, Color, Piece, PieceType, Position, UndoInfo, BOARD_DIMENSION, BOARD_SIZE};
-pub use game::{Game, Move, PotentialMove};
-pub use moves::MoveGenerator;
+pub use board::{Board, Color, Piece, PieceType, Position, BOARD_DIMENSION, BOARD_SIZE};
+pub use game::{Game, UndoInfo};
+pub use moves::{Move, MoveGenerator, PotentialMove};
 pub use tui::run_tui;
 

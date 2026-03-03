@@ -1,10 +1,10 @@
 use base64::{engine::general_purpose, Engine as _};
 use clap::{Args, Parser, Subcommand};
-use keres_engine::cli_rendering::get_board_hash;
+use keres_engine::cli_rendering::get_game_hash;
 use keres_engine::{
     cli_rendering::display_stack, run_tui, Game, Position, BOARD_DIMENSION, BOARD_SIZE,
 };
-use keres_engine::game::Move;
+use keres_engine::moves::Move;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -174,7 +174,7 @@ fn main() {
         _ => {
             match run_tui(Some(game)) {
                 Ok(g) => {
-                    println!("Game hash: {}", get_board_hash(&g.board));
+                    println!("Game hash: {}", get_game_hash(&g));
                     println!("(use this to resume the game later on with the --board option)");
                 }
                 Err(e) => {

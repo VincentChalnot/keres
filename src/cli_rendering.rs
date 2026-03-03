@@ -1,4 +1,4 @@
-use crate::{Board, Piece, PieceType};
+use crate::{Game, Piece, PieceType};
 use base64::engine::general_purpose;
 use base64::Engine;
 
@@ -15,8 +15,8 @@ pub fn display_stack(piece: &Piece) -> String {
     output
 }
 
-pub fn get_board_hash(board: &Board) -> String {
-    let all_bytes = board.to_binary();
+pub fn get_game_hash(game: &Game) -> String {
+    let all_bytes = game.to_binary();
     let byte_vec = all_bytes.to_vec();
     general_purpose::STANDARD.encode(&byte_vec)
 }

@@ -5,8 +5,9 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use keres_engine::board::{Board, BOARD_SIZE};
-use keres_engine::game::{Game, Move};
+use keres_engine::board::BOARD_SIZE;
+use keres_engine::game::Game;
+use keres_engine::moves::Move;
 use std::net::SocketAddr;
 use tower_http::cors::{Any, CorsLayer};
 
@@ -45,8 +46,7 @@ async fn post_moves(payload: Bytes) -> Result<Vec<u8>, StatusCode> {
     }
     let mut board_array = [0u8; BOARD_SIZE + 2];
     board_array.copy_from_slice(&board_bytes);
-    let board = Board::from_binary(board_array).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let game = Game::from_board(board);
+    let game = Game::from_binary(board_array).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let moves = game.get_all_moves();
     let mut response = Vec::new();
     for m in moves {
@@ -64,10 +64,9 @@ async fn play_move(payload: Bytes) -> Result<Vec<u8>, StatusCode> {
     let move_bytes = &payload[BOARD_SIZE + 2..BOARD_SIZE + 4];
     let mut board_array = [0u8; BOARD_SIZE + 2];
     board_array.copy_from_slice(board_bytes);
-    let board = Board::from_binary(board_array).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let mut game = Game::from_board(board);
+    let mut game = Game::from_binary(board_array).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let mv = Move::from_u16(u16::from_le_bytes([move_bytes[0], move_bytes[1]]));
-    game.apply_move(mv).map_err(|_| StatusCode::BAD_REQUEST)?;
+    game.make(&mv);
     let new_binary_board = game.to_binary();
     Ok(new_binary_board.to_vec())
 }
@@ -88,9 +87,7 @@ async fn replay_moves(payload: Bytes) -> Result<Vec<u8>, StatusCode> {
     for i in (0..move_bytes.len()).step_by(2) {
         let move_u16 = u16::from_le_bytes([move_bytes[i], move_bytes[i + 1]]);
         let mv = Move::from_u16(move_u16);
-        
-        // Apply the move and return error if it's invalid
-        game.apply_move(mv).map_err(|_| StatusCode::BAD_REQUEST)?;
+        game.make(&mv);
     }
     
     // Return the final board state
@@ -109,7 +106,7 @@ async fn engine_move(
     let mut board_array = [0u8; BOARD_SIZE + 2];
     board_array.copy_from_slice(&board_bytes);
 
-    let board = Board::from_binary(board_array).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let _game = Game::from_binary(board_array).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // @todo implement me
 

@@ -1,4 +1,5 @@
 use crate::{cli_rendering::piece_to_char, Color, Game, Piece, Position, BOARD_DIMENSION};
+use crate::moves::Move;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
     execute,
@@ -44,9 +45,9 @@ impl App {
     }
 
     pub fn from_game(game: Game) -> Self {
-        let game_state = if game.board.is_game_over() {
+        let game_state = if game.is_game_over() {
             // Determine winner: if white to move but game is over, black won (and vice versa)
-            let winner = if game.board.is_white_to_move() {
+            let winner = if game.is_white_to_move() {
                 Color::Black
             } else {
                 Color::White
@@ -77,13 +78,16 @@ impl App {
     }
 
     /// Applies a move, updates game state and highlights, handling game over.
-    fn apply_move_and_update_state(&mut self, game_move: crate::Move) -> Result<(), String> {
-        self.game.apply_move(game_move)?;
-        if self.game.board.is_game_over() {
-            let winner = if self.game.board.is_white_to_move() {
-                Color::Black
-            } else {
+    fn apply_move_and_update_state(&mut self, game_move: Move) -> Result<(), String> {
+        let _undo = self.game.make(&game_move);
+        if self.game.is_game_over() {
+            let winner = if self.game.is_draw() {
+                // For draws, pick the non-moving color as convention 
+                if self.game.is_white_to_move() { Color::Black } else { Color::White }
+            } else if self.game.white_wins() {
                 Color::White
+            } else {
+                Color::Black
             };
             self.game_state = GameState::GameOver { winner };
             self.highlighted_moves.clear();
@@ -297,7 +301,7 @@ fn ui(f: &mut Frame, app: &App) {
         GameState::SelectingPiece => {
             format!(
                 "{} to move - Select a piece",
-                if app.game.board.is_white_to_move() {
+                if app.game.is_white_to_move() {
                     "White"
                 } else {
                     "Black"
@@ -492,7 +496,7 @@ fn render_board(f: &mut Frame, app: &App, area: Rect) {
             )
         }
         _ => {
-            let current_player = if app.game.board.is_white_to_move() {
+            let current_player = if app.game.is_white_to_move() {
                 "WHITE"
             } else {
                 "BLACK"
