@@ -1,10 +1,14 @@
 use base64::{engine::general_purpose, Engine as _};
 use clap::{Args, Parser, Subcommand};
 use keres_engine::cli_rendering::get_game_hash;
+use keres_engine::engine::search::root_search;
+use keres_engine::engine::tree_recorder::TreeRecorder;
+use keres_engine::engine::types::SearchConfig;
 use keres_engine::{
     cli_rendering::display_stack, run_tui, Game, Position, BOARD_DIMENSION, BOARD_SIZE,
 };
 use keres_engine::moves::Move;
+use std::time::Instant;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -51,59 +55,24 @@ struct DebugTreeArgs {
     /// Base64 encoded binary moves to replay before running the engine
     #[arg(long)]
     moves: Option<String>,
-    /// Stage 1 search depth (default: 4)
-    #[arg(long, default_value = "4")]
-    stage_1_depth: i32,
-    /// Number of top moves to find (MultiPV passes, default: 3)
-    #[arg(long, default_value = "3")]
-    top_moves: usize,
-    /// Target number of distinct PV lines to collect across all passes (default: 5)
-    #[arg(long, default_value = "5")]
-    expected_leaves: usize,
-    /// Hard cap on the number of MultiPV passes regardless of expected-leaves (default: 3)
-    #[arg(long, default_value = "3")]
-    max_passes: usize,
+    /// Record and output the complete search tree as JSONL (default: PV-only)
+    #[arg(long, default_value = "false")]
+    full_tree: bool,
+    /// Override maximum search depth (default: 4)
+    #[arg(long)]
+    max_depth: Option<usize>,
     /// Disable transposition table
     #[arg(long, default_value = "false")]
     no_tt: bool,
     /// Disable alpha-beta pruning (pure minimax)
     #[arg(long, default_value = "false")]
-    no_alpha_beta: bool,
-    /// Disable MVV-LVA + history move ordering
+    no_ab: bool,
+    /// Disable quiescence search
     #[arg(long, default_value = "false")]
-    no_move_ordering: bool,
+    no_quiescence: bool,
     /// Disable killer move heuristic
     #[arg(long, default_value = "false")]
     no_killers: bool,
-    /// Override number of threads (default: num_cpus)
-    #[arg(long)]
-    threads: Option<usize>,
-
-    // ── Stage 2 overrides ────────────────────────────────────────────────────
-    /// Override Stage 2 search depth (default: 6)
-    #[arg(long)]
-    s2_depth: Option<u8>,
-    /// Disable null move pruning in Stage 2
-    #[arg(long, default_value = "false")]
-    s2_no_null_move: bool,
-    /// Disable LMR in Stage 2
-    #[arg(long, default_value = "false")]
-    s2_no_lmr: bool,
-    /// Disable selective extensions in Stage 2
-    #[arg(long, default_value = "false")]
-    s2_no_extensions: bool,
-    /// Disable TT in Stage 2
-    #[arg(long, default_value = "false")]
-    s2_no_tt: bool,
-    /// Enable TreeRecorder for Stage 2, output JSONL to stderr
-    #[arg(long, default_value = "false")]
-    s2_debug_tree: bool,
-    /// Print the final resolved StageConfig for both stages as JSON before running
-    #[arg(long, default_value = "false")]
-    config_dump: bool,
-    /// Disable Stage 2 search (skip refinement)
-    #[arg(long, default_value = "false")]
-    disable_stage2: bool,
 }
 
 fn main() {
@@ -273,11 +242,76 @@ fn main() {
 
     // Run the engine move logic
     fn run_engine_move(game: &Game) -> Result<Move, String> {
-        // @todo implement me
-        Err("Engine move logic not implemented yet".to_string())
+        use keres_engine::engine::constants::MAX_DEPTH;
+        let config = SearchConfig {
+            max_depth: MAX_DEPTH,
+            ..Default::default()
+        };
+        let result = root_search(game, &config, None);
+        result.best_move.ok_or_else(|| "No moves available".to_string())
     }
 
     fn run_debug_tree(args: &DebugTreeArgs) {
-        // @todo implement me
+        // ── Decode moves and reconstruct game ────────────────────────────────
+        let game = match &args.moves {
+            Some(b64) => {
+                let move_bytes = match general_purpose::STANDARD.decode(b64) {
+                    Ok(b) => b,
+                    Err(e) => {
+                        eprintln!("Failed to decode base64 move sequence: {}", e);
+                        std::process::exit(1);
+                    }
+                };
+                match Game::from_moves(&move_bytes) {
+                    Ok(g) => g,
+                    Err(e) => {
+                        eprintln!("Failed to replay moves: {}", e);
+                        std::process::exit(1);
+                    }
+                }
+            }
+            None => Game::new(),
+        };
+
+        // ── Build search config ──────────────────────────────────────────────
+        let config = SearchConfig {
+            use_tt: !args.no_tt,
+            use_alpha_beta: !args.no_ab,
+            use_quiescence: !args.no_quiescence,
+            use_killers: !args.no_killers,
+            max_depth: args.max_depth.unwrap_or(keres_engine::engine::constants::MAX_DEPTH),
+        };
+
+        // ── Tree recorder (writes JSONL to stdout) ───────────────────────────
+        let recorder: Option<TreeRecorder> = if args.full_tree {
+            Some(TreeRecorder::stdout())
+        } else {
+            None
+        };
+
+        // ── Run search ───────────────────────────────────────────────────────
+        let start = Instant::now();
+        let result = root_search(&game, &config, recorder.as_ref());
+        let elapsed = start.elapsed();
+
+        if let Some(r) = &recorder {
+            r.flush();
+        }
+
+        // ── Print human-readable stats to stderr ─────────────────────────────
+        eprintln!("Search complete in {:.2?}", elapsed);
+        eprintln!(
+            "Best move: {}",
+            result
+                .best_move
+                .map(|m| m.to_string())
+                .unwrap_or_else(|| "(none)".to_string())
+        );
+        eprintln!("Best score: {}", result.best_score);
+        eprint!("PV: ");
+        for mv in &result.pv {
+            eprint!("{} ", mv.to_string());
+        }
+        eprintln!();
     }
 }
