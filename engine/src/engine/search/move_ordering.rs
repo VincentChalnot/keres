@@ -68,7 +68,8 @@ pub fn order_moves(
 
 /// Extract only capture moves from `moves`, sorted by MVV-LVA.
 /// Also includes promotion moves (soldier reaching the back rank).
-pub fn order_captures(moves: &mut Vec<Move>, game: &Game) {    moves.retain(|mv| is_capture_or_promotion(mv, game));
+pub fn order_captures(moves: &mut Vec<Move>, game: &Game) {
+    moves.retain(|mv| is_capture_or_promotion(mv, game));
     moves.sort_unstable_by_key(|mv| {
         let victim_val = game
             .board
