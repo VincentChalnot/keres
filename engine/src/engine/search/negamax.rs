@@ -34,8 +34,7 @@ pub fn negamax(
     parent_id: u64,
 ) -> i32 {
     // ── 1. Loop detection ────────────────────────────────────────────────────
-    let board_bin = game.board.to_binary();
-    let hash = board_hash(&board_bin);
+    let hash = board_hash(&game);
 
     if loop_detector.push(hash) {
         loop_detector.pop(hash);
