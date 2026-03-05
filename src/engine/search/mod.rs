@@ -86,8 +86,7 @@ pub fn root_search(
             let mut local_tt = TranspositionTable::new(crate::engine::constants::TT_SIZE / 8);
             let tt_ptr = Some(&mut local_tt as *mut TranspositionTable);
             let mut ld = LoopDetector::new();
-            let root_bin = game.board.to_binary();
-            let root_hash = board_hash(&root_bin);
+            let root_hash = board_hash(&game);
             let _ = ld.push(root_hash);
 
             let mut killers = KillerTable::new(MAX_KILLER_DEPTH);
@@ -173,8 +172,7 @@ fn extract_pv(game: &Game, first_move: Move, config: &SearchConfig) -> Vec<Move>
     let max_depth = config.max_depth;
 
     while depth <= max_depth {
-        let bin = cur_game.board.to_binary();
-        let hash = board_hash(&bin);
+        let hash = board_hash(&cur_game);
         if let Some(entry) = tt.get(hash) {
             if let Some(bm) = entry.best_move {
                 pv.push(bm);
