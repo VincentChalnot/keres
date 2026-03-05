@@ -1,5 +1,6 @@
 pub mod board;
 pub mod cli_rendering;
+pub mod engine;
 pub mod game;
 pub mod game_over;
 pub mod moves;

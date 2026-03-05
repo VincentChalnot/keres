@@ -39,6 +39,20 @@ impl PotentialMove {
             unstack,
         }
     }
+
+    /// Convert this PotentialMove into all valid Move variants.
+    /// If unstackable is true, produces two moves (unstack=true and unstack=false).
+    /// If force_unstack is true, produces only the unstack=true move.
+    /// Otherwise produces a single move with unstack=false.
+    pub fn to_moves(&self) -> Vec<Move> {
+        if self.force_unstack {
+            vec![self.to_move(true)]
+        } else if self.unstackable {
+            vec![self.to_move(false), self.to_move(true)]
+        } else {
+            vec![self.to_move(false)]
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -115,35 +129,6 @@ impl<'a> MoveGenerator<'a> {
             dest_piece.color != current_color
         } else {
             false
-        }
-    }
-
-    /// Get the material value of the piece at the destination square (if any).
-    /// Returns 0 if the square is empty or occupied by a friendly piece.
-    pub fn capture_value(&self, mv: &Move) -> u32 {
-        if let Some(dest_piece) = self.board.get_piece(&mv.to) {
-            let current_color = self.color_to_move();
-            if dest_piece.color != current_color {
-                let mut value = Self::piece_material_value(&dest_piece.bottom);
-                if let Some(ref top) = dest_piece.top {
-                    value += Self::piece_material_value(top);
-                }
-                return value;
-            }
-        }
-        0
-    }
-
-    fn piece_material_value(pt: &PieceType) -> u32 {
-        match pt {
-            PieceType::Soldier => 100,
-            PieceType::Bishop => 300,
-            PieceType::Rook => 500,
-            PieceType::Paladin => 300,
-            PieceType::Guard => 300,
-            PieceType::Knight => 300,
-            PieceType::Ballista => 500,
-            PieceType::King => 10_000,
         }
     }
 

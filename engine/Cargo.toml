@@ -20,6 +20,7 @@ rand = "0.8"
 rayon = "1.10"
 parking_lot = "0.12"
 ahash = "0.8.12"
+dashmap = "6.1"
 
 [lib]
 name = "keres_engine"

@@ -110,10 +110,6 @@ impl Game {
         MoveGenerator::new(&self.board, self.white_to_move).is_capture(mv)
     }
 
-    pub fn capture_value(&self, mv: &Move) -> u32 {
-        MoveGenerator::new(&self.board, self.white_to_move).capture_value(mv)
-    }
-
     // ── Make / Unmake ────────────────────────────────────────────────────────
 
     /// Apply a move in-place and return undo information.
@@ -236,6 +232,23 @@ impl Game {
     /// Undo a null move by restoring the side to move.
     pub fn unmake_null_move(&mut self, prev_white_to_move: bool) {
         self.white_to_move = prev_white_to_move;
+    }
+
+    // ── Factory methods ──────────────────────────────────────────────────────
+
+    /// Replay a sequence of binary-encoded moves (each move is 2 bytes, u16 little-endian).
+    /// Returns the resulting Game state.
+    pub fn from_moves(move_bytes: &[u8]) -> Result<Self, String> {
+        if move_bytes.len() % 2 != 0 {
+            return Err("Move data length must be a multiple of 2".to_string());
+        }
+        let mut game = Game::new();
+        for i in (0..move_bytes.len()).step_by(2) {
+            let move_u16 = u16::from_le_bytes([move_bytes[i], move_bytes[i + 1]]);
+            let mv = Move::from_u16(move_u16);
+            let _undo = game.make(&mv);
+        }
+        Ok(game)
     }
 
     // ── Binary serialisation ─────────────────────────────────────────────────

@@ -74,23 +74,7 @@ async fn play_move(payload: Bytes) -> Result<Vec<u8>, StatusCode> {
 async fn replay_moves(payload: Bytes) -> Result<Vec<u8>, StatusCode> {
     // Payload is a binary list of moves, each move is 2 bytes (u16 little-endian)
     let move_bytes = payload;
-    
-    // Validate that the payload length is a multiple of 2
-    if move_bytes.len() % 2 != 0 {
-        return Err(StatusCode::BAD_REQUEST);
-    }
-    
-    // Start with a new game
-    let mut game = Game::new();
-    
-    // Replay each move
-    for i in (0..move_bytes.len()).step_by(2) {
-        let move_u16 = u16::from_le_bytes([move_bytes[i], move_bytes[i + 1]]);
-        let mv = Move::from_u16(move_u16);
-        let _undo = game.make(&mv);
-    }
-    
-    // Return the final board state
+    let game = Game::from_moves(&move_bytes).map_err(|_| StatusCode::BAD_REQUEST)?;
     let final_board = game.to_binary();
     Ok(final_board.to_vec())
 }
@@ -106,9 +90,18 @@ async fn engine_move(
     let mut board_array = [0u8; BOARD_SIZE + 2];
     board_array.copy_from_slice(&board_bytes);
 
-    let _game = Game::from_binary(board_array).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let game = Game::from_binary(board_array).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // @todo implement me
+    use keres_engine::engine::constants::MAX_DEPTH;
+    use keres_engine::engine::search::root_search;
+    use keres_engine::engine::types::SearchConfig;
 
-    Err(StatusCode::IM_A_TEAPOT)
+    let config = SearchConfig {
+        max_depth: MAX_DEPTH,
+        ..Default::default()
+    };
+
+    let result = root_search(&game, &config, None);
+    let best_move = result.best_move.ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(best_move.to_u16().to_le_bytes().to_vec())
 }

@@ -392,4 +392,11 @@ impl Board {
         }
         Ok(Board { data })
     }
+
+    /// Iterate over all occupied squares, yielding (Position, &Piece).
+    pub fn pieces(&self) -> impl Iterator<Item = (Position, &Piece)> {
+        self.data.iter().enumerate().filter_map(|(i, piece_opt)| {
+            piece_opt.as_ref().map(|piece| (Position::from_u8(i as u8), piece))
+        })
+    }
 }
