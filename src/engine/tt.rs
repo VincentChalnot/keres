@@ -2,7 +2,6 @@
 
 use crate::engine::types::BoundType;
 use crate::moves::Move;
-use crate::Game;
 
 /// A single entry in the transposition table.
 #[derive(Clone, Debug)]
@@ -73,21 +72,16 @@ impl TranspositionTable {
     }
 }
 
-/// Compute a board hash from its 81-byte binary representation using AHash.
-pub fn board_hash(game: &Game) -> u64 {
-    let bin = game.board.to_binary();
-    ahash::RandomState::with_seed(0xDEAD_BEEF).hash_one(bin)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Game;
     use crate::board::Board;
     use crate::engine::constants::TT_SIZE;
 
     fn make_hash() -> u64 {
         let game = Game::new();
-        board_hash(&game)
+        game.board_hash()
     }
 
     #[test]
@@ -132,6 +126,6 @@ mod tests {
     fn board_hash_differs_for_different_boards() {
         let game1 = Game::new();
         let game2 = Game::from_board(Board::empty());
-        assert_ne!(board_hash(&game1), board_hash(&game2));
+        assert_ne!(game1.board_hash(), game2.board_hash());
     }
 }
