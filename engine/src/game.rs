@@ -1,6 +1,8 @@
 use crate::board::{Board, Color, Piece, Position, BOARD_SIZE};
 use crate::game_over::{check_game_over, check_promotion};
 use crate::moves::{Move, MoveGenerator, PotentialMove};
+use once_cell::sync::Lazy;
+use ahash::RandomState;
 
 /// Stores the information needed to undo a move.
 #[derive(Clone, Debug)]
@@ -301,6 +303,18 @@ impl Game {
             draw,
             moves_without_capture,
         })
+    }
+
+    /// Efficient board hash using a static ahash::RandomState
+    pub fn board_hash(&self) -> u64 {
+        static HASHER: Lazy<RandomState> = Lazy::new(|| RandomState::with_seed(0xDEAD_BEEF));
+        let mut binary = [0u8; BOARD_SIZE + 1];
+
+        let board_bytes = self.board.to_binary();
+        binary[..BOARD_SIZE].copy_from_slice(&board_bytes);
+        binary[BOARD_SIZE] = if self.white_to_move { 1 } else { 0 };
+
+        HASHER.hash_one(binary)
     }
 }
 
