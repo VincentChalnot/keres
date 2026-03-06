@@ -2,7 +2,6 @@
 
 use crate::engine::types::BoundType;
 use crate::moves::Move;
-use crate::Game;
 
 /// A single entry in the transposition table.
 #[derive(Clone, Debug)]
@@ -73,19 +72,10 @@ impl TranspositionTable {
     }
 }
 
-/// Return the incremental Zobrist hash for the given game position.
-///
-/// This is an O(1) read — the hash is maintained by `Game::make_inner`.
-/// The function is provided as a convenience wrapper so call sites that
-/// previously called `board_hash(game)` continue to compile unchanged.
-#[inline(always)]
-pub fn board_hash(game: &Game) -> u64 {
-    game.zobrist_hash()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::game::Game;
     use crate::board::Board;
     use crate::engine::constants::TT_SIZE;
 
