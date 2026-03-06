@@ -1,4 +1,5 @@
 use crate::board::{Board, Color, Piece, Position, BOARD_SIZE};
+use crate::engine::zobrist;
 use crate::game_over::{check_game_over, check_promotion};
 use crate::moves::{Move, MoveGenerator, PotentialMove};
 
@@ -12,6 +13,7 @@ pub struct UndoInfo {
     pub prev_game_over: bool,
     pub prev_white_wins: bool,
     pub prev_draw: bool,
+    pub prev_zobrist_hash: u64,
 }
 
 impl UndoInfo {
@@ -31,28 +33,36 @@ pub struct Game {
     white_wins: bool,
     draw: bool,
     moves_without_capture: u8,
+    zobrist_hash: u64,
 }
 
 impl Game {
     pub fn new() -> Self {
+        let board = Board::new();
+        let white_to_move = true;
+        let zobrist_hash = zobrist::compute_hash_from_board(&board, white_to_move);
         Game {
-            board: Board::new(),
-            white_to_move: true,
+            board,
+            white_to_move,
             game_over: false,
             white_wins: false,
             draw: false,
             moves_without_capture: 0,
+            zobrist_hash,
         }
     }
 
     pub fn from_board(board: Board) -> Self {
+        let white_to_move = true;
+        let zobrist_hash = zobrist::compute_hash_from_board(&board, white_to_move);
         Game {
             board,
-            white_to_move: true,
+            white_to_move,
             game_over: false,
             white_wins: false,
             draw: false,
             moves_without_capture: 0,
+            zobrist_hash,
         }
     }
 
@@ -64,6 +74,9 @@ impl Game {
 
     pub fn set_white_to_move(&mut self, v: bool) {
         self.white_to_move = v;
+        // Recompute the hash from scratch to keep it consistent when the
+        // side-to-move is changed externally.
+        self.zobrist_hash = zobrist::compute_hash_from_board(&self.board, self.white_to_move);
     }
 
     pub fn color_to_move(&self) -> Color {
@@ -94,6 +107,15 @@ impl Game {
         self.game_over = game_over;
         self.white_wins = white_wins;
         self.draw = draw;
+    }
+
+    /// Return the incremental Zobrist hash for the current board position.
+    ///
+    /// This is O(1) — the hash is maintained by `make_inner` / `unmake`.
+    /// Use this in the transposition table and loop-detection instead of the
+    /// old O(81) `board_hash()` approach.
+    pub fn zobrist_hash(&self) -> u64 {
+        self.zobrist_hash
     }
 
     // ── Move generation (delegated to MoveGenerator) ─────────────────────────
@@ -127,6 +149,9 @@ impl Game {
     }
 
     fn make_inner(&mut self, mv: &Move, check_game_over_flag: bool) -> UndoInfo {
+        let from_sq = mv.from.to_absolute();
+        let to_sq = mv.to.to_absolute();
+
         let undo = UndoInfo {
             from_piece: self.board.get_piece(&mv.from).copied(),
             to_piece: self.board.get_piece(&mv.to).copied(),
@@ -135,9 +160,13 @@ impl Game {
             prev_game_over: self.game_over,
             prev_white_wins: self.white_wins,
             prev_draw: self.draw,
+            prev_zobrist_hash: self.zobrist_hash,
         };
 
         let piece = self.board.get_piece(&mv.from).copied().unwrap();
+
+        // ── Hash: remove the piece(s) currently at the source square ─────────
+        self.zobrist_hash ^= zobrist::piece_hash(piece.to_u8(), from_sq);
 
         let source_piece: Piece;
         if mv.unstack {
@@ -147,22 +176,30 @@ impl Game {
                 bottom: piece.top.unwrap(),
                 top: None,
             };
-            self.board.set_piece(
-                &mv.from,
-                Some(Piece {
-                    color: piece.color,
-                    bottom: piece.bottom,
-                    top: None,
-                }),
-            );
+            let remaining_at_from = Piece {
+                color: piece.color,
+                bottom: piece.bottom,
+                top: None,
+            };
+            self.board.set_piece(&mv.from, Some(remaining_at_from));
+            // Hash: place the remaining bottom piece back at source
+            self.zobrist_hash ^= zobrist::piece_hash(remaining_at_from.to_u8(), from_sq);
         } else {
             source_piece = piece;
             self.board.set_piece(&mv.from, None);
+            // Source square is now empty. Empty squares are not represented in
+            // the Zobrist table (their contribution is defined as 0), so no
+            // further XOR is needed.
         }
 
         let dest = self.board.get_piece(&mv.to).copied();
         let mut final_piece = source_piece;
         let mut was_capture = false;
+
+        // ── Hash: remove whatever was at the destination square ───────────────
+        if let Some(d) = dest {
+            self.zobrist_hash ^= zobrist::piece_hash(d.to_u8(), to_sq);
+        }
 
         match dest {
             None => {
@@ -182,9 +219,14 @@ impl Game {
             }
         }
 
-        // Check for promotion
+        // ── Hash: promotion may change the piece placed at the destination ────
         if let Some(promoted) = check_promotion(&final_piece, &mv.to) {
             self.board.set_piece(&mv.to, Some(promoted));
+            // Hash: place the promoted piece (not the pre-promotion piece)
+            self.zobrist_hash ^= zobrist::piece_hash(promoted.to_u8(), to_sq);
+        } else {
+            // Hash: place the (possibly stacked) piece at the destination
+            self.zobrist_hash ^= zobrist::piece_hash(final_piece.to_u8(), to_sq);
         }
 
         // Update moves_without_capture counter
@@ -193,6 +235,9 @@ impl Game {
         } else {
             self.moves_without_capture = self.moves_without_capture.saturating_add(1);
         }
+
+        // ── Hash: flip side to move ───────────────────────────────────────────
+        self.zobrist_hash ^= zobrist::side_to_move_hash();
 
         // Switch turn
         self.white_to_move = !self.white_to_move;
@@ -219,6 +264,7 @@ impl Game {
         self.game_over = undo.prev_game_over;
         self.white_wins = undo.prev_white_wins;
         self.draw = undo.prev_draw;
+        self.zobrist_hash = undo.prev_zobrist_hash;
     }
 
     /// Apply a null move (pass turn without moving a piece).
@@ -226,12 +272,14 @@ impl Game {
     pub fn make_null_move(&mut self) -> bool {
         let prev = self.white_to_move;
         self.white_to_move = !self.white_to_move;
+        self.zobrist_hash ^= zobrist::side_to_move_hash();
         prev
     }
 
     /// Undo a null move by restoring the side to move.
     pub fn unmake_null_move(&mut self, prev_white_to_move: bool) {
         self.white_to_move = prev_white_to_move;
+        self.zobrist_hash ^= zobrist::side_to_move_hash();
     }
 
     // ── Factory methods ──────────────────────────────────────────────────────
@@ -300,6 +348,7 @@ impl Game {
             white_wins,
             draw,
             moves_without_capture,
+            zobrist_hash: zobrist::compute_hash_from_board(&board, white_to_move),
         })
     }
 }

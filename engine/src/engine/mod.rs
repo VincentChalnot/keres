@@ -6,6 +6,7 @@ pub mod search;
 pub mod tree_recorder;
 pub mod tt;
 pub mod types;
+pub mod zobrist;
 
 pub use eval::evaluate_absolute;
 pub use search::{root_search, RootSearchResult, SearchStats};

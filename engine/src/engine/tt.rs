@@ -7,7 +7,7 @@ use crate::Game;
 /// A single entry in the transposition table.
 #[derive(Clone, Debug)]
 pub struct TtEntry {
-    /// Zobrist-like hash of the board position.
+    /// Zobrist hash of the board position.
     pub hash: u64,
     /// Remaining depth at which this entry was computed (MAX_DEPTH - depth).
     pub remaining_depth: u8,
@@ -73,10 +73,14 @@ impl TranspositionTable {
     }
 }
 
-/// Compute a board hash from its 81-byte binary representation using AHash.
+/// Return the incremental Zobrist hash for the given game position.
+///
+/// This is an O(1) read — the hash is maintained by `Game::make_inner`.
+/// The function is provided as a convenience wrapper so call sites that
+/// previously called `board_hash(game)` continue to compile unchanged.
+#[inline(always)]
 pub fn board_hash(game: &Game) -> u64 {
-    let bin = game.board.to_binary();
-    ahash::RandomState::with_seed(0xDEAD_BEEF).hash_one(bin)
+    game.zobrist_hash()
 }
 
 #[cfg(test)]
@@ -87,7 +91,7 @@ mod tests {
 
     fn make_hash() -> u64 {
         let game = Game::new();
-        board_hash(&game)
+        game.zobrist_hash()
     }
 
     #[test]
@@ -132,6 +136,39 @@ mod tests {
     fn board_hash_differs_for_different_boards() {
         let game1 = Game::new();
         let game2 = Game::from_board(Board::empty());
-        assert_ne!(board_hash(&game1), board_hash(&game2));
+        assert_ne!(game1.zobrist_hash(), game2.zobrist_hash());
+    }
+
+    #[test]
+    fn zobrist_hash_restored_after_unmake() {
+        let mut game = Game::new();
+        let original_hash = game.zobrist_hash();
+        let mv = crate::moves::Move {
+            from: crate::board::Position::new(0, 6),
+            to: crate::board::Position::new(0, 5),
+            unstack: false,
+        };
+        let undo = game.make(&mv);
+        assert_ne!(game.zobrist_hash(), original_hash, "hash must change after make");
+        game.unmake(&mv, undo);
+        assert_eq!(game.zobrist_hash(), original_hash, "hash must be restored after unmake");
+    }
+
+    #[test]
+    fn zobrist_hash_incremental_matches_from_scratch() {
+        use crate::engine::zobrist;
+        let mut game = Game::new();
+        let mv = crate::moves::Move {
+            from: crate::board::Position::new(0, 6),
+            to: crate::board::Position::new(0, 5),
+            unstack: false,
+        };
+        game.make(&mv);
+        let incremental = game.zobrist_hash();
+        let from_scratch = zobrist::compute_hash_from_board(&game.board, game.is_white_to_move());
+        assert_eq!(
+            incremental, from_scratch,
+            "incremental hash must match full recomputation"
+        );
     }
 }

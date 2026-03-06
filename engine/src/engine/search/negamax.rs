@@ -7,7 +7,7 @@ use crate::engine::search::loop_detection::LoopDetector;
 use crate::engine::search::move_ordering::order_moves;
 use crate::engine::search::quiescence::quiescence;
 use crate::engine::tree_recorder::TreeRecorder;
-use crate::engine::tt::{board_hash, TranspositionTable};
+use crate::engine::tt::TranspositionTable;
 use crate::engine::types::{BoundType, SearchConfig};
 use crate::game::Game;
 use crate::moves::Move;
@@ -34,7 +34,7 @@ pub fn negamax(
     parent_id: u64,
 ) -> i32 {
     // ── 1. Loop detection ────────────────────────────────────────────────────
-    let hash = board_hash(&game);
+    let hash = game.zobrist_hash();
 
     if loop_detector.push(hash) {
         loop_detector.pop(hash);
