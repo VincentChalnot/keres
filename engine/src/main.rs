@@ -253,7 +253,7 @@ fn main() {
             max_depth: MAX_DEPTH,
             ..Default::default()
         };
-        let result = root_search(game, &config, None);
+        let result = root_search(game, &config, &[], None);
         result.best_move.ok_or_else(|| "No moves available".to_string())
     }
 
@@ -297,7 +297,7 @@ fn main() {
 
         // ── Run search ───────────────────────────────────────────────────────
         let start = Instant::now();
-        let result = root_search(&game, &config, recorder.as_ref());
+        let result = root_search(&game, &config, &[], recorder.as_ref());
         let elapsed = start.elapsed();
 
         if let Some(r) = &recorder {

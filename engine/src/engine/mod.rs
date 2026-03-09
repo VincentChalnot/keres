@@ -20,6 +20,6 @@ pub fn find_best_move(
     recorder: Option<&tree_recorder::TreeRecorder>,
 ) -> Option<crate::moves::Move> {
     let cfg = config.unwrap_or_default();
-    let result = root_search(game, &cfg, recorder);
+    let result = root_search(game, &cfg, &[], recorder);
     result.best_move
 }
