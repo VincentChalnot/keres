@@ -27,9 +27,15 @@ readonly class ProcessAiMoveHandler
             throw new \RuntimeException('Game not found: '.$message->gameUuid);
         }
 
-        $boardMovesData = $this->gameEngine->aiMove($game);
+        if ($game->getGameMoves()->count() !== $message->moveCounter) {
+            // Move has already been played, just re-publish the update for the current state.
+            $boardMovesData = $this->gameEngine->getBoardMovesData($game);
+            $this->gameUpdatePublisher->publishGameUpdate($message->gameUuid, $boardMovesData);
 
-        // Forward to PublishMoveMessage to update game state and notify clients
+            return;
+        }
+
+        $boardMovesData = $this->gameEngine->aiMove($game);
         $this->gameUpdatePublisher->publishGameUpdate($message->gameUuid, $boardMovesData);
     }
 }

@@ -7,6 +7,7 @@ readonly class ProcessAiMoveMessage
 {
     public function __construct(
         public string $gameUuid,
+        public int $moveCounter,
     ) {
     }
 }

@@ -16,6 +16,16 @@ readonly class GameEngine
     ) {
     }
 
+    /**
+     * Returns a BoardMovesData for the current game state (board after all moves played).
+     */
+    public function getBoardMovesData(Game $game): BoardMovesData
+    {
+        $movesData = $game->getMovesData();
+        $boardData = $this->engineApi->replayMoves($movesData);
+        return new BoardMovesData($boardData, $movesData);
+    }
+
     public function applyMove(Game $game, MoveData $moveData): BoardMovesData
     {
         $movesData = $game->getMovesData();

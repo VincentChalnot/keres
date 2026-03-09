@@ -72,7 +72,12 @@ readonly class SubmitMoveAction
 
         // For AI mode, return the response and dispatch async message to process AI move
         if (!$game->isGameOver() && $game->getOpponentType() === OpponentType::AI) {
-            $this->messageBus->dispatch(new ProcessAiMoveMessage($uuid));
+            $this->messageBus->dispatch(
+                new ProcessAiMoveMessage(
+                    $uuid,
+                    $game->getGameMoves()->count(),
+                )
+            );
         }
 
         return $this->getResponse($boardMovesData);
