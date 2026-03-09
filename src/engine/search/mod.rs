@@ -46,9 +46,15 @@ pub struct RootSearchResult {
 /// Each root move is evaluated in its own Rayon task, with a per-thread
 /// transposition table shard (shared via DashMap) and independent killer/
 /// loop-detector state.
+///
+/// `game_history` is an optional slice of board hashes for positions already
+/// played in the real game. These are pre-loaded into each thread's
+/// `LoopDetector` so that the engine avoids repeating any previously seen
+/// position (draw by repetition from the 1st recurrence).
 pub fn root_search(
     game: &Game,
     config: &SearchConfig,
+    game_history: &[u64],
     recorder: Option<&TreeRecorder>,
 ) -> RootSearchResult {
     let start = Instant::now();
@@ -86,6 +92,11 @@ pub fn root_search(
             let mut local_tt = TranspositionTable::new(crate::engine::constants::TT_SIZE / 8);
             let tt_ptr = Some(&mut local_tt as *mut TranspositionTable);
             let mut ld = LoopDetector::new();
+            // Pre-populate with real-game history so the engine avoids repeating
+            // any already-played position (draw by repetition from 1st recurrence).
+            for &h in game_history {
+                let _ = ld.push(h);
+            }
             let root_hash = game.board_hash();
             let _ = ld.push(root_hash);
 
@@ -207,7 +218,7 @@ mod tests {
             max_depth: 2,
             ..Default::default()
         };
-        let result = root_search(&game, &config, None);
+        let result = root_search(&game, &config, &[], None);
         assert!(result.best_move.is_some(), "Expected a move from root search");
     }
 
@@ -222,11 +233,31 @@ mod tests {
             max_depth: 2,
             ..Default::default()
         };
-        let result = root_search(&game, &config, None);
+        let result = root_search(&game, &config, &[], None);
         assert!(
             result.best_score > 0,
             "Expected positive score for material advantage, got {}",
             result.best_score
+        );
+    }
+
+    #[test]
+    fn root_search_accepts_game_history_and_returns_move() {
+        // Build a minimal game and pass the initial position hash as game history.
+        // The call must not panic and must still return a valid move even when
+        // the engine is instructed to treat a revisit to the root as a draw.
+        let game = minimal_game();
+        let initial_hash = game.board_hash();
+
+        let config = SearchConfig {
+            max_depth: 2,
+            ..Default::default()
+        };
+        let result = root_search(&game, &config, &[initial_hash], None);
+        // A move should still be found (the engine selects among non-repeating moves).
+        assert!(
+            result.best_move.is_some(),
+            "Expected a move even with game history present"
         );
     }
 }

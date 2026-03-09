@@ -31,7 +31,8 @@ async fn main() {
         .route("/moves", post(post_moves))
         .route("/play", post(play_move))
         .route("/replay-moves", post(replay_moves))
-        .route("/engine-move", post(engine_move))
+        .route("/engine-move-board", post(engine_move_board))
+        .route("/engine-move-game", post(engine_move_game))
         .layer(cors);
 
     // Read PORT from environment variable, fallback to 3000
@@ -91,7 +92,7 @@ async fn replay_moves(payload: Bytes) -> Result<Vec<u8>, StatusCode> {
     Ok(final_board.to_vec())
 }
 
-async fn engine_move(
+async fn engine_move_board(
     payload: Bytes,
 ) -> Result<Vec<u8>, StatusCode> {
     let board_bytes = payload;
@@ -113,7 +114,45 @@ async fn engine_move(
         ..Default::default()
     };
 
-    let result = root_search(&game, &config, None);
+    let result = root_search(&game, &config, &[], None);
+    let best_move = result.best_move.ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(best_move.to_u16().to_le_bytes().to_vec())
+}
+
+async fn engine_move_game(
+    payload: Bytes,
+) -> Result<Vec<u8>, StatusCode> {
+    let move_bytes = payload;
+
+    use keres_engine::engine::constants::MAX_DEPTH;
+    use keres_engine::engine::search::root_search;
+    use keres_engine::engine::types::SearchConfig;
+
+    if move_bytes.len() % 2 != 0 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    // Reconstruct the game history: collect the hash of every position that
+    // has been played so far (including the initial position), excluding the
+    // current (final) position.  root_search always pushes the root hash into
+    // the LoopDetector itself, so adding it here too would be redundant.
+    let mut game = Game::new();
+    let mut game_history: Vec<u64> = Vec::new();
+
+    for i in (0..move_bytes.len()).step_by(2) {
+        // Capture the hash BEFORE applying the move (i.e., each position from
+        // which a move was made in the real game).
+        game_history.push(game.board_hash());
+        let mv = Move::from_u16(u16::from_le_bytes([move_bytes[i], move_bytes[i + 1]]));
+        game.make(&mv);
+    }
+
+    let config = SearchConfig {
+        max_depth: MAX_DEPTH,
+        ..Default::default()
+    };
+
+    let result = root_search(&game, &config, &game_history, None);
     let best_move = result.best_move.ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(best_move.to_u16().to_le_bytes().to_vec())
 }
