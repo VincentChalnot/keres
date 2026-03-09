@@ -146,7 +146,7 @@ class KeresGame {
             await this.controller.playMove(selectedPosition, clickedDestination, fullStack);
             
             // Auto-rotate board in hotseat mode after each move
-            if (this.gameMode === 0) {
+            if (this.gameMode === OPPONENT_TYPE_HOTSEAT) {
                 await this.controller.flipBoard();
             }
             
