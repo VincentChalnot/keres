@@ -16,7 +16,7 @@ class Move
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: Types::BIGINT)]
-    private readonly ?string $id;
+    private ?string $id;
 
     #[ORM\Column(type: Types::BINARY, length: 2)]
     private readonly string $moveData;

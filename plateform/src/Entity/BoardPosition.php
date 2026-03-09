@@ -15,7 +15,7 @@ class BoardPosition
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: Types::BIGINT)]
-    private readonly ?string $id;
+    private ?string $id;
 
     #[ORM\Column(type: Types::BINARY, length: 81, unique: true)]
     private readonly string $boardPositionData;
