@@ -53,8 +53,6 @@ services:
       MERCURE_JWT_SECRET: ${CADDY_MERCURE_JWT_SECRET:-!ChangeThisMercureHubJWTSecretKey!}
     security_opt:
       - label=disable
-    deploy:
-      replicas: 2
     healthcheck:
       disable: true
     entrypoint: php
