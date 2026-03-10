@@ -1,5 +1,5 @@
 import {Board, PotentialMove, Move} from '../models/types';
-import {decodeBoardFromBinary, encodeBoardToBinary, decodePotentialMove, encodeMove} from '../utils/boardUtils';
+import {decodeBoardFromBinary, encodeBoardToBinary, decodePotentialMove, encodeMove, encodeMoveListToBinary} from '../utils/boardUtils';
 
 /**
  * API client for game backend
@@ -133,7 +133,6 @@ export class GameAPI {
      */
     async replayMoves(moves: Move[]): Promise<Board> {
         // Import the encoding function
-        const {encodeMoveListToBinary} = await import('../utils/boardUtils');
         const binary = encodeMoveListToBinary(moves);
         
         const response = await fetch(`${this.backendUrl}/replay-moves`, {

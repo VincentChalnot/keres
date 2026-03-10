@@ -3,7 +3,7 @@ import {GameAPI} from '../network/GameAPI';
 import {MercureClient, GameUpdate} from '../network/MercureClient';
 import {IBoardView, TileHighlight} from '../views/IBoardView';
 import {Move} from '../models/types';
-import {decodeMoveListFromBase64} from '../utils/boardUtils';
+import {decodeMoveListFromBase64, posToAlgebraic, encodeBoardToBinary} from '../utils/boardUtils';
 
 /**
  * Main game controller - handles game logic and coordinates between model, view, and network
@@ -54,13 +54,12 @@ export class GameController {
         }
 
         // Update move list
-        this.gameState.setMoveList(moves);
-        this.gameState.setCurrentMoveIndex(moves.length - 1);
+            this.gameState.setMoveList(moves);
+            this.gameState.setCurrentMoveIndex(moves.length - 1);
 
-        // Update move history
-        this.gameState.clearMoveHistory();
-        const {posToAlgebraic} = await import('../utils/boardUtils');
-        for (const move of moves) {
+            // Update move history
+            this.gameState.clearMoveHistory();
+            for (const move of moves) {
             const fromPos = posToAlgebraic(move.from);
             const toPos = posToAlgebraic(move.to);
             const notation = `${fromPos}-${toPos}${move.unstack ? '*' : ''}`;
@@ -95,7 +94,6 @@ export class GameController {
         this.gameState.clearGameHistory();
         
         // Build move history from moves using algebraic notation
-        const {posToAlgebraic} = await import('../utils/boardUtils');
         for (const move of moves) {
             const fromPos = posToAlgebraic(move.from);
             const toPos = posToAlgebraic(move.to);
@@ -145,7 +143,7 @@ export class GameController {
 
             // Update move history
             this.gameState.clearMoveHistory();
-            const {posToAlgebraic} = await import('../utils/boardUtils');
+   
             for (const mv of this.gameState.getMoveList()) {
                 const fromPos = posToAlgebraic(mv.from);
                 const toPos = posToAlgebraic(mv.to);
@@ -312,7 +310,6 @@ export class GameController {
         const board = this.gameState.getBoard();
         if (!board) return;
         const flipped = this.gameState.isBoardFlipped();
-        const {encodeBoardToBinary} = await import('../utils/boardUtils');
         const boardBinary = encodeBoardToBinary(board);
         await this.view.render(boardBinary, flipped);
         this.updateOverlays();
