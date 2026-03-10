@@ -11,6 +11,7 @@
         <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('/apple-touch-icon.png') }}"/>
         <meta name="apple-mobile-web-app-title" content="Keres"/>
         <link rel="manifest" href="{{ asset('/site.webmanifest') }}"/>
+        {{ vite_entry_link_tags('app') }}
         {% block javascripts %}
             {{ vite_entry_script_tags('app') }}
         {% endblock %}
