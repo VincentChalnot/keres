@@ -21,17 +21,15 @@ COPY Cargo.toml Cargo.lock ./
 COPY ./src ./src
 
 # Build the server binary
-RUN . $HOME/.cargo/env && cargo build --bin server --bin keres --release
+RUN . $HOME/.cargo/env && cargo build --bin server --release
 
 # Runtime stage
-FROM debian:stable-slim
 
-# Copy the binary from builder
-COPY --from=builder /app/target/release/server /usr/local/bin/server
-COPY --from=builder /app/target/release/keres /usr/local/bin/keres
+# Use distroless/cc for minimal runtime with glibc
+FROM gcr.io/distroless/cc
 
-# Expose the server port
-EXPOSE 3000
+# Copy the server binary from builder
+COPY --from=builder /app/target/release/server /server
 
-# Run the server
-CMD ["server"]
+# Set entrypoint to the server binary
+ENTRYPOINT ["/server"]
