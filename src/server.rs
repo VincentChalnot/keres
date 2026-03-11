@@ -8,6 +8,7 @@ use axum::{
 use keres_engine::board::BOARD_SIZE;
 use keres_engine::game::Game;
 use keres_engine::moves::Move;
+use std::env;
 use std::net::SocketAddr;
 use tower_http::cors::{Any, CorsLayer};
 
@@ -27,7 +28,12 @@ async fn main() {
         .route("/engine-move", post(engine_move))
         .layer(cors);
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+    // Read PORT from environment variable, fallback to 3000
+    let port: u16 = env::var("PORT")
+        .ok()
+        .and_then(|val| val.parse().ok())
+        .unwrap_or(3000);
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     println!("Listening on {}", addr);
     axum::serve(listener, app).await.unwrap();
