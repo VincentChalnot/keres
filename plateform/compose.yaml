@@ -69,14 +69,6 @@ services:
     restart: unless-stopped
     environment:
       - RUST_LOG=info
-      - XDG_RUNTIME_DIR=/tmp/runtime
-      # Uncomment to force specific GPU backend:
-      # - WGPU_BACKEND=VULKAN
-    # GPU access configuration for AMD/Intel GPUs
-    devices:
-      - /dev/dri:/dev/dri
-    group_add:
-      - video
 
 ###> doctrine/doctrine-bundle ###
   database:

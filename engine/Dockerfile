@@ -21,13 +21,14 @@ COPY Cargo.toml Cargo.lock ./
 COPY ./src ./src
 
 # Build the server binary
-RUN . $HOME/.cargo/env && cargo build --bin server
+RUN . $HOME/.cargo/env && cargo build --bin server --bin keres --release
 
 # Runtime stage
 FROM debian:stable-slim
 
 # Copy the binary from builder
-COPY --from=builder /app/target/debug/server /usr/local/bin/server
+COPY --from=builder /app/target/release/server /usr/local/bin/server
+COPY --from=builder /app/target/release/keres /usr/local/bin/keres
 
 # Expose the server port
 EXPOSE 3000
