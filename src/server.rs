@@ -12,6 +12,12 @@ use std::env;
 use std::net::SocketAddr;
 use tower_http::cors::{Any, CorsLayer};
 
+// musl's default allocator has severe lock contention under multi-threading
+// https://nickb.dev/blog/default-musl-allocator-considered-harmful-to-performance
+#[cfg(target_env = "musl")]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 
 #[tokio::main]
 async fn main() {

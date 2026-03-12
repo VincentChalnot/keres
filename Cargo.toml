@@ -18,6 +18,7 @@ tower-http = { version = "0.5", features = ["cors"] }
 rayon = "1.10"
 ahash = "0.8.12"
 once_cell = "1.21.3"
+mimalloc = "0.1.48"
 
 [lib]
 name = "keres_engine"
@@ -34,3 +35,9 @@ path = "src/server.rs"
 [profile.profiling]
 inherits = "release"
 debug = 1
+
+[target.x86_64-unknown-linux-musl]
+linker = "musl-gcc"
+
+[target.x86_64-unknown-linux-musl.dependencies]
+mimalloc = "0.1.43"

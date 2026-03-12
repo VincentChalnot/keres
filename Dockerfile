@@ -27,7 +27,7 @@ COPY ./src ./src
 
 # Build the server binary for musl (static linking)
 RUN . $HOME/.cargo/env && \
-    cargo build --bin server --release --target x86_64-unknown-linux-musl
+    CC=musl-gcc cargo build --release --target x86_64-unknown-linux-musl
 
 
 # Runtime stage: use scratch for a true distroless image
