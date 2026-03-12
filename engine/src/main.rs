@@ -10,6 +10,12 @@ use keres_engine::{
 use keres_engine::moves::Move;
 use std::time::Instant;
 
+// musl's default allocator has severe lock contention under multi-threading
+// https://nickb.dev/blog/default-musl-allocator-considered-harmful-to-performance
+#[cfg(target_env = "musl")]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
