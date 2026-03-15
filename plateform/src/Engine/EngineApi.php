@@ -12,6 +12,7 @@ readonly class EngineApi
 {
     public function __construct(
         private HttpClientInterface $httpClient,
+        private string $backendApiUrl,
     ) {
     }
 
@@ -31,9 +32,10 @@ readonly class EngineApi
 
     private function callApi(string $endpoint, string $body): string
     {
+        $url = rtrim($this->backendApiUrl, '/') . '/' . ltrim($endpoint, '/');
         $apiResponse = $this->httpClient->request(
             'POST',
-            "http://backend:3000/{$endpoint}",
+            $url,
             [
                 'body' => $body,
                 'headers' => [

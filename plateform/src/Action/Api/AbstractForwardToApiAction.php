@@ -13,6 +13,7 @@ readonly abstract class AbstractForwardToApiAction
 {
     public function __construct(
         private HttpClientInterface $httpClient,
+        private string $backendApiUrl,
     ) {
     }
 
@@ -21,10 +22,10 @@ readonly abstract class AbstractForwardToApiAction
         // Remove the '/api' prefix using regexp to forward to the backend service
         $requestUri = preg_replace('#^/api#', '', $request->getRequestUri());
 
-        /** @noinspection HttpUrlsUsage Internal service */
+        $url = rtrim($this->backendApiUrl, '/') . $requestUri;
         $apiResponse = $this->httpClient->request(
             $request->getMethod(),
-            "http://backend:3000{$requestUri}",
+            $url,
             [
                 'body' => $request->getContent(),
                 'headers' => [
@@ -35,7 +36,7 @@ readonly abstract class AbstractForwardToApiAction
 
         // Forward the response from the backend service
         return new Response(
-            $apiResponse->getContent(),
+            $apiResponse->getContent(false),
             $apiResponse->getStatusCode(),
             $apiResponse->getHeaders(false)
         );
