@@ -95,3 +95,35 @@ RUN set -eux; \
 	composer dump-env prod; \
 	composer run-script --no-dev post-install-cmd; \
 	chmod +x bin/console; sync;
+
+# Worker image (Supervisor + Symfony Messenger)
+FROM frankenphp_dev AS frankenphp_worker_dev
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    supervisor \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --link frankenphp/supervisor/supervisord.conf /etc/supervisor/supervisord.conf
+COPY --link frankenphp/supervisor/messenger-worker.conf /etc/supervisor/conf.d/messenger-worker.conf
+
+WORKDIR /tmp
+
+# Override le CMD et l'ENTRYPOINT de frankenphp_prod
+ENTRYPOINT []
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+
+# Worker image (Supervisor + Symfony Messenger)
+FROM frankenphp_prod AS frankenphp_worker_prod
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    supervisor \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --link frankenphp/supervisor/supervisord.conf /etc/supervisor/supervisord.conf
+COPY --link frankenphp/supervisor/messenger-worker.conf /etc/supervisor/conf.d/messenger-worker.conf
+
+WORKDIR /tmp
+
+# Override le CMD et l'ENTRYPOINT de frankenphp_prod
+ENTRYPOINT []
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
