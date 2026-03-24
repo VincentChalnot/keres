@@ -23,9 +23,9 @@ readonly class EngineApi
         return new BoardData($boardData);
     }
 
-    public function aiMove(BoardData $boardData): MoveData
+    public function aiMove(MovesData $movesData): MoveData
     {
-        $moveData = $this->callApi('engine-move', $boardData->data);
+        $moveData = $this->callApi('engine-move-game', $movesData->toBinary());
 
         return new MoveData($moveData);
     }
