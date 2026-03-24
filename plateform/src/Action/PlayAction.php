@@ -9,12 +9,16 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Uid\Uuid;
+use App\Model\OpponentType;
+use App\Message\ProcessAiMoveMessage;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsController]
 class PlayAction extends AbstractController
 {
     public function __construct(
         private readonly GameRepository $gameRepository,
+        private readonly MessageBusInterface $messageBus, // Inject message bus
     ) {
     }
 
@@ -28,6 +32,20 @@ class PlayAction extends AbstractController
         
         if (!$game) {
             throw $this->createNotFoundException('Game not found');
+        }
+
+        // AI auto-move trigger logic
+        if (
+            $game->getOpponentType() === OpponentType::AI &&
+            !$game->isGameOver() &&
+            $game->isWhiteTurn() !== $game->isWhite() // It's AI's turn
+        ) {
+            $this->messageBus->dispatch(
+                new ProcessAiMoveMessage(
+                    $uuid,
+                    $game->getGameMoves()->count(),
+                )
+            );
         }
 
         // Encode moves to base64
