@@ -60,10 +60,9 @@ readonly class GameEngine
 
         // Get current board state
         $movesData = $game->getMovesData();
-        $boardData = $this->engineApi->replayMoves($movesData);
 
         // Get AI move
-        $aiMoveData = $this->engineApi->aiMove($boardData);
+        $aiMoveData = $this->engineApi->aiMove($movesData);
 
         // Apply AI move
         return $this->applyMove($game, $aiMoveData);
