@@ -6,6 +6,7 @@ import {IBoardView} from './views/IBoardView';
 import {decodeMoveListFromBase64} from './utils/boardUtils';
 import {PIECE_RULES} from './models/pieceRules';
 import {Piece} from './models/types';
+import {computeMaterialDiff, renderMaterialHTML} from './models/materialDiff';
 
 const OPPONENT_TYPE_AI = 0;
 const OPPONENT_TYPE_HOTSEAT = 1;
@@ -40,6 +41,8 @@ class KeresGame {
     private rulesPanelToggle: HTMLElement | null;
     private rulesPanelHovered: HTMLElement | null;
     private rulesPanelList: HTMLElement | null;
+    private materialTop: HTMLElement | null;
+    private materialBottom: HTMLElement | null;
     private gameMode: number = 0; // opponent type as int
     private playerWhite: boolean = true; // true if player is white
 
@@ -67,6 +70,8 @@ class KeresGame {
         this.rulesPanelToggle = document.getElementById('rules-panel-toggle');
         this.rulesPanelHovered = document.getElementById('rules-panel-hovered');
         this.rulesPanelList = document.getElementById('rules-panel-list');
+        this.materialTop = document.getElementById('material-top');
+        this.materialBottom = document.getElementById('material-bottom');
         
         // Read game mode and player color from data attributes
         this.gameMode = parseInt(this.boardContainer.getAttribute('data-opponent-type') || '0', 10);
@@ -119,6 +124,7 @@ class KeresGame {
         this.updateMoveHistoryDisplay();
         this.updateNavigationButtons();
         this.updateToggleThreatsButton();
+        this.updateMaterialDiff();
     }
 
     private setupEventListeners(): void {
@@ -169,6 +175,7 @@ class KeresGame {
             this.updateStatus();
             this.updateMoveHistoryDisplay();
             this.updateNavigationButtons();
+            this.updateMaterialDiff();
         });
 
         // Rules panel toggle
@@ -200,6 +207,7 @@ class KeresGame {
             this.updateStatus();
             this.updateMoveHistoryDisplay();
             this.updateNavigationButtons();
+            this.updateMaterialDiff();
         }
     }
 
@@ -214,6 +222,7 @@ class KeresGame {
 
     private async handleSwitchSides(): Promise<void> {
         await this.controller.flipBoard();
+        this.updateMaterialDiff();
     }
 
     private async handleAskEngine(): Promise<void> {
@@ -225,6 +234,7 @@ class KeresGame {
             await this.controller.requestEngineMove();
             this.updateStatus();
             this.updateMoveHistoryDisplay();
+            this.updateMaterialDiff();
         } catch (error) {
             console.error('Error getting engine move:', error);
             this.statusDiv.innerText = `Error: ${(error as Error).message}. engine may not be available.`;
@@ -241,6 +251,7 @@ class KeresGame {
         this.updateStatus();
         this.updateMoveHistoryDisplay();
         this.updateNavigationButtons();
+        this.updateMaterialDiff();
     }
 
     private async handlePrevMove(): Promise<void> {
@@ -331,6 +342,28 @@ class KeresGame {
     private updateNavigationButtons(): void {
         this.prevMoveBtn.disabled = !this.controller.canNavigateToPrevious();
         this.nextMoveBtn.disabled = !this.controller.canNavigateToNext();
+    }
+
+    private updateMaterialDiff(): void {
+        const board = this.gameState.getBoard();
+        if (!board || !this.materialTop || !this.materialBottom) return;
+
+        const diff = computeMaterialDiff(board);
+        const flipped = this.gameState.isBoardFlipped();
+
+        // Top bar = opponent's captured pieces (pieces captured FROM that side shown on the other side)
+        // Bottom bar = current player's captured pieces
+        // If not flipped: top = black side, bottom = white side
+        // Top shows pieces captured from black (shown as black's loss), bottom shows pieces captured from white
+        if (flipped) {
+            // Black at bottom, white at top
+            this.materialTop.innerHTML = renderMaterialHTML(diff.whiteCaptured, -diff.scoreDelta);
+            this.materialBottom.innerHTML = renderMaterialHTML(diff.blackCaptured, diff.scoreDelta);
+        } else {
+            // White at bottom, black at top
+            this.materialTop.innerHTML = renderMaterialHTML(diff.blackCaptured, diff.scoreDelta);
+            this.materialBottom.innerHTML = renderMaterialHTML(diff.whiteCaptured, -diff.scoreDelta);
+        }
     }
 
     private showPieceDetailModal(piece: Piece, _clientX: number, _clientY: number): void {

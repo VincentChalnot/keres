@@ -388,6 +388,32 @@ footer.footer {
     overflow-y: auto;
 }
 
+// ─── Material difference (Lichess-style) ──────────────────────────────────────
+
+.material-bar {
+    display: flex;
+    align-items: center;
+    min-height: 1.5em;
+    padding: 0.15rem 0.25rem;
+    gap: 1px;
+    flex-wrap: wrap;
+}
+
+.material-piece {
+    width: 1.1em;
+    height: 1.1em;
+    display: inline-block;
+    vertical-align: middle;
+    opacity: 0.85;
+}
+
+.material-score {
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: $keres-primary;
+    margin-left: 0.3em;
+}
+
 // ─── Rules side panel (desktop) ──────────────────────────────────────────────
 
 .rules-panel {

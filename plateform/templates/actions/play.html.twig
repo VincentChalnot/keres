@@ -18,11 +18,13 @@
                     <div id="status" class="level-item">Loading...</div>
                 </div>
             </nav>
+            <div class="material-bar" id="material-top"></div>
             <div id="board-container"
                  data-moves="{{ moves }}"
                  data-game-uuid="{{ game.uuid }}"
                  data-opponent-type="{{ game.opponentType.value }}"
                  data-player-white="{{ game.white ? 'true' : 'false' }}"></div>
+            <div class="material-bar" id="material-bottom"></div>
             <div class="buttons mt-3">
                 {% if game.opponentType == enum('App\\Model\\OpponentType').AI %}
                     <button class="button is-rounded is-outlined is-light" id="switch-sides-btn">Switch Sides</button>
