@@ -19,6 +19,7 @@ rayon = "1.10"
 ahash = "0.8.12"
 once_cell = "1.21.3"
 mimalloc = "0.1.48"
+rand = "0.10.0"
 
 [lib]
 name = "keres_engine"
