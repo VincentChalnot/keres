@@ -31,10 +31,12 @@ class KeresGame {
     private undoBtn: HTMLButtonElement;
     private askEngineBtn: HTMLButtonElement | null;
     private toggleThreatsBtn: HTMLButtonElement;
+    private toggleCoordsBtn: HTMLButtonElement;
     private materialTop: HTMLElement | null;
     private materialBottom: HTMLElement | null;
     private gameMode: number = 0; // opponent type as int
     private playerWhite: boolean = true; // true if player is white
+    private coordsVisible: boolean = true;
 
     constructor() {
         this.gameState = new GameState();
@@ -52,6 +54,7 @@ class KeresGame {
         this.undoBtn = document.getElementById('undo-btn') as HTMLButtonElement;
         this.askEngineBtn = document.getElementById('ask-engine-btn') as HTMLButtonElement | null;
         this.toggleThreatsBtn = document.getElementById('toggle-threats-btn') as HTMLButtonElement;
+        this.toggleCoordsBtn = document.getElementById('toggle-coords-btn') as HTMLButtonElement;
         this.materialTop = document.getElementById('material-top');
         this.materialBottom = document.getElementById('material-bottom');
 
@@ -130,6 +133,7 @@ class KeresGame {
         this.prevMoveBtn.addEventListener('click', () => this.handlePrevMove());
         this.nextMoveBtn.addEventListener('click', () => this.handleNextMove());
         this.toggleThreatsBtn.addEventListener('click', () => this.handleToggleThreats());
+        this.toggleCoordsBtn.addEventListener('click', () => this.handleToggleCoords());
 
         // Custom event for unstack modal
         window.addEventListener('showUnstackModal', () => {
@@ -219,6 +223,14 @@ class KeresGame {
     private handleToggleThreats(): void {
         this.controller.toggleShowThreats();
         this.updateToggleThreatsButton();
+    }
+
+    private handleToggleCoords(): void {
+        this.coordsVisible = !this.coordsVisible;
+        if (this.view.setCoordinatesVisible) {
+            this.view.setCoordinatesVisible(this.coordsVisible);
+        }
+        this.toggleCoordsBtn.innerText = this.coordsVisible ? 'Hide Coords' : 'Show Coords';
     }
 
     private updateToggleThreatsButton(): void {

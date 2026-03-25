@@ -72,6 +72,9 @@ export default class SVGBoardView implements IBoardView {
     // Whether the piece card is currently visible
     private cardVisible: boolean = false;
 
+    // Whether coordinate labels are visible (affects viewBox)
+    private coordsVisible: boolean = true;
+
     // Bound event handler references for proper cleanup
     private boundHandleClick: ((e: MouseEvent) => void) | null = null;
     private boundHandleMouseMove: ((e: MouseEvent) => void) | null = null;
@@ -617,9 +620,11 @@ export default class SVGBoardView implements IBoardView {
     private updateDragGhost(clientX: number, clientY: number): void {
         if (!this.dragState.ghost) return;
         const rect = this.svg.getBoundingClientRect();
-        const totalSvgWidth = BOARD_WIDTH + COORD_WIDTH;
-        const totalSvgHeight = BOARD_HEIGHT + COORD_HEIGHT;
-        const svgX = ((clientX - rect.left) / rect.width) * totalSvgWidth - COORD_WIDTH - SQUARE_WIDTH / 2;
+        const coordW = this.coordsVisible ? COORD_WIDTH : 0;
+        const coordH = this.coordsVisible ? COORD_HEIGHT : 0;
+        const totalSvgWidth = BOARD_WIDTH + coordW;
+        const totalSvgHeight = BOARD_HEIGHT + coordH;
+        const svgX = ((clientX - rect.left) / rect.width) * totalSvgWidth - coordW - SQUARE_WIDTH / 2;
         const svgY = ((clientY - rect.top) / rect.height) * totalSvgHeight - SQUARE_HEIGHT / 2;
         this.dragState.ghost.setAttribute('transform', `translate(${svgX}, ${svgY})`);
     }
@@ -628,9 +633,11 @@ export default class SVGBoardView implements IBoardView {
         const rect = this.svg.getBoundingClientRect();
         const x = touch.clientX - rect.left;
         const y = touch.clientY - rect.top;
-        const totalSvgWidth = BOARD_WIDTH + COORD_WIDTH;
-        const totalSvgHeight = BOARD_HEIGHT + COORD_HEIGHT;
-        const svgX = (x / rect.width) * totalSvgWidth - COORD_WIDTH;
+        const coordW = this.coordsVisible ? COORD_WIDTH : 0;
+        const coordH = this.coordsVisible ? COORD_HEIGHT : 0;
+        const totalSvgWidth = BOARD_WIDTH + coordW;
+        const totalSvgHeight = BOARD_HEIGHT + coordH;
+        const svgX = (x / rect.width) * totalSvgWidth - coordW;
         const svgY = (y / rect.height) * totalSvgHeight;
         return this.getTileIndex(svgX, svgY);
     }
@@ -656,10 +663,12 @@ export default class SVGBoardView implements IBoardView {
         const y = event.clientY - rect.top;
 
         // Convert from screen coordinates to SVG coordinates
-        // ViewBox is: -COORD_WIDTH 0 (BOARD_WIDTH + COORD_WIDTH) (BOARD_HEIGHT + COORD_HEIGHT)
-        const totalSvgWidth = BOARD_WIDTH + COORD_WIDTH;
-        const totalSvgHeight = BOARD_HEIGHT + COORD_HEIGHT;
-        const svgX = (x / rect.width) * totalSvgWidth - COORD_WIDTH;
+        // ViewBox depends on coordsVisible
+        const coordW = this.coordsVisible ? COORD_WIDTH : 0;
+        const coordH = this.coordsVisible ? COORD_HEIGHT : 0;
+        const totalSvgWidth = BOARD_WIDTH + coordW;
+        const totalSvgHeight = BOARD_HEIGHT + coordH;
+        const svgX = (x / rect.width) * totalSvgWidth - coordW;
         const svgY = (y / rect.height) * totalSvgHeight;
 
         return this.getTileIndex(svgX, svgY);
@@ -877,6 +886,15 @@ export default class SVGBoardView implements IBoardView {
     private hidePieceCard(): void {
         this.cardGroup.style.display = 'none';
         this.cardVisible = false;
+    }
+
+    setCoordinatesVisible(visible: boolean): void {
+        this.coordsVisible = visible;
+        if (visible) {
+            this.svg.setAttribute('viewBox', `${-COORD_WIDTH} -${TOP_MARGIN} ${BOARD_WIDTH + COORD_WIDTH} ${BOARD_HEIGHT + COORD_HEIGHT + TOP_MARGIN}`);
+        } else {
+            this.svg.setAttribute('viewBox', `0 -${TOP_MARGIN} ${BOARD_WIDTH} ${BOARD_HEIGHT + TOP_MARGIN}`);
+        }
     }
 
     dispose(): void {

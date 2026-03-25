@@ -15,7 +15,7 @@
       <jdbc-url>jdbc:postgresql://citadel:54320/immich</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
-    <data-source source="LOCAL" name="postgres@localhost" uuid="3deb96e3-db7b-4f29-ab08-e2b9a590033c">
+    <data-source source="LOCAL" name="postgres@172.19.0.3" uuid="3deb96e3-db7b-4f29-ab08-e2b9a590033c">
       <driver-ref>postgresql</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.postgresql.Driver</jdbc-driver>

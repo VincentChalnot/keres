@@ -42,6 +42,11 @@ export interface IBoardView {
      * Set drag move handler (optional - for drag & drop support)
      */
     onDragMove?(handler: (from: number, to: number, shiftKey?: boolean) => void): void;
+
+    /**
+     * Toggle coordinate labels visibility (optional)
+     */
+    setCoordinatesVisible?(visible: boolean): void;
 }
 
 export interface TileHighlight {
