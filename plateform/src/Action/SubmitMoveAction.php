@@ -9,6 +9,8 @@ use App\Model\BoardMovesData;
 use App\Model\MoveData;
 use App\Model\OpponentType;
 use App\Repository\GameRepository;
+use Doctrine\DBAL\Exception\RetryableException;
+use Doctrine\ORM\OptimisticLockException;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -68,7 +70,14 @@ readonly class SubmitMoveAction
             );
         }
 
-        $boardMovesData = $this->gameEngine->applyMove($game, $moveData);
+        try {
+            $boardMovesData = $this->gameEngine->applyMove($game, $moveData);
+        } catch (OptimisticLockException|RetryableException) {
+            return new JsonResponse(
+                ['error' => 'concurrent_move'],
+                Response::HTTP_CONFLICT
+            );
+        }
 
         // For AI mode, return the response and dispatch async message to process AI move
         if (!$game->isGameOver() && $game->getOpponentType() === OpponentType::AI) {
