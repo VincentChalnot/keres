@@ -5,7 +5,9 @@ namespace App\Engine;
 use App\Entity\Game;
 use App\Model\BoardMovesData;
 use App\Model\MoveData;
+use Doctrine\DBAL\TransactionIsolationLevel;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\OptimisticLockException;
 
 readonly class GameEngine
 {
@@ -33,20 +35,49 @@ readonly class GameEngine
         $boardData = $this->engineApi->replayMoves($movesData);
         $boardMovesData = new BoardMovesData($boardData, $movesData);
 
-        $this->entityManager->wrapInTransaction(
-            function (EntityManagerInterface $em) use ($game, $boardMovesData, $boardData) {
+        $expectedVersion = $game->getVersion();
+
+        $connection = $this->entityManager->getConnection();
+        $previousIsolation = $connection->getTransactionIsolation();
+        $connection->setTransactionIsolation(TransactionIsolationLevel::SERIALIZABLE);
+
+        try {
+            $connection->beginTransaction();
+            try {
                 $newMove = $this->boardTreeManager->getGameMove($game, $boardMovesData);
-                $em->persist($newMove);
+                $this->entityManager->persist($newMove);
 
                 // Update game state if game is over
                 if ($boardData->gameOver) {
                     $game->setGameOverAt(new \DateTimeImmutable());
                     $game->setWhiteWins($boardData->whiteWins);
                     $game->setDraw($boardData->draw);
-                    $em->persist($game);
                 }
+
+                $this->entityManager->flush();
+
+                // For non-game-over moves, the Game entity is not dirty so Doctrine
+                // does not UPDATE it (and thus does not check/bump the version).
+                // Perform an atomic version check + bump via native SQL.
+                if (!$boardData->gameOver) {
+                    $tableName = $this->entityManager->getClassMetadata(Game::class)->getTableName();
+                    $rowsAffected = $connection->executeStatement(
+                        'UPDATE '.$tableName.' SET version = version + 1 WHERE id = :id AND version = :version',
+                        ['id' => $game->getId(), 'version' => $expectedVersion]
+                    );
+                    if ($rowsAffected === 0) {
+                        throw OptimisticLockException::lockFailed($game);
+                    }
+                }
+
+                $connection->commit();
+            } catch (\Throwable $e) {
+                $connection->rollBack();
+                throw $e;
             }
-        );
+        } finally {
+            $connection->setTransactionIsolation($previousIsolation);
+        }
 
         return $boardMovesData;
     }

@@ -43,6 +43,10 @@ class Game
     #[ORM\Column(type: Types::BOOLEAN)]
     private bool $draw = false;
 
+    #[ORM\Version]
+    #[ORM\Column(type: Types::INTEGER)]
+    private int $version = 1;
+
     /**
      * @var Collection<int, GameMove>
      */
@@ -150,6 +154,11 @@ class Game
         $this->draw = $draw;
 
         return $this;
+    }
+
+    public function getVersion(): int
+    {
+        return $this->version;
     }
 
     public function isGameOver(): bool
