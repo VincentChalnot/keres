@@ -36,15 +36,11 @@
                         {{ form_end(form) }}
                     </div>
 
-                    <h3 class="title is-4 mt-5">Games</h3>
-                    {% for game in games %}
+                    <h3 class="title is-4 mt-5">In Progress</h3>
+                    {% for game in inProgressGames %}
                         {# @var game \App\Entity\Game #}
                         <div class="box mb-4">
-                            {% if game.gameOver %}
-                                <a href="{{ path('play', {uuid: game.uuid}) }}" class="button is-rounded is-static is-pulled-right">Game Over</a>
-                            {% else %}
-                                <a href="{{ path('play', {uuid: game.uuid}) }}" class="button is-rounded is-primary is-pulled-right">Resume</a>
-                            {% endif %}
+                            <a href="{{ path('play', {uuid: game.uuid}) }}" class="button is-rounded is-primary is-pulled-right">Resume</a>
                             <form method="post" action="{{ path('delete_game', {uuid: game.uuid}) }}" style="display:inline" class="is-pulled-right mr-2" onsubmit="return confirm('Are you sure you want to delete this game?')">
                                 <button type="submit" class="button is-rounded is-small is-danger is-outlined">Delete</button>
                             </form>
@@ -58,9 +54,50 @@
                                     Unknown
                                 {% endif %}
                             </p>
+                            <p><strong>Created:</strong> {{ game.createdAt|date('Y-m-d H:i') }}</p>
+                            {% if game.lastMoveAt %}
+                                <p><strong>Last Move:</strong> {{ game.lastMoveAt|date('Y-m-d H:i') }}</p>
+                            {% endif %}
+                            <p><strong>Next to play:</strong> {{ game.whiteTurn ? 'White' : 'Black' }}</p>
                         </div>
                     {% else %}
-                        <p>No games found.</p>
+                        <p>No games in progress.</p>
+                    {% endfor %}
+
+                    <h3 class="title is-4 mt-5">Finished</h3>
+                    {% for game in finishedGames %}
+                        {# @var game \App\Entity\Game #}
+                        <div class="box mb-4">
+                            <a href="{{ path('play', {uuid: game.uuid}) }}" class="button is-rounded is-static is-pulled-right">Game Over</a>
+                            <form method="post" action="{{ path('delete_game', {uuid: game.uuid}) }}" style="display:inline" class="is-pulled-right mr-2" onsubmit="return confirm('Are you sure you want to delete this game?')">
+                                <button type="submit" class="button is-rounded is-small is-danger is-outlined">Delete</button>
+                            </form>
+                            <p><strong>Player Side:</strong> {{ game.white ? 'White' : 'Black' }}</p>
+                            <p><strong>Opponent Type:</strong>
+                                {% if game.opponentType == enum('App\\Model\\OpponentType').AI %}
+                                    AI
+                                {% elseif game.opponentType == enum('App\\Model\\OpponentType').HOTSEAT %}
+                                    Hot Seat
+                                {% else %}
+                                    Unknown
+                                {% endif %}
+                            </p>
+                            <p><strong>Created:</strong> {{ game.createdAt|date('Y-m-d H:i') }}</p>
+                            {% if game.lastMoveAt %}
+                                <p><strong>Last Move:</strong> {{ game.lastMoveAt|date('Y-m-d H:i') }}</p>
+                            {% endif %}
+                            <p><strong>Result:</strong>
+                                {% if game.draw %}
+                                    Draw
+                                {% elseif game.whiteWins %}
+                                    White wins
+                                {% else %}
+                                    Black wins
+                                {% endif %}
+                            </p>
+                        </div>
+                    {% else %}
+                        <p>No finished games.</p>
                     {% endfor %}
                 </div>
             </div>

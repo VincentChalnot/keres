@@ -207,6 +207,16 @@ class Game
         return $moveEntity;
     }
 
+    public function getLastMoveAt(): ?\DateTimeImmutable
+    {
+        $lastMove = $this->gameMoves->last();
+        if ($lastMove === false) {
+            return null;
+        }
+
+        return $lastMove->getCreatedAt();
+    }
+
     public function getMovesData(): MovesData
     {
         $data = new MovesData();

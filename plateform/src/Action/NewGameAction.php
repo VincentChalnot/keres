@@ -52,9 +52,12 @@ class NewGameAction extends AbstractController
             return $this->redirectToRoute('play', ['uuid' => $game->getUuid()]);
         }
 
+        $allGames = $this->gameRepository->findAllActive();
+
         return [
             'form' => $form->createView(),
-            'games' => $this->gameRepository->findAllActive(),
+            'inProgressGames' => array_filter($allGames, static fn(Game $g) => !$g->isGameOver()),
+            'finishedGames' => array_filter($allGames, static fn(Game $g) => $g->isGameOver()),
         ];
     }
 }
