@@ -20,10 +20,10 @@ export class GameController {
         this.view = view;
 
         // Set up view event handlers
-        this.view.onTileClick((pos) => this.handleTileClick(pos));
+        this.view.onTileClick((pos, shiftKey) => this.handleTileClick(pos, shiftKey));
         this.view.onTileHover((pos) => this.handleTileHover(pos));
         if (this.view.onDragMove) {
-            this.view.onDragMove((from, to) => this.handleDragMove(from, to));
+            this.view.onDragMove((from, to, shiftKey) => this.handleDragMove(from, to, shiftKey));
         }
     }
 
@@ -160,6 +160,7 @@ export class GameController {
             await this.updatePotentialMoves();
             await this.renderBoard();
             window.dispatchEvent(new CustomEvent('boardStateChanged'));
+            window.dispatchEvent(new CustomEvent('moveSubmitted'));
         } catch (error) {
             // Unlock board on error
             this.gameState.setBoardLocked(false);
@@ -241,7 +242,7 @@ export class GameController {
         await this.renderBoard();
     }
 
-    private handleTileClick(pos: number): void {
+    private handleTileClick(pos: number, shiftKey?: boolean): void {
         const board = this.gameState.getBoard();
         if (!board) return;
         if (this.gameState.isBoardLocked()) return;
@@ -263,10 +264,11 @@ export class GameController {
         const moves = this.gameState.getPotentialMovesForPosition(selectedPosition);
         for (const move of moves) {
             if (move.to !== pos) continue;
-            if (move.unstackable && !move.force_unstack) {
+            if (move.unstackable && !move.force_unstack && !shiftKey) {
                 this.gameState.setClickedDestination(pos);
                 window.dispatchEvent(new CustomEvent('showUnstackModal'));
             } else {
+                this.gameState.setSelectedPosition(null);
                 this.playMove(selectedPosition, pos, move.force_unstack);
             }
             return;
@@ -296,7 +298,7 @@ export class GameController {
         }
     }
 
-    private handleDragMove(from: number, to: number): void {
+    private handleDragMove(from: number, to: number, shiftKey?: boolean): void {
         const board = this.gameState.getBoard();
         if (!board) return;
         if (this.gameState.isBoardLocked()) return;
@@ -305,7 +307,7 @@ export class GameController {
         const moves = this.gameState.getPotentialMovesForPosition(from);
         for (const move of moves) {
             if (move.to !== to) continue;
-            if (move.unstackable && !move.force_unstack) {
+            if (move.unstackable && !move.force_unstack && !shiftKey) {
                 this.gameState.setSelectedPosition(from);
                 this.gameState.setClickedDestination(to);
                 window.dispatchEvent(new CustomEvent('showUnstackModal'));

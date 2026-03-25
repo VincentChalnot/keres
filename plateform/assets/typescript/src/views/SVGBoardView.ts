@@ -30,9 +30,9 @@ export default class SVGBoardView implements IBoardView {
     private coordsGroup!: SVGGElement;
     private gameState: GameState;
 
-    private clickHandler: ((tileIndex: number) => void) | null = null;
+    private clickHandler: ((tileIndex: number, shiftKey?: boolean) => void) | null = null;
     private hoverHandler: ((tileIndex: number | null) => void) | null = null;
-    private dragMoveHandler: ((from: number, to: number) => void) | null = null;
+    private dragMoveHandler: ((from: number, to: number, shiftKey?: boolean) => void) | null = null;
 
     // Track current board state to enable differential updates
     private currentBoardData: Uint8Array | null = null;
@@ -290,7 +290,7 @@ export default class SVGBoardView implements IBoardView {
     private async createPieceUse(x: number, y: number, pieceType: string, color: boolean, reversed: boolean, tileIndex: number, isTopPiece: boolean): Promise<void> {
         // Use <use> referencing the inlined sprite symbol
         const colorClass = color ? 'p-w' : 'p-b';
-        const reversedClass = color ^ reversed ? '' : 'p-r';
+        const reversedClass = color !== reversed ? '' : 'p-r';
         const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
         use.setAttribute('href', `#piece-${pieceType}`);
         use.setAttribute('class', `piece ${colorClass} ${reversedClass}`);
@@ -404,7 +404,7 @@ export default class SVGBoardView implements IBoardView {
 
         const pos = this.getPosFromMouseEvent(event);
         if (pos !== null) {
-            this.clickHandler(pos);
+            this.clickHandler(pos, event.shiftKey);
         }
     }
 
@@ -448,7 +448,7 @@ export default class SVGBoardView implements IBoardView {
             return;
         }
         const to = this.getPosFromMouseEvent(event);
-        this.endDrag(to);
+        this.endDrag(to, event.shiftKey);
     }
 
     private handleTouchStart(event: TouchEvent): void {
@@ -484,7 +484,7 @@ export default class SVGBoardView implements IBoardView {
         // Use the last known touch position from changedTouches
         const touch = event.changedTouches[0];
         const to = this.getPosFromTouch(touch);
-        this.endDrag(to);
+        this.endDrag(to, event.shiftKey);
     }
 
     private startDrag(from: number): void {
@@ -499,7 +499,7 @@ export default class SVGBoardView implements IBoardView {
         this.createDragGhost(from);
     }
 
-    private endDrag(to: number | null): void {
+    private endDrag(to: number | null, shiftKey: boolean = false): void {
         // Remove ghost
         if (this.dragState.ghost) {
             this.dragState.ghost.remove();
@@ -512,7 +512,7 @@ export default class SVGBoardView implements IBoardView {
         this.preventNextClick = true;
 
         if (to !== null && to !== from && this.dragMoveHandler) {
-            this.dragMoveHandler(from, to);
+            this.dragMoveHandler(from, to, shiftKey);
         } else if (this.clickHandler) {
             // Cancel: deselect by clicking the same position
             this.clickHandler(from);
@@ -589,7 +589,7 @@ export default class SVGBoardView implements IBoardView {
         return this.getTileIndex(svgX, svgY);
     }
 
-    onTileClick(handler: (tileIndex: number) => void): void {
+    onTileClick(handler: (tileIndex: number, shiftKey?: boolean) => void): void {
         this.clickHandler = handler;
     }
 
@@ -597,7 +597,7 @@ export default class SVGBoardView implements IBoardView {
         this.hoverHandler = handler;
     }
 
-    onDragMove(handler: (from: number, to: number) => void): void {
+    onDragMove(handler: (from: number, to: number, shiftKey?: boolean) => void): void {
         this.dragMoveHandler = handler;
     }
 

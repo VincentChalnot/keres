@@ -136,6 +136,13 @@ class KeresGame {
             this.updateMoveHistoryDisplay();
             this.updateNavigationButtons();
         });
+
+        // Auto-rotate board in hotseat mode after each submitted move
+        window.addEventListener('moveSubmitted', async () => {
+            if (this.gameMode === OPPONENT_TYPE_HOTSEAT) {
+                await this.controller.flipBoard();
+            }
+        });
     }
 
     private async handleMoveStack(fullStack: boolean = false): Promise<void> {
@@ -144,12 +151,6 @@ class KeresGame {
         const clickedDestination = this.gameState.getClickedDestination();
         if (selectedPosition !== null && clickedDestination !== null) {
             await this.controller.playMove(selectedPosition, clickedDestination, fullStack);
-            
-            // Auto-rotate board in hotseat mode after each move
-            if (this.gameMode === OPPONENT_TYPE_HOTSEAT) {
-                await this.controller.flipBoard();
-            }
-            
             this.updateStatus();
             this.updateMoveHistoryDisplay();
             this.updateNavigationButtons();

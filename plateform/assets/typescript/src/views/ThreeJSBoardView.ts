@@ -59,7 +59,7 @@ export default class ThreeJSBoardView implements IBoardView {
     private container!: HTMLElement;
     private gameState: GameState;
 
-    private clickHandler: ((tileIndex: number) => void) | null = null;
+    private clickHandler: ((tileIndex: number, shiftKey?: boolean) => void) | null = null;
     private hoverHandler: ((tileIndex: number | null) => void) | null = null;
 
     // Texture cache to avoid repeated network requests
@@ -434,7 +434,7 @@ export default class ThreeJSBoardView implements IBoardView {
 
         const pos = this.getPosFromMouseEvent(event);
         if (pos != null) {
-            this.clickHandler(pos);
+            this.clickHandler(pos, event.shiftKey);
         }
     }
 
@@ -473,7 +473,7 @@ export default class ThreeJSBoardView implements IBoardView {
         }
     }
 
-    onTileClick(handler: (tileIndex: number) => void): void {
+    onTileClick(handler: (tileIndex: number, shiftKey?: boolean) => void): void {
         this.clickHandler = handler;
     }
 
