@@ -205,9 +205,31 @@ export class GameController {
     }
 
     private async navigateToMoveIndex(targetIndex: number): Promise<void> {
-        const moveList = this.gameState.getMoveList();
-        const moves = moveList.slice(0, targetIndex + 1);
-        await this.setMoves(moves);
+        const fullMoveList = [...this.gameState.getMoveList()];
+        const movesToReplay = fullMoveList.slice(0, targetIndex + 1);
+
+        // Replay board to target position
+        const board = await this.api.replayMoves(movesToReplay);
+        this.gameState.setBoard(board);
+        this.gameState.setCurrentMoveIndex(targetIndex);
+
+        // Restore the full move list (setMoves would have replaced it)
+        this.gameState.setMoveList(fullMoveList);
+
+        // Lock board if not at latest move
+        this.gameState.setBoardLocked(targetIndex < fullMoveList.length - 1);
+
+        // Rebuild move history display from full list
+        this.gameState.clearMoveHistory();
+        for (const mv of fullMoveList) {
+            const fromPos = posToAlgebraic(mv.from);
+            const toPos = posToAlgebraic(mv.to);
+            const notation = `${fromPos}-${toPos}${mv.unstack ? '*' : ''}`;
+            this.gameState.addMove(notation);
+        }
+
+        await this.updatePotentialMoves();
+        await this.renderBoard();
     }
 
     async flipBoard(): Promise<void> {
