@@ -36,6 +36,10 @@ class KeresGame {
     private pieceDetailName: HTMLElement;
     private pieceDetailDescription: HTMLElement;
     private pieceDetailMovement: HTMLElement;
+    private rulesPanel: HTMLElement | null;
+    private rulesPanelToggle: HTMLElement | null;
+    private rulesPanelHovered: HTMLElement | null;
+    private rulesPanelList: HTMLElement | null;
     private gameMode: number = 0; // opponent type as int
     private playerWhite: boolean = true; // true if player is white
 
@@ -59,6 +63,10 @@ class KeresGame {
         this.pieceDetailName = document.getElementById('piece-detail-name') as HTMLElement;
         this.pieceDetailDescription = document.getElementById('piece-detail-description') as HTMLElement;
         this.pieceDetailMovement = document.getElementById('piece-detail-movement') as HTMLElement;
+        this.rulesPanel = document.getElementById('rules-panel');
+        this.rulesPanelToggle = document.getElementById('rules-panel-toggle');
+        this.rulesPanelHovered = document.getElementById('rules-panel-hovered');
+        this.rulesPanelList = document.getElementById('rules-panel-list');
         
         // Read game mode and player color from data attributes
         this.gameMode = parseInt(this.boardContainer.getAttribute('data-opponent-type') || '0', 10);
@@ -104,6 +112,7 @@ class KeresGame {
 
         // Setup UI event listeners
         this.setupEventListeners();
+        this.initializeRulesPanel();
 
         // Update UI
         this.updateStatus();
@@ -161,6 +170,19 @@ class KeresGame {
             this.updateMoveHistoryDisplay();
             this.updateNavigationButtons();
         });
+
+        // Rules panel toggle
+        if (this.rulesPanelToggle && this.rulesPanel) {
+            this.rulesPanelToggle.addEventListener('click', () => {
+                this.rulesPanel!.classList.toggle('collapsed');
+                this.rulesPanelToggle!.textContent = this.rulesPanel!.classList.contains('collapsed') ? '▶' : '◀';
+            });
+        }
+
+        // Update rules panel on hover
+        window.addEventListener('boardHoverChanged', ((e: CustomEvent) => {
+            this.updateRulesPanelHovered(e.detail.pos);
+        }) as EventListener);
     }
 
     private async handleMoveStack(fullStack: boolean = false): Promise<void> {
@@ -334,6 +356,42 @@ class KeresGame {
         }
 
         this.pieceDetailModal.classList.add('is-active');
+    }
+
+    private initializeRulesPanel(): void {
+        if (!this.rulesPanelList) return;
+        // Populate the panel with all piece rules
+        for (const [, rule] of Object.entries(PIECE_RULES)) {
+            const div = document.createElement('div');
+            div.className = 'rules-panel-piece';
+            div.innerHTML = `<div class="rules-piece-name">${rule.name}</div><div class="rules-piece-movement">${rule.movement}</div>`;
+            this.rulesPanelList.appendChild(div);
+        }
+    }
+
+    private updateRulesPanelHovered(pos: number | null): void {
+        if (!this.rulesPanelHovered) return;
+        if (pos === null) {
+            this.rulesPanelHovered.innerHTML = '<p class="rules-panel-hint">Hover a piece to see its rules</p>';
+            return;
+        }
+        const piece = this.controller.getPieceAt(pos);
+        if (!piece) {
+            this.rulesPanelHovered.innerHTML = '<p class="rules-panel-hint">Hover a piece to see its rules</p>';
+            return;
+        }
+        const pieceType = piece.top || piece.bottom;
+        const rule = PIECE_RULES[pieceType];
+        if (!rule) return;
+
+        let html = `<div class="rules-panel-piece"><div class="rules-piece-name">${rule.name}</div><div class="rules-piece-movement">${rule.movement}</div><div style="font-size:0.8rem;color:#999;margin-top:0.25rem">${rule.description}</div></div>`;
+        if (piece.top) {
+            const bottomRule = PIECE_RULES[piece.bottom];
+            if (bottomRule) {
+                html += `<div class="rules-panel-piece"><div class="rules-piece-name">${bottomRule.name} (bottom)</div><div class="rules-piece-movement">${bottomRule.movement}</div></div>`;
+            }
+        }
+        this.rulesPanelHovered.innerHTML = html;
     }
 }
 

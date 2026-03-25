@@ -8,47 +8,61 @@
 {% endblock %}
 
 {% block body %}
-    <div class="game-container">
-        <nav class="level mb-4">
-            <div class="level-left">
-                <a href="{{ path('new_game') }}" class="button is-rounded is-outlined is-light">Back</a>
+    <div class="game-layout">
+        <div class="game-container">
+            <nav class="level mb-4">
+                <div class="level-left">
+                    <a href="{{ path('new_game') }}" class="button is-rounded is-outlined is-light">Back</a>
+                </div>
+                <div class="level-right">
+                    <div id="status" class="level-item">Loading...</div>
+                </div>
+            </nav>
+            <div id="board-container"
+                 data-moves="{{ moves }}"
+                 data-game-uuid="{{ game.uuid }}"
+                 data-opponent-type="{{ game.opponentType.value }}"
+                 data-player-white="{{ game.white ? 'true' : 'false' }}"></div>
+            <div class="buttons mt-3">
+                {% if game.opponentType == enum('App\\Model\\OpponentType').AI %}
+                    <button class="button is-rounded is-outlined is-light" id="switch-sides-btn">Switch Sides</button>
+                {% endif %}
+                <button class="button is-rounded is-outlined is-light" id="toggle-threats-btn">Hide Threats</button>
+                <button class="button is-rounded is-light" id="undo-btn">Undo</button>
             </div>
-            <div class="level-right">
-                <div id="status" class="level-item">Loading...</div>
+            <div class="move-history">
+                <label class="label">Move History</label>
+                <div class="buttons">
+                    <button class="button is-rounded is-small is-outlined is-light" id="prev-move-btn" title="Previous Move">◄ Prev</button>
+                    <button class="button is-rounded is-small is-outlined is-light" id="next-move-btn" title="Next Move">Next ►</button>
+                </div>
+                <div id="move-history-display" class="move-history-box">
+                    <table class="table is-fullwidth move-history-table">
+                        <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>White</th>
+                            <th>Black</th>
+                        </tr>
+                        </thead>
+                        <tbody id="move-history-body">
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </nav>
-        <div id="board-container"
-             data-moves="{{ moves }}"
-             data-game-uuid="{{ game.uuid }}"
-             data-opponent-type="{{ game.opponentType.value }}"
-             data-player-white="{{ game.white ? 'true' : 'false' }}"></div>
-        <div class="buttons mt-3">
-            {% if game.opponentType == enum('App\\Model\\OpponentType').AI %}
-                <button class="button is-rounded is-outlined is-light" id="switch-sides-btn">Switch Sides</button>
-            {% endif %}
-            <button class="button is-rounded is-outlined is-light" id="toggle-threats-btn">Hide Threats</button>
-            <button class="button is-rounded is-light" id="undo-btn">Undo</button>
         </div>
-        <div class="move-history">
-            <label class="label">Move History</label>
-            <div class="buttons">
-                <button class="button is-rounded is-small is-outlined is-light" id="prev-move-btn" title="Previous Move">◄ Prev</button>
-                <button class="button is-rounded is-small is-outlined is-light" id="next-move-btn" title="Next Move">Next ►</button>
+
+        <aside class="rules-panel" id="rules-panel">
+            <button class="rules-panel-toggle" id="rules-panel-toggle">◀</button>
+            <div class="rules-panel-content" id="rules-panel-content">
+                <div class="rules-panel-hovered" id="rules-panel-hovered">
+                    <p class="rules-panel-hint">Hover a piece to see its rules</p>
+                </div>
+                <hr>
+                <h4>Piece Rules</h4>
+                <div class="rules-panel-list" id="rules-panel-list"></div>
             </div>
-            <div id="move-history-display" class="move-history-box">
-                <table class="table is-fullwidth move-history-table">
-                    <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>White</th>
-                        <th>Black</th>
-                    </tr>
-                    </thead>
-                    <tbody id="move-history-body">
-                    </tbody>
-                </table>
-            </div>
-        </div>
+        </aside>
     </div>
 
     <div class="modal" id="unstack-modal">

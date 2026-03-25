@@ -294,6 +294,7 @@ export class GameController {
         if (pos === null) {
             this.gameState.setHoveredPosition(null);
             this.updateOverlays();
+            window.dispatchEvent(new CustomEvent('boardHoverChanged', { detail: { pos: null } }));
             return;
         }
         const board = this.gameState.getBoard();
@@ -303,6 +304,7 @@ export class GameController {
             this.gameState.setHoveredPosition(pos);
             this.updateOverlays();
         }
+        window.dispatchEvent(new CustomEvent('boardHoverChanged', { detail: { pos } }));
     }
 
     private handleDragMove(from: number, to: number): void {
