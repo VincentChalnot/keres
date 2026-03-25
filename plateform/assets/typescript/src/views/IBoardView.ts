@@ -47,6 +47,11 @@ export interface IBoardView {
      * Set long hover/press handler for piece detail (optional)
      */
     onPieceLongHover?(handler: (tileIndex: number, clientX: number, clientY: number) => void): void;
+
+    /**
+     * Toggle coordinate labels visibility (optional)
+     */
+    setCoordinatesVisible?(visible: boolean): void;
 }
 
 export interface TileHighlight {

@@ -428,7 +428,7 @@ export default class SVGBoardView implements IBoardView {
         if (this.dragState.from >= 0) {
             const dx = event.clientX - this.dragState.startX;
             const dy = event.clientY - this.dragState.startY;
-            if (!this.dragState.active && (dx * dx + dy * dy) > SVGBoardView.DRAG_THRESHOLD * SVGBoardView.DRAG_THRESHOLD) {
+            if (!this.dragState.active && this.exceedsDragThreshold(dx, dy)) {
                 this.cancelLongHoverTimer();
                 this.startDrag(this.dragState.from);
             }
@@ -477,7 +477,7 @@ export default class SVGBoardView implements IBoardView {
         const touch = event.touches[0];
         const dx = touch.clientX - this.dragState.startX;
         const dy = touch.clientY - this.dragState.startY;
-        if (!this.dragState.active && (dx * dx + dy * dy) > SVGBoardView.DRAG_THRESHOLD * SVGBoardView.DRAG_THRESHOLD) {
+        if (!this.dragState.active && this.exceedsDragThreshold(dx, dy)) {
             this.cancelLongHoverTimer();
             this.startDrag(this.dragState.from);
         }
@@ -509,6 +509,10 @@ export default class SVGBoardView implements IBoardView {
 
         // Create a ghost piece for visual feedback
         this.createDragGhost(from);
+    }
+
+    private exceedsDragThreshold(dx: number, dy: number): boolean {
+        return (dx * dx + dy * dy) > SVGBoardView.DRAG_THRESHOLD * SVGBoardView.DRAG_THRESHOLD;
     }
 
     private endDrag(to: number | null): void {
@@ -634,6 +638,10 @@ export default class SVGBoardView implements IBoardView {
             clearTimeout(this.longHoverTimer);
             this.longHoverTimer = null;
         }
+    }
+
+    setCoordinatesVisible(visible: boolean): void {
+        this.coordsGroup.style.display = visible ? '' : 'none';
     }
 
     dispose(): void {
