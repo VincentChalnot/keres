@@ -91,7 +91,7 @@ export default class SVGBoardView implements IBoardView {
         this.container = container;
         await this.injectBoardCSS();
         this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        this.svg.setAttribute('viewBox', `${-COORD_WIDTH} 0 ${BOARD_WIDTH + COORD_WIDTH} ${BOARD_HEIGHT + COORD_HEIGHT}`);
+        this.svg.setAttribute('viewBox', `${-COORD_WIDTH} -10 ${BOARD_WIDTH + COORD_WIDTH} ${BOARD_HEIGHT + COORD_HEIGHT}`);
         this.svg.style.cursor = 'pointer';
 
         // Inline the sprite sheet symbols/defs directly into the SVG

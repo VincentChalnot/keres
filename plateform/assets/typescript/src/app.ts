@@ -4,6 +4,7 @@ import SVGBoardView from './views/SVGBoardView';
 import {GameController} from './controllers/GameController';
 import {IBoardView} from './views/IBoardView';
 import {decodeMoveListFromBase64} from './utils/boardUtils';
+import {computeMaterialDiff, renderMaterialHTML} from './models/materialDiff';
 
 const OPPONENT_TYPE_AI = 0;
 const OPPONENT_TYPE_HOTSEAT = 1;
@@ -30,6 +31,8 @@ class KeresGame {
     private undoBtn: HTMLButtonElement;
     private askEngineBtn: HTMLButtonElement | null;
     private toggleThreatsBtn: HTMLButtonElement;
+    private materialTop: HTMLElement | null;
+    private materialBottom: HTMLElement | null;
     private gameMode: number = 0; // opponent type as int
     private playerWhite: boolean = true; // true if player is white
 
@@ -49,7 +52,9 @@ class KeresGame {
         this.undoBtn = document.getElementById('undo-btn') as HTMLButtonElement;
         this.askEngineBtn = document.getElementById('ask-engine-btn') as HTMLButtonElement | null;
         this.toggleThreatsBtn = document.getElementById('toggle-threats-btn') as HTMLButtonElement;
-        
+        this.materialTop = document.getElementById('material-top');
+        this.materialBottom = document.getElementById('material-bottom');
+
         // Read game mode and player color from data attributes
         this.gameMode = parseInt(this.boardContainer.getAttribute('data-opponent-type') || '0', 10);
         this.playerWhite = (this.boardContainer.getAttribute('data-player-white') === 'true');
@@ -100,6 +105,7 @@ class KeresGame {
         this.updateMoveHistoryDisplay();
         this.updateNavigationButtons();
         this.updateToggleThreatsButton();
+        this.updateMaterialDiff();
     }
 
     private setupEventListeners(): void {
@@ -135,6 +141,7 @@ class KeresGame {
             this.updateStatus();
             this.updateMoveHistoryDisplay();
             this.updateNavigationButtons();
+            this.updateMaterialDiff();
         });
 
         // Auto-rotate board in hotseat mode after each submitted move
@@ -154,6 +161,7 @@ class KeresGame {
             this.updateStatus();
             this.updateMoveHistoryDisplay();
             this.updateNavigationButtons();
+            this.updateMaterialDiff();
         }
     }
 
@@ -168,6 +176,7 @@ class KeresGame {
 
     private async handleSwitchSides(): Promise<void> {
         await this.controller.flipBoard();
+        this.updateMaterialDiff();
     }
 
     private async handleAskEngine(): Promise<void> {
@@ -179,6 +188,7 @@ class KeresGame {
             await this.controller.requestEngineMove();
             this.updateStatus();
             this.updateMoveHistoryDisplay();
+            this.updateMaterialDiff();
         } catch (error) {
             console.error('Error getting engine move:', error);
             this.statusDiv.innerText = `Error: ${(error as Error).message}. engine may not be available.`;
@@ -195,6 +205,7 @@ class KeresGame {
         this.updateStatus();
         this.updateMoveHistoryDisplay();
         this.updateNavigationButtons();
+        this.updateMaterialDiff();
     }
 
     private async handlePrevMove(): Promise<void> {
@@ -285,6 +296,34 @@ class KeresGame {
     private updateNavigationButtons(): void {
         this.prevMoveBtn.disabled = !this.controller.canNavigateToPrevious();
         this.nextMoveBtn.disabled = !this.controller.canNavigateToNext();
+    }
+
+    private updateMaterialDiff(): void {
+        const board = this.gameState.getBoard();
+        if (!board || !this.materialTop || !this.materialBottom) return;
+
+        const diff = computeMaterialDiff(board);
+        const flipped = this.gameState.isBoardFlipped();
+
+        // Show each player's excess icons on their own side of the board.
+        // The +N advantage label is shown only on the side that is ahead.
+        // scoreDelta > 0 → white is ahead; < 0 → black is ahead.
+        const whiteAdvantage = diff.scoreDelta > 0 ? diff.scoreDelta : 0;
+        const blackAdvantage = diff.scoreDelta < 0 ? -diff.scoreDelta : 0;
+
+        if (flipped) {
+            // Flipped: white at top, black at bottom
+            // white's excess icons sit on white's side (top) → white pieces: black icon on white bg
+            // black's excess icons sit on black's side (bottom) → black pieces: white icon on black bg
+            this.materialTop.innerHTML = renderMaterialHTML(diff.whiteExcess, whiteAdvantage, 'p-b');
+            this.materialBottom.innerHTML = renderMaterialHTML(diff.blackExcess, blackAdvantage, 'p-w');
+        } else {
+            // Normal: black at top, white at bottom
+            // black's excess icons sit on black's side (top) → black pieces: white icon on black bg
+            // white's excess icons sit on white's side (bottom) → white pieces: black icon on white bg
+            this.materialTop.innerHTML = renderMaterialHTML(diff.blackExcess, blackAdvantage, 'p-w');
+            this.materialBottom.innerHTML = renderMaterialHTML(diff.whiteExcess, whiteAdvantage, 'p-b');
+        }
     }
 }
 
