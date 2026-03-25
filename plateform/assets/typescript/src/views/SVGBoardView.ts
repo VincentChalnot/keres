@@ -32,6 +32,7 @@ export default class SVGBoardView implements IBoardView {
 
     private clickHandler: ((tileIndex: number) => void) | null = null;
     private hoverHandler: ((tileIndex: number | null) => void) | null = null;
+    private dragMoveHandler: ((from: number, to: number) => void) | null = null;
 
     // Track current board state to enable differential updates
     private currentBoardData: Uint8Array | null = null;
@@ -40,10 +41,26 @@ export default class SVGBoardView implements IBoardView {
     // Cache for overlay rectangles
     private overlayElements: Map<number, SVGRectElement> = new Map();
 
+    // Drag & drop state
+    private dragState: {
+        active: boolean;
+        from: number;
+        startX: number;
+        startY: number;
+        ghost: SVGGElement | null;
+    } = { active: false, from: -1, startX: 0, startY: 0, ghost: null };
+    private preventNextClick: boolean = false;
+    private static readonly DRAG_THRESHOLD = 5; // pixels
+
     // Bound event handler references for proper cleanup
     private boundHandleClick: ((e: MouseEvent) => void) | null = null;
     private boundHandleMouseMove: ((e: MouseEvent) => void) | null = null;
     private boundHandleMouseLeave: (() => void) | null = null;
+    private boundHandleMouseDown: ((e: MouseEvent) => void) | null = null;
+    private boundHandleMouseUp: ((e: MouseEvent) => void) | null = null;
+    private boundHandleTouchStart: ((e: TouchEvent) => void) | null = null;
+    private boundHandleTouchMove: ((e: TouchEvent) => void) | null = null;
+    private boundHandleTouchEnd: ((e: TouchEvent) => void) | null = null;
     private boundOnResize: (() => void) | null = null;
 
     constructor(gameState: GameState) {
@@ -88,11 +105,21 @@ export default class SVGBoardView implements IBoardView {
         this.boundHandleClick = (e: MouseEvent) => this.handleClick(e);
         this.boundHandleMouseMove = (e: MouseEvent) => this.handleMouseMove(e);
         this.boundHandleMouseLeave = () => this.handleMouseLeave();
+        this.boundHandleMouseDown = (e: MouseEvent) => this.handleMouseDown(e);
+        this.boundHandleMouseUp = (e: MouseEvent) => this.handleMouseUp(e);
+        this.boundHandleTouchStart = (e: TouchEvent) => this.handleTouchStart(e);
+        this.boundHandleTouchMove = (e: TouchEvent) => this.handleTouchMove(e);
+        this.boundHandleTouchEnd = (e: TouchEvent) => this.handleTouchEnd(e);
         this.boundOnResize = () => this.onResize();
 
         this.svg.addEventListener('click', this.boundHandleClick);
         this.svg.addEventListener('mousemove', this.boundHandleMouseMove);
         this.svg.addEventListener('mouseleave', this.boundHandleMouseLeave);
+        this.svg.addEventListener('mousedown', this.boundHandleMouseDown);
+        this.svg.addEventListener('mouseup', this.boundHandleMouseUp);
+        this.svg.addEventListener('touchstart', this.boundHandleTouchStart, { passive: false });
+        this.svg.addEventListener('touchmove', this.boundHandleTouchMove, { passive: false });
+        this.svg.addEventListener('touchend', this.boundHandleTouchEnd);
 
         window.addEventListener('resize', this.boundOnResize);
         this.onResize();
@@ -369,6 +396,10 @@ export default class SVGBoardView implements IBoardView {
     }
 
     private handleClick(event: MouseEvent): void {
+        if (this.preventNextClick) {
+            this.preventNextClick = false;
+            return;
+        }
         if (!this.clickHandler) return;
 
         const pos = this.getPosFromMouseEvent(event);
@@ -377,15 +408,164 @@ export default class SVGBoardView implements IBoardView {
         }
     }
 
-    private handleMouseMove(event: MouseEvent): void {
-        if (!this.hoverHandler) return;
+    private handleMouseDown(event: MouseEvent): void {
+        if (event.button !== 0) return;
+        const pos = this.getPosFromMouseEvent(event);
+        if (pos === null) return;
+        this.dragState.from = pos;
+        this.dragState.startX = event.clientX;
+        this.dragState.startY = event.clientY;
+        this.dragState.active = false;
+    }
 
+    private handleMouseMove(event: MouseEvent): void {
+        // Handle drag in progress
+        if (this.dragState.from >= 0) {
+            const dx = event.clientX - this.dragState.startX;
+            const dy = event.clientY - this.dragState.startY;
+            if (!this.dragState.active && (dx * dx + dy * dy) > SVGBoardView.DRAG_THRESHOLD * SVGBoardView.DRAG_THRESHOLD) {
+                this.startDrag(this.dragState.from);
+            }
+            if (this.dragState.active && this.dragState.ghost) {
+                this.updateDragGhost(event.clientX, event.clientY);
+            }
+            return;
+        }
+
+        // Normal hover
+        if (!this.hoverHandler) return;
         const pos = this.getPosFromMouseEvent(event);
         if (pos !== null) {
             this.hoverHandler(pos);
         } else {
             this.hoverHandler(null);
         }
+    }
+
+    private handleMouseUp(event: MouseEvent): void {
+        if (!this.dragState.active) {
+            this.dragState.from = -1;
+            return;
+        }
+        const to = this.getPosFromMouseEvent(event);
+        this.endDrag(to);
+    }
+
+    private handleTouchStart(event: TouchEvent): void {
+        if (event.touches.length !== 1) return;
+        const touch = event.touches[0];
+        const pos = this.getPosFromTouch(touch);
+        if (pos === null) return;
+        this.dragState.from = pos;
+        this.dragState.startX = touch.clientX;
+        this.dragState.startY = touch.clientY;
+        this.dragState.active = false;
+    }
+
+    private handleTouchMove(event: TouchEvent): void {
+        if (this.dragState.from < 0 || event.touches.length !== 1) return;
+        const touch = event.touches[0];
+        const dx = touch.clientX - this.dragState.startX;
+        const dy = touch.clientY - this.dragState.startY;
+        if (!this.dragState.active && (dx * dx + dy * dy) > SVGBoardView.DRAG_THRESHOLD * SVGBoardView.DRAG_THRESHOLD) {
+            this.startDrag(this.dragState.from);
+        }
+        if (this.dragState.active && this.dragState.ghost) {
+            event.preventDefault();
+            this.updateDragGhost(touch.clientX, touch.clientY);
+        }
+    }
+
+    private handleTouchEnd(event: TouchEvent): void {
+        if (!this.dragState.active) {
+            this.dragState.from = -1;
+            return;
+        }
+        // Use the last known touch position from changedTouches
+        const touch = event.changedTouches[0];
+        const to = this.getPosFromTouch(touch);
+        this.endDrag(to);
+    }
+
+    private startDrag(from: number): void {
+        this.dragState.active = true;
+
+        // Select the source piece to show potential move highlights
+        if (this.clickHandler) {
+            this.clickHandler(from);
+        }
+
+        // Create a ghost piece for visual feedback
+        this.createDragGhost(from);
+    }
+
+    private endDrag(to: number | null): void {
+        // Remove ghost
+        if (this.dragState.ghost) {
+            this.dragState.ghost.remove();
+            this.dragState.ghost = null;
+        }
+
+        const from = this.dragState.from;
+        this.dragState.active = false;
+        this.dragState.from = -1;
+        this.preventNextClick = true;
+
+        if (to !== null && to !== from && this.dragMoveHandler) {
+            this.dragMoveHandler(from, to);
+        } else if (this.clickHandler) {
+            // Cancel: deselect by clicking the same position
+            this.clickHandler(from);
+        }
+    }
+
+    private createDragGhost(from: number): void {
+        if (!this.currentBoardData) return;
+        const pieceVal = this.currentBoardData[from];
+        if (pieceVal === 0) return;
+
+        const piece = decodePiece(pieceVal);
+        if (!piece) return;
+
+        const ghost = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        ghost.setAttribute('pointer-events', 'none');
+        ghost.style.opacity = '0.7';
+
+        const flipped = this.gameState.isBoardFlipped();
+        const colorClass = piece.color ? 'p-w' : 'p-b';
+        const reversedClass = (piece.color !== flipped) ? '' : 'p-r';
+
+        // Create the piece <use> element(s)
+        const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+        use.setAttribute('href', `#piece-${piece.top || piece.bottom}`);
+        use.setAttribute('class', `piece ${colorClass} ${reversedClass}`);
+        use.setAttribute('x', '0');
+        use.setAttribute('y', '0');
+        ghost.appendChild(use);
+
+        this.svg.appendChild(ghost);
+        this.dragState.ghost = ghost;
+    }
+
+    private updateDragGhost(clientX: number, clientY: number): void {
+        if (!this.dragState.ghost) return;
+        const rect = this.svg.getBoundingClientRect();
+        const totalSvgWidth = BOARD_WIDTH + COORD_WIDTH;
+        const totalSvgHeight = BOARD_HEIGHT + COORD_HEIGHT;
+        const svgX = ((clientX - rect.left) / rect.width) * totalSvgWidth - COORD_WIDTH - SQUARE_WIDTH / 2;
+        const svgY = ((clientY - rect.top) / rect.height) * totalSvgHeight - SQUARE_HEIGHT / 2;
+        this.dragState.ghost.setAttribute('transform', `translate(${svgX}, ${svgY})`);
+    }
+
+    private getPosFromTouch(touch: Touch): number | null {
+        const rect = this.svg.getBoundingClientRect();
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        const totalSvgWidth = BOARD_WIDTH + COORD_WIDTH;
+        const totalSvgHeight = BOARD_HEIGHT + COORD_HEIGHT;
+        const svgX = (x / rect.width) * totalSvgWidth - COORD_WIDTH;
+        const svgY = (y / rect.height) * totalSvgHeight;
+        return this.getTileIndex(svgX, svgY);
     }
 
     private handleMouseLeave(): void {
@@ -417,6 +597,10 @@ export default class SVGBoardView implements IBoardView {
         this.hoverHandler = handler;
     }
 
+    onDragMove(handler: (from: number, to: number) => void): void {
+        this.dragMoveHandler = handler;
+    }
+
     dispose(): void {
         // Remove event listeners using stored references
         if (this.boundOnResize) {
@@ -432,6 +616,21 @@ export default class SVGBoardView implements IBoardView {
             }
             if (this.boundHandleMouseLeave) {
                 this.svg.removeEventListener('mouseleave', this.boundHandleMouseLeave);
+            }
+            if (this.boundHandleMouseDown) {
+                this.svg.removeEventListener('mousedown', this.boundHandleMouseDown);
+            }
+            if (this.boundHandleMouseUp) {
+                this.svg.removeEventListener('mouseup', this.boundHandleMouseUp);
+            }
+            if (this.boundHandleTouchStart) {
+                this.svg.removeEventListener('touchstart', this.boundHandleTouchStart);
+            }
+            if (this.boundHandleTouchMove) {
+                this.svg.removeEventListener('touchmove', this.boundHandleTouchMove);
+            }
+            if (this.boundHandleTouchEnd) {
+                this.svg.removeEventListener('touchend', this.boundHandleTouchEnd);
             }
         }
 

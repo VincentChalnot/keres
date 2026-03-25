@@ -22,6 +22,9 @@ export class GameController {
         // Set up view event handlers
         this.view.onTileClick((pos) => this.handleTileClick(pos));
         this.view.onTileHover((pos) => this.handleTileHover(pos));
+        if (this.view.onDragMove) {
+            this.view.onDragMove((from, to) => this.handleDragMove(from, to));
+        }
     }
 
     /**
@@ -291,6 +294,32 @@ export class GameController {
             this.gameState.setHoveredPosition(pos);
             this.updateOverlays();
         }
+    }
+
+    private handleDragMove(from: number, to: number): void {
+        const board = this.gameState.getBoard();
+        if (!board) return;
+        if (this.gameState.isBoardLocked()) return;
+        if (board.isGameOver()) return;
+
+        const moves = this.gameState.getPotentialMovesForPosition(from);
+        for (const move of moves) {
+            if (move.to !== to) continue;
+            if (move.unstackable && !move.force_unstack) {
+                this.gameState.setSelectedPosition(from);
+                this.gameState.setClickedDestination(to);
+                window.dispatchEvent(new CustomEvent('showUnstackModal'));
+            } else {
+                this.gameState.setSelectedPosition(null);
+                this.updateOverlays();
+                this.playMove(from, to, move.force_unstack);
+            }
+            return;
+        }
+
+        // Invalid destination: deselect
+        this.gameState.setSelectedPosition(null);
+        this.updateOverlays();
     }
 
     private updateOverlays(): void {

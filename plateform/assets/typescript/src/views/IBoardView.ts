@@ -37,6 +37,11 @@ export interface IBoardView {
      * Set hover handler
      */
     onTileHover(handler: (tileIndex: number | null) => void): void;
+
+    /**
+     * Set drag move handler (optional - for drag & drop support)
+     */
+    onDragMove?(handler: (from: number, to: number) => void): void;
 }
 
 export interface TileHighlight {
