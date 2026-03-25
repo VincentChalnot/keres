@@ -54,7 +54,7 @@ class NewGameAction extends AbstractController
 
         return [
             'form' => $form->createView(),
-            'games' => $this->gameRepository->findAll(),
+            'games' => $this->gameRepository->findAllActive(),
         ];
     }
 }

@@ -47,6 +47,9 @@ class Game
     #[ORM\Column(type: Types::INTEGER)]
     private int $version = 1;
 
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $deletedAt = null;
+
     /**
      * @var Collection<int, GameMove>
      */
@@ -159,6 +162,23 @@ class Game
     public function getVersion(): int
     {
         return $this->version;
+    }
+
+    public function getDeletedAt(): ?\DateTimeImmutable
+    {
+        return $this->deletedAt;
+    }
+
+    public function setDeletedAt(?\DateTimeImmutable $deletedAt): self
+    {
+        $this->deletedAt = $deletedAt;
+
+        return $this;
+    }
+
+    public function isDeleted(): bool
+    {
+        return $this->deletedAt !== null;
     }
 
     public function isGameOver(): bool

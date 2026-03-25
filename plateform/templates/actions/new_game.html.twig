@@ -45,6 +45,9 @@
                             {% else %}
                                 <a href="{{ path('play', {uuid: game.uuid}) }}" class="button is-rounded is-primary is-pulled-right">Resume</a>
                             {% endif %}
+                            <form method="post" action="{{ path('delete_game', {uuid: game.uuid}) }}" style="display:inline" class="is-pulled-right mr-2" onsubmit="return confirm('Are you sure you want to delete this game?')">
+                                <button type="submit" class="button is-rounded is-small is-danger is-outlined">Delete</button>
+                            </form>
                             <p><strong>Player Side:</strong> {{ game.white ? 'White' : 'Black' }}</p>
                             <p><strong>Opponent Type:</strong>
                                 {% if game.opponentType == enum('App\\Model\\OpponentType').AI %}

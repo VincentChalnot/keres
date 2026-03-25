@@ -26,4 +26,16 @@ class GameRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
     }
+
+    /**
+     * @return Game[]
+     */
+    public function findAllActive(): array
+    {
+        return $this->createQueryBuilder('g')
+            ->andWhere('g.deletedAt IS NULL')
+            ->orderBy('g.createdAt', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
 }
