@@ -156,11 +156,11 @@ export class GameState {
     }
 
     getLastMove(): Move | null {
-        if (this.moveList.length === 0) {
+        if (this.moveList.length === 0 || this.currentMoveIndex < 0) {
             return null;
         }
 
-        return this.moveList[this.moveList.length - 1];
+        return this.moveList[this.currentMoveIndex];
     }
 
     // Move list management
