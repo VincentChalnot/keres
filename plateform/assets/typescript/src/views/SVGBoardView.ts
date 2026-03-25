@@ -30,7 +30,7 @@ export default class SVGBoardView implements IBoardView {
     private coordsGroup!: SVGGElement;
     private gameState: GameState;
 
-    private clickHandler: ((tileIndex: number) => void) | null = null;
+    private clickHandler: ((tileIndex: number, shiftKey?: boolean) => void) | null = null;
     private hoverHandler: ((tileIndex: number | null) => void) | null = null;
     private dragMoveHandler: ((from: number, to: number) => void) | null = null;
 
@@ -404,7 +404,7 @@ export default class SVGBoardView implements IBoardView {
 
         const pos = this.getPosFromMouseEvent(event);
         if (pos !== null) {
-            this.clickHandler(pos);
+            this.clickHandler(pos, event.shiftKey);
         }
     }
 
@@ -589,7 +589,7 @@ export default class SVGBoardView implements IBoardView {
         return this.getTileIndex(svgX, svgY);
     }
 
-    onTileClick(handler: (tileIndex: number) => void): void {
+    onTileClick(handler: (tileIndex: number, shiftKey?: boolean) => void): void {
         this.clickHandler = handler;
     }
 

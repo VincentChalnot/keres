@@ -17,6 +17,7 @@ export class GameState {
     private moveList: Move[] = []; // List of all moves played
     private currentMoveIndex: number = -1; // -1 means at initial position, 0+ is after that move
     private boardLocked: boolean = false; // True when viewing history, not at latest move
+    private forceFullStack: boolean = false; // True when shift-clicking to move full stack
 
     getBoard(): Board | null {
         return this.board;
@@ -198,5 +199,13 @@ export class GameState {
 
     isAtLatestMove(): boolean {
         return this.currentMoveIndex === this.moveList.length - 1;
+    }
+
+    isForceFullStack(): boolean {
+        return this.forceFullStack;
+    }
+
+    setForceFullStack(force: boolean): void {
+        this.forceFullStack = force;
     }
 }

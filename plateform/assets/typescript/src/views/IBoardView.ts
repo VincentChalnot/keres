@@ -31,7 +31,7 @@ export interface IBoardView {
     /**
      * Set click handler
      */
-    onTileClick(handler: (tileIndex: number) => void): void;
+    onTileClick(handler: (tileIndex: number, shiftKey?: boolean) => void): void;
 
     /**
      * Set hover handler

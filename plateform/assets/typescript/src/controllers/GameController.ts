@@ -20,7 +20,7 @@ export class GameController {
         this.view = view;
 
         // Set up view event handlers
-        this.view.onTileClick((pos) => this.handleTileClick(pos));
+        this.view.onTileClick((pos, shiftKey) => this.handleTileClick(pos, shiftKey));
         this.view.onTileHover((pos) => this.handleTileHover(pos));
         if (this.view.onDragMove) {
             this.view.onDragMove((from, to) => this.handleDragMove(from, to));
@@ -241,7 +241,7 @@ export class GameController {
         await this.renderBoard();
     }
 
-    private handleTileClick(pos: number): void {
+    private handleTileClick(pos: number, shiftKey?: boolean): void {
         const board = this.gameState.getBoard();
         if (!board) return;
         if (this.gameState.isBoardLocked()) return;
@@ -251,22 +251,26 @@ export class GameController {
             const moves = this.gameState.getPotentialMovesForPosition(pos);
             if (moves.length > 0) {
                 this.gameState.setSelectedPosition(pos);
+                // Shift-click on a stacked piece: force full stack (skip modal later)
+                this.gameState.setForceFullStack(!!shiftKey);
                 this.updateOverlays();
             }
             return;
         }
         if (selectedPosition === pos) {
             this.gameState.setSelectedPosition(null);
+            this.gameState.setForceFullStack(false);
             this.updateOverlays();
             return;
         }
         const moves = this.gameState.getPotentialMovesForPosition(selectedPosition);
         for (const move of moves) {
             if (move.to !== pos) continue;
-            if (move.unstackable && !move.force_unstack) {
+            if (move.unstackable && !move.force_unstack && !this.gameState.isForceFullStack()) {
                 this.gameState.setClickedDestination(pos);
                 window.dispatchEvent(new CustomEvent('showUnstackModal'));
             } else {
+                this.gameState.setForceFullStack(false);
                 this.playMove(selectedPosition, pos, move.force_unstack);
             }
             return;
@@ -274,9 +278,11 @@ export class GameController {
         const newMoves = this.gameState.getPotentialMovesForPosition(pos);
         if (newMoves.length > 0) {
             this.gameState.setSelectedPosition(pos);
+            this.gameState.setForceFullStack(!!shiftKey);
             this.updateOverlays();
         } else {
             this.gameState.setSelectedPosition(null);
+            this.gameState.setForceFullStack(false);
             this.updateOverlays();
         }
     }
