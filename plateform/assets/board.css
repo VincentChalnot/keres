@@ -48,3 +48,11 @@
     user-select: none;
 }
 
+/* Prevent browser text-selection highlight and tap flash on the board SVG */
+#board-container svg {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+}
+

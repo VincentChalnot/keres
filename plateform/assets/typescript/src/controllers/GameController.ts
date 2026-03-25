@@ -403,4 +403,5 @@ export class GameController {
         const moveList = this.gameState.getMoveList();
         return this.gameState.getCurrentMoveIndex() < moveList.length - 1;
     }
+
 }

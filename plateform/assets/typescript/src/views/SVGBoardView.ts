@@ -2,6 +2,7 @@ import {IBoardView, TileHighlight} from './IBoardView';
 import {BOARD_SIZE, LAST_BOARD_INDEX} from '../models/types';
 import {GameState} from '../models/GameState';
 import {decodePiece} from "../utils/boardUtils";
+import {PIECE_RULES} from '../models/pieceRules';
 
 // Constants for the SVG board
 const SQUARE_WIDTH = 100; // px
@@ -13,6 +14,15 @@ const STACKED_OFFSET = 23;
 // Coordinate label dimensions (left margin for row labels, bottom margin for column labels)
 const COORD_WIDTH = 25; // px left margin for row numbers (1-9)
 const COORD_HEIGHT = 25; // px bottom margin for column letters (A-I)
+
+// Piece card constants (2× tile size for the piece preview)
+const CARD_PIECE_SCALE = 2;
+const CARD_PIECE_W = SQUARE_WIDTH * CARD_PIECE_SCALE;  // 200
+const CARD_PIECE_H = SQUARE_HEIGHT * CARD_PIECE_SCALE; // 160
+const CARD_PADDING = 12;
+const CARD_TEXT_LINE_H = 20;
+const CARD_WIDTH = CARD_PIECE_W + CARD_PADDING * 2;    // 224
+// Height is computed dynamically based on text lines
 
 const SPRITE_URL = '/build/pieces-sprite.svg';
 // Use Vite's asset handling to get the correct URL for board.css
@@ -28,11 +38,13 @@ export default class SVGBoardView implements IBoardView {
     private piecesGroup!: SVGGElement;
     private overlaysGroup!: SVGGElement;
     private coordsGroup!: SVGGElement;
+    private cardGroup!: SVGGElement;
     private gameState: GameState;
 
     private clickHandler: ((tileIndex: number, shiftKey?: boolean) => void) | null = null;
     private hoverHandler: ((tileIndex: number | null) => void) | null = null;
     private dragMoveHandler: ((from: number, to: number, shiftKey?: boolean) => void) | null = null;
+    private pieceLongHoverHandler: ((tileIndex: number, clientX: number, clientY: number) => void) | null = null;
 
     // Track current board state to enable differential updates
     private currentBoardData: Uint8Array | null = null;
@@ -52,6 +64,13 @@ export default class SVGBoardView implements IBoardView {
     private preventNextClick: boolean = false;
     private static readonly DRAG_THRESHOLD = 5; // pixels
 
+    // Long press state — only triggered by sustained mousedown/touchstart, NOT hover
+    private longPressTimer: ReturnType<typeof setTimeout> | null = null;
+    private static readonly LONG_PRESS_DELAY = 800; // ms
+
+    // Whether the piece card is currently visible
+    private cardVisible: boolean = false;
+
     // Bound event handler references for proper cleanup
     private boundHandleClick: ((e: MouseEvent) => void) | null = null;
     private boundHandleMouseMove: ((e: MouseEvent) => void) | null = null;
@@ -62,6 +81,7 @@ export default class SVGBoardView implements IBoardView {
     private boundHandleTouchMove: ((e: TouchEvent) => void) | null = null;
     private boundHandleTouchEnd: ((e: TouchEvent) => void) | null = null;
     private boundOnResize: (() => void) | null = null;
+    private boundHandleDocumentClick: ((e: MouseEvent) => void) | null = null;
 
     constructor(gameState: GameState) {
         this.gameState = gameState;
@@ -94,6 +114,12 @@ export default class SVGBoardView implements IBoardView {
         this.piecesGroup.setAttribute('id', 'pieces-layer');
         this.svg.appendChild(this.piecesGroup);
 
+        // Card group on top of everything
+        this.cardGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        this.cardGroup.setAttribute('id', 'card-layer');
+        this.cardGroup.style.display = 'none';
+        this.svg.appendChild(this.cardGroup);
+
         container.appendChild(this.svg);
 
         // Create the board background
@@ -111,6 +137,7 @@ export default class SVGBoardView implements IBoardView {
         this.boundHandleTouchMove = (e: TouchEvent) => this.handleTouchMove(e);
         this.boundHandleTouchEnd = (e: TouchEvent) => this.handleTouchEnd(e);
         this.boundOnResize = () => this.onResize();
+        this.boundHandleDocumentClick = (e: MouseEvent) => this.handleDocumentClick(e);
 
         this.svg.addEventListener('click', this.boundHandleClick);
         this.svg.addEventListener('mousemove', this.boundHandleMouseMove);
@@ -122,6 +149,7 @@ export default class SVGBoardView implements IBoardView {
         this.svg.addEventListener('touchend', this.boundHandleTouchEnd);
 
         window.addEventListener('resize', this.boundOnResize);
+        document.addEventListener('click', this.boundHandleDocumentClick, true);
         this.onResize();
     }
 
@@ -396,6 +424,13 @@ export default class SVGBoardView implements IBoardView {
     }
 
     private handleClick(event: MouseEvent): void {
+        // If the card is visible, clicking on the SVG closes it and swallows the click
+        if (this.cardVisible) {
+            this.hidePieceCard();
+            this.preventNextClick = false;
+            return;
+        }
+
         if (this.preventNextClick) {
             this.preventNextClick = false;
             return;
@@ -416,6 +451,8 @@ export default class SVGBoardView implements IBoardView {
         this.dragState.startX = event.clientX;
         this.dragState.startY = event.clientY;
         this.dragState.active = false;
+        // Start long press timer on mouse down
+        this.startLongPressTimer(pos, event.clientX, event.clientY);
     }
 
     private handleMouseMove(event: MouseEvent): void {
@@ -424,6 +461,7 @@ export default class SVGBoardView implements IBoardView {
             const dx = event.clientX - this.dragState.startX;
             const dy = event.clientY - this.dragState.startY;
             if (!this.dragState.active && (dx * dx + dy * dy) > SVGBoardView.DRAG_THRESHOLD * SVGBoardView.DRAG_THRESHOLD) {
+                this.cancelLongPressTimer();
                 this.startDrag(this.dragState.from);
             }
             if (this.dragState.active && this.dragState.ghost) {
@@ -443,6 +481,7 @@ export default class SVGBoardView implements IBoardView {
     }
 
     private handleMouseUp(event: MouseEvent): void {
+        this.cancelLongPressTimer();
         if (!this.dragState.active) {
             this.dragState.from = -1;
             return;
@@ -460,6 +499,8 @@ export default class SVGBoardView implements IBoardView {
         this.dragState.startX = touch.clientX;
         this.dragState.startY = touch.clientY;
         this.dragState.active = false;
+        // Start long press timer for touch
+        this.startLongPressTimer(pos, touch.clientX, touch.clientY);
     }
 
     private handleTouchMove(event: TouchEvent): void {
@@ -468,6 +509,7 @@ export default class SVGBoardView implements IBoardView {
         const dx = touch.clientX - this.dragState.startX;
         const dy = touch.clientY - this.dragState.startY;
         if (!this.dragState.active && (dx * dx + dy * dy) > SVGBoardView.DRAG_THRESHOLD * SVGBoardView.DRAG_THRESHOLD) {
+            this.cancelLongPressTimer();
             this.startDrag(this.dragState.from);
         }
         if (this.dragState.active && this.dragState.ghost) {
@@ -477,7 +519,13 @@ export default class SVGBoardView implements IBoardView {
     }
 
     private handleTouchEnd(event: TouchEvent): void {
+        this.cancelLongPressTimer();
         if (!this.dragState.active) {
+            // If card is visible, a tap anywhere closes it
+            if (this.cardVisible) {
+                this.hidePieceCard();
+                return;
+            }
             this.dragState.from = -1;
             return;
         }
@@ -587,8 +635,17 @@ export default class SVGBoardView implements IBoardView {
     }
 
     private handleMouseLeave(): void {
+        this.cancelLongPressTimer();
         if (this.hoverHandler) {
             this.hoverHandler(null);
+        }
+    }
+
+    private handleDocumentClick(event: MouseEvent): void {
+        if (!this.cardVisible) return;
+        // Close card on any click outside the SVG
+        if (!this.svg.contains(event.target as Node)) {
+            this.hidePieceCard();
         }
     }
 
@@ -619,10 +676,215 @@ export default class SVGBoardView implements IBoardView {
         this.dragMoveHandler = handler;
     }
 
+    onPieceLongHover(handler: (tileIndex: number, clientX: number, clientY: number) => void): void {
+        this.pieceLongHoverHandler = handler;
+    }
+
+    /**
+     * Start the long-press timer. The timer fires only if the button/finger
+     * is held down without moving beyond the drag threshold.
+     */
+    private startLongPressTimer(pos: number, clientX: number, clientY: number): void {
+        this.cancelLongPressTimer();
+        if (!this.currentBoardData || this.currentBoardData[pos] === 0) return;
+        this.longPressTimer = setTimeout(() => {
+            this.longPressTimer = null;
+            // Neutralise drag state so a subsequent mousemove/touchmove can't start a drag
+            this.dragState.from = -1;
+            this.dragState.active = false;
+            this.showPieceCard(pos);
+            if (this.pieceLongHoverHandler) {
+                this.pieceLongHoverHandler(pos, clientX, clientY);
+            }
+        }, SVGBoardView.LONG_PRESS_DELAY);
+    }
+
+    private cancelLongPressTimer(): void {
+        if (this.longPressTimer !== null) {
+            clearTimeout(this.longPressTimer);
+            this.longPressTimer = null;
+        }
+    }
+
+    // ─── Piece Info Card (SVG-native) ────────────────────────────────────────
+
+    /**
+     * Show an inline SVG card next to the tile at `tileIndex`.
+     * The card contains:
+     *  - A 2× visual of the piece/stack
+     *  - The piece name(s)
+     *  - The movement description in French
+     */
+    private showPieceCard(tileIndex: number): void {
+        if (!this.currentBoardData) return;
+        const pieceVal = this.currentBoardData[tileIndex];
+        if (pieceVal === 0) return;
+
+        const piece = decodePiece(pieceVal);
+        if (!piece) return;
+
+        // Build text lines with type info (header = bold name, body = movement line, spacer = empty gap)
+        type TextLine = { text: string; bold: boolean; spacer?: boolean };
+        const lines: TextLine[] = [];
+
+        const addPieceLines = (type: string) => {
+            const rule = PIECE_RULES[type];
+            if (!rule) return;
+            lines.push({ text: rule.name, bold: true });
+            rule.movement.split('\n').forEach(l => lines.push({ text: l, bold: false }));
+        };
+
+        if (piece.top) {
+            addPieceLines(piece.top);
+            lines.push({ text: '', bold: false, spacer: true });
+            addPieceLines(piece.bottom);
+        } else {
+            addPieceLines(piece.bottom);
+        }
+
+        // Card height: padding top + piece preview + gap + text area + padding bottom
+        const textAreaH = lines.reduce((h, l) => h + (l.spacer ? CARD_TEXT_LINE_H * 0.5 : CARD_TEXT_LINE_H), 0);
+        const cardHeight = CARD_PADDING + CARD_PIECE_H + CARD_PADDING + textAreaH + CARD_PADDING;
+
+        // Tile position in SVG coordinates
+        const {x: tileX, y: tileY} = this.getTilePosition(tileIndex);
+
+        // Determine which visual column the tile is in (0–8)
+        const visualCol = this.gameState.isBoardFlipped()
+            ? (BOARD_SIZE - 1 - (tileIndex % BOARD_SIZE))
+            : (tileIndex % BOARD_SIZE);
+
+        // Place card to the left if piece is on right half, to the right otherwise
+        const onRightHalf = visualCol >= Math.floor(BOARD_SIZE / 2);
+        let cardX: number;
+        if (onRightHalf) {
+            // Card is to the left of the tile
+            cardX = tileX - CARD_WIDTH - 4;
+        } else {
+            // Card is to the right of the tile
+            cardX = tileX + SQUARE_WIDTH + 4;
+        }
+
+        // Vertically center card on the tile, clamped within board
+        let cardY = tileY + SQUARE_HEIGHT / 2 - cardHeight / 2;
+        cardY = Math.max(0, Math.min(BOARD_HEIGHT - cardHeight, cardY));
+
+        // Clear previous card content
+        while (this.cardGroup.firstChild) {
+            this.cardGroup.removeChild(this.cardGroup.firstChild);
+        }
+
+        // Background rect with drop shadow effect
+        const shadow = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        shadow.setAttribute('x', (cardX + 3).toString());
+        shadow.setAttribute('y', (cardY + 3).toString());
+        shadow.setAttribute('width', CARD_WIDTH.toString());
+        shadow.setAttribute('height', cardHeight.toString());
+        shadow.setAttribute('rx', '6');
+        shadow.setAttribute('fill', 'rgba(0,0,0,0.25)');
+        this.cardGroup.appendChild(shadow);
+
+        const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bg.setAttribute('x', cardX.toString());
+        bg.setAttribute('y', cardY.toString());
+        bg.setAttribute('width', CARD_WIDTH.toString());
+        bg.setAttribute('height', cardHeight.toString());
+        bg.setAttribute('rx', '6');
+        bg.setAttribute('fill', '#fffdf8');
+        bg.setAttribute('stroke', '#55442d');
+        bg.setAttribute('stroke-width', '1.5');
+        this.cardGroup.appendChild(bg);
+
+        // Piece preview — scaled 2× using a nested SVG (foreignObject would not work in all browsers)
+        // We use a <g transform="scale(2)"> centred inside the card.
+        const flipped = this.gameState.isBoardFlipped();
+        const colorClass = piece.color ? 'p-w' : 'p-b';
+        const reversedClass = (piece.color !== flipped) ? '' : 'p-r';
+
+        // The piece symbols are drawn in a 100×80 viewport. We scale by 2 and translate to center.
+        const scaleX = cardX + CARD_PADDING;
+        const scaleY = cardY + CARD_PADDING;
+
+        const pieceGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        pieceGroup.setAttribute('transform', `translate(${scaleX}, ${scaleY}) scale(${CARD_PIECE_SCALE})`);
+        pieceGroup.setAttribute('pointer-events', 'none');
+
+        // Tile background for the preview
+        const tileBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        tileBg.setAttribute('x', '0');
+        tileBg.setAttribute('y', '0');
+        tileBg.setAttribute('width', SQUARE_WIDTH.toString());
+        tileBg.setAttribute('height', SQUARE_HEIGHT.toString());
+        tileBg.setAttribute('fill', '#d2b48c');
+        tileBg.setAttribute('rx', '3');
+        pieceGroup.appendChild(tileBg);
+
+        // Bottom piece
+        const useBottom = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+        useBottom.setAttribute('href', `#piece-${piece.bottom}`);
+        useBottom.setAttribute('class', `piece ${colorClass} ${reversedClass}`);
+        useBottom.setAttribute('x', '0');
+        useBottom.setAttribute('y', '0');
+        pieceGroup.appendChild(useBottom);
+
+        // Top piece if stacked
+        if (piece.top) {
+            const useTop = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+            useTop.setAttribute('href', `#piece-${piece.top}`);
+            useTop.setAttribute('class', `piece ${colorClass} ${reversedClass}`);
+            useTop.setAttribute('x', '0');
+            useTop.setAttribute('y', (-STACKED_OFFSET).toString());
+            pieceGroup.appendChild(useTop);
+        }
+
+        this.cardGroup.appendChild(pieceGroup);
+
+        // Text lines
+        const textStartX = cardX + CARD_PADDING;
+        const textStartY = cardY + CARD_PADDING + CARD_PIECE_H + CARD_PADDING;
+
+        // Track vertical offset separately to skip spacer rows visually
+        let yOffset = 0;
+        lines.forEach((line) => {
+            if (line.spacer) {
+                yOffset += CARD_TEXT_LINE_H * 0.5; // half-height gap between stacked pieces
+                return;
+            }
+
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', textStartX.toString());
+            text.setAttribute('y', (textStartY + yOffset + CARD_TEXT_LINE_H * 0.75).toString());
+            text.setAttribute('pointer-events', 'none');
+            text.setAttribute('font-family', 'sans-serif');
+            text.setAttribute('font-size', '13');
+
+            if (line.bold) {
+                text.setAttribute('font-weight', 'bold');
+                text.setAttribute('fill', '#3a2c1a');
+            } else {
+                text.setAttribute('fill', '#5a4a3a');
+            }
+            text.textContent = line.text;
+            this.cardGroup.appendChild(text);
+            yOffset += CARD_TEXT_LINE_H;
+        });
+
+        this.cardGroup.style.display = '';
+        this.cardVisible = true;
+    }
+
+    private hidePieceCard(): void {
+        this.cardGroup.style.display = 'none';
+        this.cardVisible = false;
+    }
+
     dispose(): void {
         // Remove event listeners using stored references
         if (this.boundOnResize) {
             window.removeEventListener('resize', this.boundOnResize);
+        }
+        if (this.boundHandleDocumentClick) {
+            document.removeEventListener('click', this.boundHandleDocumentClick, true);
         }
 
         if (this.svg) {
