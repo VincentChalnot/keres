@@ -37,3 +37,22 @@ pub const KILLER_SLOTS: usize = 2;
 
 /// Maximum depth used when dimensioning the killer table.
 pub const MAX_KILLER_DEPTH: usize = MAX_DEPTH + 8;
+
+// ── Difficulty-lowering parameters (root-level only) ─────────────────────────
+// These constants control the AI's imperfection to make the game more enjoyable
+// for casual players. Adjust them to tune the difficulty.
+
+/// Probability (0.0–1.0) that the engine ignores the best move and picks a
+/// random legal move instead (a "blunder").
+pub const BLUNDER_PROBABILITY: f64 = 0.15;
+
+/// When true, the engine may randomly reduce the search depth by 1 at the root.
+/// The chance of this happening is 50 %.
+pub const DEPTH_RANDOMIZATION_ENABLED: bool = true;
+
+/// Probability (0.0–1.0) that the search depth is reduced by 1 at the root.
+pub const DEPTH_REDUCTION_PROBABILITY: f64 = 0.50;
+
+/// Number of top candidate moves to consider for random selection (MultiPV).
+/// The engine picks uniformly at random among the top N scoring root moves.
+pub const MULTI_PV_COUNT: usize = 3;
