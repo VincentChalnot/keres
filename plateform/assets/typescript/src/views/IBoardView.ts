@@ -42,6 +42,11 @@ export interface IBoardView {
      * Set drag move handler (optional - for drag & drop support)
      */
     onDragMove?(handler: (from: number, to: number) => void): void;
+
+    /**
+     * Set long hover/press handler for piece detail (optional)
+     */
+    onPieceLongHover?(handler: (tileIndex: number, clientX: number, clientY: number) => void): void;
 }
 
 export interface TileHighlight {

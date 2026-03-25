@@ -33,6 +33,7 @@ export default class SVGBoardView implements IBoardView {
     private clickHandler: ((tileIndex: number, shiftKey?: boolean) => void) | null = null;
     private hoverHandler: ((tileIndex: number | null) => void) | null = null;
     private dragMoveHandler: ((from: number, to: number) => void) | null = null;
+    private pieceLongHoverHandler: ((tileIndex: number, clientX: number, clientY: number) => void) | null = null;
 
     // Track current board state to enable differential updates
     private currentBoardData: Uint8Array | null = null;
@@ -51,6 +52,10 @@ export default class SVGBoardView implements IBoardView {
     } = { active: false, from: -1, startX: 0, startY: 0, ghost: null };
     private preventNextClick: boolean = false;
     private static readonly DRAG_THRESHOLD = 5; // pixels
+
+    // Long hover/press state
+    private longHoverTimer: ReturnType<typeof setTimeout> | null = null;
+    private static readonly LONG_HOVER_DELAY = 600; // ms
 
     // Bound event handler references for proper cleanup
     private boundHandleClick: ((e: MouseEvent) => void) | null = null;
@@ -424,6 +429,7 @@ export default class SVGBoardView implements IBoardView {
             const dx = event.clientX - this.dragState.startX;
             const dy = event.clientY - this.dragState.startY;
             if (!this.dragState.active && (dx * dx + dy * dy) > SVGBoardView.DRAG_THRESHOLD * SVGBoardView.DRAG_THRESHOLD) {
+                this.cancelLongHoverTimer();
                 this.startDrag(this.dragState.from);
             }
             if (this.dragState.active && this.dragState.ghost) {
@@ -432,14 +438,16 @@ export default class SVGBoardView implements IBoardView {
             return;
         }
 
-        // Normal hover
-        if (!this.hoverHandler) return;
+        // Normal hover with long hover detection
         const pos = this.getPosFromMouseEvent(event);
-        if (pos !== null) {
-            this.hoverHandler(pos);
-        } else {
-            this.hoverHandler(null);
+        if (this.hoverHandler) {
+            if (pos !== null) {
+                this.hoverHandler(pos);
+            } else {
+                this.hoverHandler(null);
+            }
         }
+        this.resetLongHoverTimer(pos, event.clientX, event.clientY);
     }
 
     private handleMouseUp(event: MouseEvent): void {
@@ -460,6 +468,8 @@ export default class SVGBoardView implements IBoardView {
         this.dragState.startX = touch.clientX;
         this.dragState.startY = touch.clientY;
         this.dragState.active = false;
+        // Start long press timer for touch
+        this.resetLongHoverTimer(pos, touch.clientX, touch.clientY);
     }
 
     private handleTouchMove(event: TouchEvent): void {
@@ -468,6 +478,7 @@ export default class SVGBoardView implements IBoardView {
         const dx = touch.clientX - this.dragState.startX;
         const dy = touch.clientY - this.dragState.startY;
         if (!this.dragState.active && (dx * dx + dy * dy) > SVGBoardView.DRAG_THRESHOLD * SVGBoardView.DRAG_THRESHOLD) {
+            this.cancelLongHoverTimer();
             this.startDrag(this.dragState.from);
         }
         if (this.dragState.active && this.dragState.ghost) {
@@ -477,6 +488,7 @@ export default class SVGBoardView implements IBoardView {
     }
 
     private handleTouchEnd(event: TouchEvent): void {
+        this.cancelLongHoverTimer();
         if (!this.dragState.active) {
             this.dragState.from = -1;
             return;
@@ -569,6 +581,7 @@ export default class SVGBoardView implements IBoardView {
     }
 
     private handleMouseLeave(): void {
+        this.cancelLongHoverTimer();
         if (this.hoverHandler) {
             this.hoverHandler(null);
         }
@@ -599,6 +612,28 @@ export default class SVGBoardView implements IBoardView {
 
     onDragMove(handler: (from: number, to: number) => void): void {
         this.dragMoveHandler = handler;
+    }
+
+    onPieceLongHover(handler: (tileIndex: number, clientX: number, clientY: number) => void): void {
+        this.pieceLongHoverHandler = handler;
+    }
+
+    private resetLongHoverTimer(pos: number | null, clientX: number, clientY: number): void {
+        this.cancelLongHoverTimer();
+        if (pos === null || !this.pieceLongHoverHandler) return;
+        if (!this.currentBoardData || this.currentBoardData[pos] === 0) return;
+        this.longHoverTimer = setTimeout(() => {
+            if (this.pieceLongHoverHandler) {
+                this.pieceLongHoverHandler(pos, clientX, clientY);
+            }
+        }, SVGBoardView.LONG_HOVER_DELAY);
+    }
+
+    private cancelLongHoverTimer(): void {
+        if (this.longHoverTimer !== null) {
+            clearTimeout(this.longHoverTimer);
+            this.longHoverTimer = null;
+        }
     }
 
     dispose(): void {

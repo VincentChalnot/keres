@@ -4,6 +4,8 @@ import SVGBoardView from './views/SVGBoardView';
 import {GameController} from './controllers/GameController';
 import {IBoardView} from './views/IBoardView';
 import {decodeMoveListFromBase64} from './utils/boardUtils';
+import {PIECE_RULES} from './models/pieceRules';
+import {Piece} from './models/types';
 
 const OPPONENT_TYPE_AI = 0;
 const OPPONENT_TYPE_HOTSEAT = 1;
@@ -30,6 +32,10 @@ class KeresGame {
     private undoBtn: HTMLButtonElement;
     private askEngineBtn: HTMLButtonElement | null;
     private toggleThreatsBtn: HTMLButtonElement;
+    private pieceDetailModal: HTMLDivElement;
+    private pieceDetailName: HTMLElement;
+    private pieceDetailDescription: HTMLElement;
+    private pieceDetailMovement: HTMLElement;
     private gameMode: number = 0; // opponent type as int
     private playerWhite: boolean = true; // true if player is white
 
@@ -49,6 +55,10 @@ class KeresGame {
         this.undoBtn = document.getElementById('undo-btn') as HTMLButtonElement;
         this.askEngineBtn = document.getElementById('ask-engine-btn') as HTMLButtonElement | null;
         this.toggleThreatsBtn = document.getElementById('toggle-threats-btn') as HTMLButtonElement;
+        this.pieceDetailModal = document.getElementById('piece-detail-modal') as HTMLDivElement;
+        this.pieceDetailName = document.getElementById('piece-detail-name') as HTMLElement;
+        this.pieceDetailDescription = document.getElementById('piece-detail-description') as HTMLElement;
+        this.pieceDetailMovement = document.getElementById('piece-detail-movement') as HTMLElement;
         
         // Read game mode and player color from data attributes
         this.gameMode = parseInt(this.boardContainer.getAttribute('data-opponent-type') || '0', 10);
@@ -129,6 +139,21 @@ class KeresGame {
         window.addEventListener('showUnstackModal', () => {
             this.unstackModal.classList.add('is-active');
         });
+
+        // Custom event for piece detail modal
+        window.addEventListener('showPieceDetail', ((e: CustomEvent) => {
+            this.showPieceDetailModal(e.detail.piece, e.detail.clientX, e.detail.clientY);
+        }) as EventListener);
+
+        // Piece detail modal dismiss
+        const pieceDetailBg = this.pieceDetailModal.querySelector('.modal-background');
+        if (pieceDetailBg) {
+            pieceDetailBg.addEventListener('click', () => this.pieceDetailModal.classList.remove('is-active'));
+        }
+        const pieceDetailClose = document.getElementById('piece-detail-close');
+        if (pieceDetailClose) {
+            pieceDetailClose.addEventListener('click', () => this.pieceDetailModal.classList.remove('is-active'));
+        }
 
         // Custom event for board state changes (e.g., from browser history navigation)
         window.addEventListener('boardStateChanged', () => {
@@ -284,6 +309,31 @@ class KeresGame {
     private updateNavigationButtons(): void {
         this.prevMoveBtn.disabled = !this.controller.canNavigateToPrevious();
         this.nextMoveBtn.disabled = !this.controller.canNavigateToNext();
+    }
+
+    private showPieceDetailModal(piece: Piece, _clientX: number, _clientY: number): void {
+        // Show info for the top piece (or the only piece)
+        const pieceType = piece.top || piece.bottom;
+        const rule = PIECE_RULES[pieceType];
+        if (!rule) return;
+
+        this.pieceDetailName.textContent = rule.name;
+        this.pieceDetailDescription.textContent = rule.description;
+        this.pieceDetailMovement.textContent = rule.movement;
+
+        // If stacked, show info about both pieces
+        if (piece.top) {
+            const bottomRule = PIECE_RULES[piece.bottom];
+            if (bottomRule) {
+                this.pieceDetailDescription.textContent =
+                    `${rule.name} (top): ${rule.description}\n\n${bottomRule.name} (bottom): ${bottomRule.description}`;
+                this.pieceDetailMovement.textContent =
+                    `${rule.name}: ${rule.movement} · ${bottomRule.name}: ${bottomRule.movement}`;
+                this.pieceDetailName.textContent = `${rule.name} + ${bottomRule.name}`;
+            }
+        }
+
+        this.pieceDetailModal.classList.add('is-active');
     }
 }
 

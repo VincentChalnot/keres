@@ -66,6 +66,20 @@
             </footer>
         </div>
     </div>
+
+    <div class="modal" id="piece-detail-modal">
+        <div class="modal-background"></div>
+        <div class="modal-card" style="max-width: 400px;">
+            <header class="modal-card-head">
+                <p class="modal-card-title" id="piece-detail-name"></p>
+                <button class="delete" aria-label="close" id="piece-detail-close"></button>
+            </header>
+            <section class="modal-card-body">
+                <p id="piece-detail-description"></p>
+                <p><strong>Movement:</strong> <span id="piece-detail-movement"></span></p>
+            </section>
+        </div>
+    </div>
 {% endblock %}
 
 {% block end_javascripts %}

@@ -2,7 +2,7 @@ import {GameState} from '../models/GameState';
 import {GameAPI} from '../network/GameAPI';
 import {MercureClient, GameUpdate} from '../network/MercureClient';
 import {IBoardView, TileHighlight} from '../views/IBoardView';
-import {Move} from '../models/types';
+import {Move, Piece} from '../models/types';
 import {decodeMoveListFromBase64, posToAlgebraic, encodeBoardToBinary} from '../utils/boardUtils';
 
 /**
@@ -24,6 +24,9 @@ export class GameController {
         this.view.onTileHover((pos) => this.handleTileHover(pos));
         if (this.view.onDragMove) {
             this.view.onDragMove((from, to) => this.handleDragMove(from, to));
+        }
+        if (this.view.onPieceLongHover) {
+            this.view.onPieceLongHover((pos, clientX, clientY) => this.handlePieceLongHover(pos, clientX, clientY));
         }
     }
 
@@ -406,5 +409,21 @@ export class GameController {
     canNavigateToNext(): boolean {
         const moveList = this.gameState.getMoveList();
         return this.gameState.getCurrentMoveIndex() < moveList.length - 1;
+    }
+
+    private handlePieceLongHover(pos: number, clientX: number, clientY: number): void {
+        const board = this.gameState.getBoard();
+        if (!board) return;
+        const piece = board.getPieceAt(pos);
+        if (!piece) return;
+        window.dispatchEvent(new CustomEvent('showPieceDetail', {
+            detail: { piece, clientX, clientY }
+        }));
+    }
+
+    getPieceAt(pos: number): Piece | null {
+        const board = this.gameState.getBoard();
+        if (!board) return null;
+        return board.getPieceAt(pos);
     }
 }
