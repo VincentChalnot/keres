@@ -490,6 +490,10 @@ export default class SVGBoardView implements IBoardView {
     private startDrag(from: number): void {
         this.dragState.active = true;
 
+        // Hide the source piece(s) so only the ghost is visible
+        const sourcePieces = this.piecesGroup.querySelectorAll(`[data-tile-index="${from}"]`);
+        sourcePieces.forEach(el => (el as SVGElement).style.visibility = 'hidden');
+
         // Select the source piece to show potential move highlights
         if (this.clickHandler) {
             this.clickHandler(from);
@@ -510,6 +514,10 @@ export default class SVGBoardView implements IBoardView {
         this.dragState.active = false;
         this.dragState.from = -1;
         this.preventNextClick = true;
+
+        // Restore hidden source pieces
+        const sourcePieces = this.piecesGroup.querySelectorAll(`[data-tile-index="${from}"]`);
+        sourcePieces.forEach(el => (el as SVGElement).style.visibility = '');
 
         if (to !== null && to !== from && this.dragMoveHandler) {
             this.dragMoveHandler(from, to, shiftKey);
@@ -535,13 +543,23 @@ export default class SVGBoardView implements IBoardView {
         const colorClass = piece.color ? 'p-w' : 'p-b';
         const reversedClass = (piece.color !== flipped) ? '' : 'p-r';
 
-        // Create the piece <use> element(s)
-        const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-        use.setAttribute('href', `#piece-${piece.top || piece.bottom}`);
-        use.setAttribute('class', `piece ${colorClass} ${reversedClass}`);
-        use.setAttribute('x', '0');
-        use.setAttribute('y', '0');
-        ghost.appendChild(use);
+        // Render bottom piece
+        const useBottom = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+        useBottom.setAttribute('href', `#piece-${piece.bottom}`);
+        useBottom.setAttribute('class', `piece ${colorClass} ${reversedClass}`);
+        useBottom.setAttribute('x', '0');
+        useBottom.setAttribute('y', '0');
+        ghost.appendChild(useBottom);
+
+        // Render top piece if stacked
+        if (piece.top) {
+            const useTop = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+            useTop.setAttribute('href', `#piece-${piece.top}`);
+            useTop.setAttribute('class', `piece ${colorClass} ${reversedClass}`);
+            useTop.setAttribute('x', '0');
+            useTop.setAttribute('y', (-STACKED_OFFSET).toString());
+            ghost.appendChild(useTop);
+        }
 
         this.svg.appendChild(ghost);
         this.dragState.ghost = ghost;
