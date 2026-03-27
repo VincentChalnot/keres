@@ -52,13 +52,7 @@ class MultiProviderOidcAuthenticator extends AbstractAuthenticator implements Au
 
             $this->oidcUserProvider->ensureUserExists($userIdentifier, $userData, $tokens);
 
-            $email = $userData->getEmail();
-            if (empty($email) && $provider === 'discord') {
-                $email = $userIdentifier . '@discord.placeholder';
-            }
-            if (empty($email)) {
-                $email = $userIdentifier;
-            }
+            $email = OidcUserProvider::resolveEmail($userData->getEmail(), $provider, $userIdentifier);
 
             return new SelfValidatingPassport(new UserBadge(
                 $email,

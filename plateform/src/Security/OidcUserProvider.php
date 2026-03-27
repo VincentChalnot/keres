@@ -35,18 +35,9 @@ class OidcUserProvider implements OidcUserProviderInterface
     {
         $provider = $this->currentProvider ?? 'google';
         $sub = $userData->getSub();
-        $email = $userData->getEmail();
+        $email = self::resolveEmail($userData->getEmail(), $provider, $sub, $userIdentifier);
         $displayName = $userData->getFullName() ?: $userData->getDisplayName() ?: null;
         $avatarUrl = $userData->getUserDataString('picture') ?: null;
-
-        // TODO: handle missing Discord email gracefully in the UI
-        if (empty($email) && $provider === 'discord') {
-            $email = $sub . '@discord.placeholder';
-        }
-
-        if (empty($email)) {
-            $email = $userIdentifier;
-        }
 
         $user = $this->userRepository->findByProviderAndProviderId($provider, $sub);
 
@@ -63,6 +54,25 @@ class OidcUserProvider implements OidcUserProviderInterface
         }
 
         $this->entityManager->flush();
+    }
+
+    /**
+     * Resolve the user email from OIDC data, handling the case where Discord
+     * may not provide an email address.
+     *
+     * TODO: handle missing Discord email gracefully in the UI
+     */
+    public static function resolveEmail(string $email, string $provider, string $sub, string $fallback = ''): string
+    {
+        if (empty($email) && $provider === 'discord') {
+            return $sub . '@discord.placeholder';
+        }
+
+        if (empty($email)) {
+            return $fallback ?: $sub;
+        }
+
+        return $email;
     }
 
     public function loadOidcUser(string $userIdentifier): UserInterface
