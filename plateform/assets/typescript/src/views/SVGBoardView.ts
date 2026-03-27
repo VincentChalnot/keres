@@ -14,6 +14,7 @@ const STACKED_OFFSET = 23;
 // Coordinate label dimensions (left margin for row labels, bottom margin for column labels)
 const COORD_WIDTH = 25; // px left margin for row numbers (1-9)
 const COORD_HEIGHT = 25; // px bottom margin for column letters (A-I)
+const TOP_MARGIN = 10;
 
 // Piece card constants (2× tile size for the piece preview)
 const CARD_PIECE_SCALE = 2;
@@ -91,7 +92,7 @@ export default class SVGBoardView implements IBoardView {
         this.container = container;
         await this.injectBoardCSS();
         this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        this.svg.setAttribute('viewBox', `${-COORD_WIDTH} -10 ${BOARD_WIDTH + COORD_WIDTH} ${BOARD_HEIGHT + COORD_HEIGHT}`);
+        this.svg.setAttribute('viewBox', `${-COORD_WIDTH} -${TOP_MARGIN} ${BOARD_WIDTH + COORD_WIDTH} ${BOARD_HEIGHT + COORD_HEIGHT + TOP_MARGIN}`);
         this.svg.style.cursor = 'pointer';
 
         // Inline the sprite sheet symbols/defs directly into the SVG
