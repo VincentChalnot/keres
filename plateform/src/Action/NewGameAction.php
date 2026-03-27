@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Action;
 
 use App\Entity\Game;
+use App\Entity\User;
 use App\Form\NewGameType;
 use App\Repository\GameRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -47,6 +48,11 @@ class NewGameAction extends AbstractController
                 }
             );
             $game->setOpponentType($data['opponentType']);
+
+            $user = $this->getUser();
+            if ($user instanceof User) {
+                $game->setOwner($user);
+            }
 
             $this->entityManager->persist($game);
             $this->entityManager->flush();

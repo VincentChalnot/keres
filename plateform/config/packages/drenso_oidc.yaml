@@ -1,0 +1,21 @@
+drenso_oidc:
+    default_client: google
+    clients:
+        google:
+            well_known_url: 'https://accounts.google.com/.well-known/openid-configuration'
+            client_id: '%env(OIDC_GOOGLE_CLIENT_ID)%'
+            client_secret: '%env(OIDC_GOOGLE_CLIENT_SECRET)%'
+            redirect_route: 'oidc_login_check'
+        facebook:
+            well_known_url: 'https://www.facebook.com/.well-known/openid-configuration'
+            client_id: '%env(OIDC_FACEBOOK_CLIENT_ID)%'
+            client_secret: '%env(OIDC_FACEBOOK_CLIENT_SECRET)%'
+            redirect_route: 'oidc_login_check'
+        discord:
+            well_known_url: 'https://discord.com/.well-known/openid-configuration'
+            client_id: '%env(OIDC_DISCORD_CLIENT_ID)%'
+            client_secret: '%env(OIDC_DISCORD_CLIENT_SECRET)%'
+            redirect_route: 'oidc_login_check'
+            # Discord does not expose a userinfo_endpoint in its discovery doc.
+            # Override manually via well_known_parser service:
+            well_known_parser: 'App\Security\DiscordWellKnownParser'

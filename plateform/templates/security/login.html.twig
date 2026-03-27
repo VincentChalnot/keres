@@ -1,0 +1,30 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Login{% endblock %}
+
+{% block body %}
+    <section class="section">
+        <div class="container">
+            <div class="columns is-centered">
+                <div class="column is-half">
+                    <div class="box">
+                        <h3 class="title">Login</h3>
+                        <p class="subtitle">Choose your login provider</p>
+
+                        <div class="buttons is-centered">
+                            <a href="{{ path('oidc_login', {provider: 'google'}) }}" class="button is-rounded is-light is-fullwidth mb-3">
+                                Login with Google
+                            </a>
+                            <a href="{{ path('oidc_login', {provider: 'discord'}) }}" class="button is-rounded is-light is-fullwidth mb-3">
+                                Login with Discord
+                            </a>
+                            <a href="{{ path('oidc_login', {provider: 'facebook'}) }}" class="button is-rounded is-light is-fullwidth mb-3">
+                                Login with Facebook
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+{% endblock %}

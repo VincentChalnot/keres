@@ -12,6 +12,7 @@
         "doctrine/doctrine-bundle": "^2.18.2",
         "doctrine/doctrine-migrations-bundle": "^3.7",
         "doctrine/orm": "^3.6.2",
+        "drenso/symfony-oidc-bundle": "^4.3",
         "pentatrion/vite-bundle": "^8.2.3",
         "runtime/frankenphp-symfony": "^0.2.0",
         "sidus/template-bundle": ">=1",
@@ -25,6 +26,7 @@
         "symfony/mercure-bundle": "^0.4.2",
         "symfony/messenger": "7.3.*",
         "symfony/runtime": "7.3.*",
+        "symfony/security-bundle": "^7.3",
         "symfony/twig-bundle": "7.3.*",
         "symfony/uid": "7.3.*",
         "symfony/yaml": "7.3.*"

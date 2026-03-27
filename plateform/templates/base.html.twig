@@ -19,17 +19,39 @@
 </head>
 <body>
 {% block topnav %}
-<nav class="site-topnav" aria-label="Main navigation">
-    <a href="{{ path('index') }}" class="site-topnav__logo" aria-label="Keres home">
-        <img src="{{ asset('rook.svg') }}" alt="" width="32" height="32" aria-hidden="true">
-        <span class="site-topnav__logo-text">Keres</span>
-    </a>
-    <div class="site-topnav__links">
-        {% block nav_extra %}{% endblock %}
-        <a href="{{ path('rules') }}" class="site-topnav__link">Rules</a>
-        <a href="{{ path('new_game') }}" class="site-topnav__link site-topnav__link--cta">Play</a>
-    </div>
-</nav>
+    {#<nav class="site-topnav" aria-label="Main navigation">
+        <a href="{{ path('index') }}" class="site-topnav__logo" aria-label="Keres home">
+            <img src="{{ asset('rook.svg') }}" alt="" width="32" height="32" aria-hidden="true">
+            <span class="site-topnav__logo-text">Keres</span>
+        </a>
+        <div class="site-topnav__links">
+            {% block nav_extra %}{% endblock %}
+            <a href="{{ path('rules') }}" class="site-topnav__link">Rules</a>
+            <a href="{{ path('new_game') }}" class="site-topnav__link site-topnav__link--cta">Play</a>
+        </div>
+    </nav>#}
+    <nav class="navbar" role="navigation" aria-label="main navigation">
+        <div class="container">
+            <div class="navbar-brand">
+                <a class="navbar-item" href="/">
+                    <strong>KERES</strong>
+                </a>
+            </div>
+            <div class="navbar-end">
+                <div class="navbar-item">
+                    {% if app.user %}
+                        {% if app.user.avatarUrl %}
+                            <img src="{{ app.user.avatarUrl }}" alt="Avatar" style="width:28px;height:28px;border-radius:50%;margin-right:8px;">
+                        {% endif %}
+                        <span style="margin-right:12px;">{{ app.user.displayName ?? app.user.email }}</span>
+                        <a href="{{ path('logout') }}" class="button is-small is-rounded is-outlined is-light">Logout</a>
+                    {% else %}
+                        <a href="{{ path('login') }}" class="button is-small is-rounded is-outlined is-light">Login</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
 {% endblock %}
 {% block body %}{% endblock %}
 {% block end_javascripts %}{% endblock %}

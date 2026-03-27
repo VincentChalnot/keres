@@ -50,6 +50,10 @@ class Game
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $deletedAt = null;
 
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?User $owner = null;
+
     /**
      * @var Collection<int, GameMove>
      */
@@ -179,6 +183,18 @@ class Game
     public function isDeleted(): bool
     {
         return $this->deletedAt !== null;
+    }
+
+    public function getOwner(): ?User
+    {
+        return $this->owner;
+    }
+
+    public function setOwner(?User $owner): self
+    {
+        $this->owner = $owner;
+
+        return $this;
     }
 
     public function isGameOver(): bool
