@@ -8,9 +8,9 @@ use App\Form\NewGameType;
 use App\Repository\GameRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -20,6 +20,8 @@ class NewGameAction extends AbstractController
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly GameRepository $gameRepository,
+        #[Autowire(env: 'bool:APP_PUBLIC_MODE')]
+        private readonly bool $publicMode = true,
     ) {
     }
 
@@ -52,10 +54,15 @@ class NewGameAction extends AbstractController
             return $this->redirectToRoute('play', ['uuid' => $game->getUuid()]);
         }
 
-        $allGames = $this->gameRepository->findAllActive();
+        if ($this->publicMode) {
+            $allGames = [];
+        } else {
+            $allGames = $this->gameRepository->findAllActive();
+        }
 
         return [
             'form' => $form->createView(),
+            'publicMode' => $this->publicMode,
             'inProgressGames' => array_filter($allGames, static fn(Game $g) => !$g->isGameOver()),
             'finishedGames' => array_filter($allGames, static fn(Game $g) => $g->isGameOver()),
         ];

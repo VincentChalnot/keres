@@ -22,7 +22,6 @@ class NewGameType extends AbstractType
                     'Black' => 'black',
                     'Random' => 'random',
                 ],
-                'expanded' => true,
                 'data' => 'white', // Default selection
             ])
             ->add('opponentType', ChoiceType::class, [
@@ -31,12 +30,7 @@ class NewGameType extends AbstractType
                     'AI' => OpponentType::AI,
                     'Hot-seat (2 players)' => OpponentType::HOTSEAT,
                 ],
-                'expanded' => true,
                 'data' => OpponentType::AI, // Default selection
-                'choice_label' => function ($choice, $key, $value) {
-                    // Use the label as is
-                    return $key;
-                },
             ])
             ->add('submit', SubmitType::class, [
                 'label' => 'Start Game',

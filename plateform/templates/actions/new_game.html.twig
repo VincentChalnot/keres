@@ -12,17 +12,21 @@
                         {{ form_start(form) }}
 
                         <div class="field">
-                            <label class="label">{{ form_label(form.playerSide) }}</label>
+                            {{ form_label(form.playerSide, null, {label_attr: {class: 'label'}}) }}
                             <div class="control">
-                                {{ form_widget(form.playerSide) }}
+                                <div class="select">
+                                    {{ form_widget(form.playerSide) }}
+                                </div>
                             </div>
                             {{ form_errors(form.playerSide) }}
                         </div>
 
                         <div class="field">
-                            <label class="label">{{ form_label(form.opponentType) }}</label>
+                            {{ form_label(form.opponentType, null, {label_attr: {class: 'label'}}) }}
                             <div class="control">
-                                {{ form_widget(form.opponentType) }}
+                                <div class="select">
+                                    {{ form_widget(form.opponentType) }}
+                                </div>
                             </div>
                             {{ form_errors(form.opponentType) }}
                         </div>
@@ -36,6 +40,7 @@
                         {{ form_end(form) }}
                     </div>
 
+                    {% if not publicMode %}
                     <h3 class="title is-4 mt-5">In Progress</h3>
                     {% for game in inProgressGames %}
                         {# @var game \App\Entity\Game #}
@@ -99,6 +104,7 @@
                     {% else %}
                         <p>No finished games.</p>
                     {% endfor %}
+                    {% endif %}
                 </div>
             </div>
         </div>
