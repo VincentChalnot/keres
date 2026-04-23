@@ -8,8 +8,32 @@ FROM dunglas/frankenphp:1-php8.4 AS frankenphp_upstream
 # https://docs.docker.com/compose/compose-file/#target
 
 
+# Builder stage: recompile the FrankenPHP binary with extra Caddy modules
+# (caddy-dns/infomaniak for DNS-01 ACME challenge)
+FROM dunglas/frankenphp:1-php8.4-builder AS frankenphp_builder
+
+COPY --from=caddy:builder /usr/bin/xcaddy /usr/bin/xcaddy
+
+RUN CGO_ENABLED=1 \
+    XCADDY_SETCAP=1 \
+    XCADDY_GO_BUILD_FLAGS="-ldflags='-w -s' -tags=nobadger,nomysql,nopgx" \
+    CGO_CFLAGS=$(php-config --includes) \
+    CGO_LDFLAGS="$(php-config --ldflags) $(php-config --libs)" \
+    xcaddy build \
+        --output /usr/local/bin/frankenphp \
+        --with github.com/dunglas/frankenphp=./ \
+        --with github.com/dunglas/frankenphp/caddy=./caddy/ \
+        --with github.com/dunglas/caddy-cbrotli \
+        --with github.com/dunglas/mercure/caddy \
+        --with github.com/dunglas/vulcain/caddy \
+        --with github.com/caddy-dns/infomaniak
+
+
 # Base FrankenPHP image
 FROM frankenphp_upstream AS frankenphp_base
+
+# Use the binary compiled with the Infomaniak DNS module
+COPY --from=frankenphp_builder /usr/local/bin/frankenphp /usr/local/bin/frankenphp
 
 WORKDIR /app
 

@@ -9,6 +9,7 @@
 #   POSTGRES_PASSWORD        Database password
 #   POSTGRES_DB              Database name
 #   CADDY_MERCURE_JWT_SECRET Mercure JWT secret (random 32+ char string)
+#   INFOMANIAK_API_TOKEN     Infomaniak API token for DNS-01 ACME challenge
 #
 # Optional .env variables:
 #   POSTGRES_VERSION         Defaults to 16
@@ -30,13 +31,17 @@ x-app-env: &app-env
   MERCURE_SUBSCRIBER_JWT_KEY: ${CADDY_MERCURE_JWT_SECRET}
   BACKEND_API_URL: http://backend:3000
 
+x-php-env: &php-env
+  <<: *app-env
+  CADDY_GLOBAL_OPTIONS: "acme_dns infomaniak ${INFOMANIAK_API_TOKEN}"
+  INFOMANIAK_API_TOKEN: ${INFOMANIAK_API_TOKEN}
+
 services:
   php:
     image: ghcr.io/vincentchalnot/keres/php:${IMAGES_TAG:-latest}
     restart: unless-stopped
     environment:
-      <<: *app-env
-      # No CADDY_SERVER_EXTRA_DIRECTIVES — Caddy will use autocert via ACME
+      <<: *php-env
     security_opt:
       - label=disable
     volumes:

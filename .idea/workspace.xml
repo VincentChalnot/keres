@@ -11,12 +11,7 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e677cc10-da9b-4d42-bdc5-9b87d9746894" name="Changes" comment="Refactor board hash computation: move to Game struct for improved encapsulation">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/engine/src/game.rs" beforeDir="false" afterPath="$PROJECT_DIR$/engine/src/game.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/src/Entity/BoardPosition.php" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/src/Entity/BoardPosition.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plateform/src/Entity/Move.php" beforeDir="false" afterPath="$PROJECT_DIR$/plateform/src/Entity/Move.php" afterDir="false" />
-    </list>
+    <list default="true" id="e677cc10-da9b-4d42-bdc5-9b87d9746894" name="Changes" comment="feat(ci): restructure CI configuration to enhance Docker image build process and add database backup script" />
     <list id="f9dd0b4c-d0bb-4b1c-a4b7-3766cd8094fd" name="NOCOMMIT" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -141,6 +136,7 @@
       <workItem from="1770335907309" duration="2657000" />
       <workItem from="1770351884678" duration="2034000" />
       <workItem from="1773049894071" duration="3762000" />
+      <workItem from="1776941932056" duration="322000" />
     </task>
     <task id="LOCAL-00001" summary="Major repo reorganisation, switching to mono-repo for client, engine and plateform">
       <option name="closed" value="true" />
@@ -206,7 +202,15 @@
       <option name="project" value="LOCAL" />
       <updated>1772793795988</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="feat(ci): restructure CI configuration to enhance Docker image build process and add database backup script">
+      <option name="closed" value="true" />
+      <created>1776942208975</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1776942208975</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -232,7 +236,8 @@
     <MESSAGE value="Cleaning up previous engines implementations" />
     <MESSAGE value="Adding MCTS engine specifications" />
     <MESSAGE value="Refactor board hash computation: move to Game struct for improved encapsulation" />
-    <option name="LAST_COMMIT_MESSAGE" value="Refactor board hash computation: move to Game struct for improved encapsulation" />
+    <MESSAGE value="feat(ci): restructure CI configuration to enhance Docker image build process and add database backup script" />
+    <option name="LAST_COMMIT_MESSAGE" value="feat(ci): restructure CI configuration to enhance Docker image build process and add database backup script" />
   </component>
   <component name="github-copilot-workspace">
     <instructionFileLocations>
