@@ -9,15 +9,10 @@
 
 {% block body %}
     <div class="game-container">
-        <nav class="level mb-4">
-            <div class="level-left">
-                <a href="{{ path('new_game') }}" class="button is-rounded is-outlined is-light">Back</a>
-            </div>
-            <div class="level-right">
-                <div id="status" class="level-item">Loading...</div>
-            </div>
-        </nav>
-        <div class="material-bar" id="material-top"></div>
+        <div class="material-top-row">
+            <div class="material-bar" id="material-top"></div>
+            <div id="status">Loading...</div>
+        </div>
         <div id="board-container"
              data-moves="{{ moves }}"
              data-game-uuid="{{ game.uuid }}"

@@ -103,6 +103,106 @@ ul {
 
 li { margin-bottom: 8px; }
 
+// ─── Top navigation bar ───────────────────────────────────────────────────────
+
+.site-topnav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1.5rem;
+    background-color: rgba($keres-bg, 0.7);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid $keres-dark;
+    box-sizing: border-box;
+}
+
+.site-topnav__logo {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: none;
+    }
+
+    img {
+        display: block;
+        flex-shrink: 0;
+    }
+}
+
+.site-topnav__logo-text {
+    font-family: 'Carolingia', serif;
+    font-size: 2.4rem;
+    color: $keres-primary;
+    line-height: 1;
+    padding-top: 0.4rem;
+}
+
+.site-topnav__links {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.site-topnav__link {
+    color: $keres-light;
+    font-size: 1rem;
+    text-decoration: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: color 0.15s;
+
+    &:hover {
+        color: $keres-primary;
+        text-decoration: none;
+    }
+
+    &--cta {
+        background-color: $keres-primary;
+        color: $keres-bg;
+        padding: 0.3rem 0.9rem;
+        border-radius: 9999px;
+        font-weight: bold;
+
+        &:hover {
+            color: $keres-bg;
+            background-color: $keres-secondary;
+        }
+    }
+}
+
+.site-topnav__status {
+    font-size: 0.95rem;
+    color: $keres-secondary;
+    padding: 0.25rem 0.5rem;
+}
+
+// ─── Material top row (material bar + status side by side) ────────────────────
+
+.material-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    .material-bar {
+        flex: 1;
+    }
+
+    #status {
+        flex-shrink: 0;
+        font-size: 0.95rem;
+        color: $keres-secondary;
+        padding: 0 1rem;
+        text-align: right;
+    }
+}
+
 // ─── Hero (landing page) ──────────────────────────────────────────────────────
 
 .hero-header {
