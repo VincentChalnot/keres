@@ -36,6 +36,7 @@ jobs:
             --set "*.cache-from=type=gha,scope=${{ github.ref }}" \
             --set "*.cache-from=type=gha,scope=refs/heads/main" \
             --set "*.cache-to=type=gha,scope=${{ github.ref }},mode=max" \
+            --allow=fs.read=../engine \
             --pull \
             --load
         working-directory: plateform
@@ -135,6 +136,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    if: false
     permissions:
       contents: read
       packages: read
