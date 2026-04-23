@@ -93,7 +93,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./plateform
-          file: ./plateform/Dockerfile.base
+          file: ./plateform/Dockerfile
           target: frankenphp_prod
           push: false
           load: true
