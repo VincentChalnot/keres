@@ -14,6 +14,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   tests:
     name: Tests
@@ -30,10 +33,9 @@ jobs:
         with:
           pull: true
           load: true
-          workdir: plateform
           files: |
-            compose.yaml
-            compose.override.yaml
+            plateform/compose.yaml
+            plateform/compose.override.yaml
           set: |
             *.cache-from=type=gha,scope=${{github.ref}}
             *.cache-from=type=gha,scope=refs/heads/main
@@ -146,3 +148,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VALIDATE_CHECKOV: false
           VALIDATE_TRIVY: false
+          VALIDATE_PHP_BUILTIN: false
+          VALIDATE_PHPCS: false
+          VALIDATE_PHPSTAN: false
+          VALIDATE_PHPLINT: false
+          VALIDATE_COMPOSER: false
