@@ -1,82 +1,12 @@
 #syntax=docker/dockerfile:1
 
-# Versions
-FROM dunglas/frankenphp:1-php8.4 AS frankenphp_upstream
+# The slow xcaddy build (FrankenPHP recompile with custom Caddy modules) lives in
+# Dockerfile.base and is published as ghcr.io/vincentchalnot/keres/php-base.
+# It is only rebuilt when Dockerfile.base changes (see .github/workflows/build-base.yaml).
+# This keeps the main CI build fast (~2 min instead of ~8 min).
 
-# The different stages of this Dockerfile are meant to be built into separate images
-# https://docs.docker.com/develop/develop-images/multistage-build/#stop-at-a-specific-build-stage
-# https://docs.docker.com/compose/compose-file/#target
-
-
-# Builder stage: recompile the FrankenPHP binary with extra Caddy modules
-# (caddy-dns/infomaniak for DNS-01 ACME challenge)
-FROM dunglas/frankenphp:1.12-builder-php8.4 AS frankenphp_builder
-
-COPY --from=caddy:builder /usr/bin/xcaddy /usr/bin/xcaddy
-
-RUN CGO_ENABLED=1 \
-    XCADDY_SETCAP=1 \
-    XCADDY_GO_BUILD_FLAGS="-ldflags='-w -s' -tags=nobadger,nomysql,nopgx" \
-    CGO_CFLAGS=$(php-config --includes) \
-    CGO_LDFLAGS="$(php-config --ldflags) $(php-config --libs)" \
-    xcaddy build \
-        --output /usr/local/bin/frankenphp \
-        --with github.com/dunglas/frankenphp=./ \
-        --with github.com/dunglas/frankenphp/caddy=./caddy/ \
-        --with github.com/dunglas/caddy-cbrotli \
-        --with github.com/dunglas/mercure/caddy \
-        --with github.com/dunglas/vulcain/caddy \
-        --with github.com/caddy-dns/infomaniak
-
-
-# Base FrankenPHP image
-FROM frankenphp_upstream AS frankenphp_base
-
-# Use the binary compiled with the Infomaniak DNS module
-COPY --from=frankenphp_builder /usr/local/bin/frankenphp /usr/local/bin/frankenphp
-
-WORKDIR /app
-
-VOLUME /app/var/
-
-# persistent / runtime deps
-# hadolint ignore=DL3008
-RUN apt-get update && apt-get install -y --no-install-recommends \
-	file \
-	git \
-	&& rm -rf /var/lib/apt/lists/*
-
-RUN set -eux; \
-	install-php-extensions \
-		@composer \
-		apcu \
-		intl \
-		opcache \
-		zip \
-	;
-
-# https://getcomposer.org/doc/03-cli.md#composer-allow-superuser
-ENV COMPOSER_ALLOW_SUPERUSER=1
-
-# Transport to use by Mercure (default to Bolt)
-#ENV MERCURE_EXTRA_DIRECTIVES="transport=bolt:///data/mercure.db"
-
-ENV PHP_INI_SCAN_DIR=":$PHP_INI_DIR/app.conf.d"
-
-###> recipes ###
-###> doctrine/doctrine-bundle ###
-RUN install-php-extensions pdo_pgsql
-###< doctrine/doctrine-bundle ###
-###< recipes ###
-
-COPY --link frankenphp/conf.d/10-app.ini $PHP_INI_DIR/app.conf.d/
-COPY --link --chmod=755 frankenphp/docker-entrypoint.sh /usr/local/bin/docker-entrypoint
-COPY --link frankenphp/Caddyfile /etc/frankenphp/Caddyfile
-
-ENTRYPOINT ["docker-entrypoint"]
-
-HEALTHCHECK --start-period=60s CMD curl -f http://localhost:2019/metrics || exit 1
-CMD [ "frankenphp", "run", "--config", "/etc/frankenphp/Caddyfile" ]
+# Base FrankenPHP image (pre-built with Infomaniak DNS module — see Dockerfile.base)
+FROM ghcr.io/vincentchalnot/keres/php-base AS frankenphp_base
 
 # Dev FrankenPHP image
 FROM frankenphp_base AS frankenphp_dev
