@@ -10,7 +10,7 @@ FROM dunglas/frankenphp:1-php8.4 AS frankenphp_upstream
 
 # Builder stage: recompile the FrankenPHP binary with extra Caddy modules
 # (caddy-dns/infomaniak for DNS-01 ACME challenge)
-FROM dunglas/frankenphp:1-php8.4-builder AS frankenphp_builder
+FROM dunglas/frankenphp:1.12-builder-php8.4 AS frankenphp_builder
 
 COPY --from=caddy:builder /usr/bin/xcaddy /usr/bin/xcaddy
 
