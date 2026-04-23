@@ -29,19 +29,19 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Build Docker images
-        uses: docker/bake-action@v6
-        with:
-          pull: true
-          load: true
-          files: |
-            plateform/compose.yaml
-            plateform/compose.override.yaml
-          set: |
-            *.cache-from=type=gha,scope=${{github.ref}}
-            *.cache-from=type=gha,scope=refs/heads/main
-            *.cache-to=type=gha,scope=${{github.ref}},mode=max
+        run: |
+          docker buildx bake \
+            --file compose.yaml \
+            --file compose.override.yaml \
+            --set "*.cache-from=type=gha,scope=${{ github.ref }}" \
+            --set "*.cache-from=type=gha,scope=refs/heads/main" \
+            --set "*.cache-to=type=gha,scope=${{ github.ref }},mode=max" \
+            --pull \
+            --load
+        working-directory: plateform
       - name: Start services
-        run: docker compose --file plateform/compose.yaml --file plateform/compose.override.yaml up --wait --no-build
+        run: docker compose --file compose.yaml --file compose.override.yaml up --wait --no-build
+        working-directory: plateform
       - name: Check HTTP reachability
         run: curl -v --fail-with-body http://localhost
       - name: Check HTTPS reachability
@@ -51,16 +51,20 @@ jobs:
         run: curl -vI --insecure --fail-with-body https://localhost/.well-known/mercure?topic=test
       - name: Create test database
         if: false # Remove this line if Doctrine ORM is installed
-        run: docker compose --file plateform/compose.yaml --file plateform/compose.override.yaml exec -T php bin/console -e test doctrine:database:create
+        run: docker compose --file compose.yaml --file compose.override.yaml exec -T php bin/console -e test doctrine:database:create
+        working-directory: plateform
       - name: Run migrations
         if: false # Remove this line if Doctrine Migrations is installed
-        run: docker compose --file plateform/compose.yaml --file plateform/compose.override.yaml exec -T php bin/console -e test doctrine:migrations:migrate --no-interaction
+        run: docker compose --file compose.yaml --file compose.override.yaml exec -T php bin/console -e test doctrine:migrations:migrate --no-interaction
+        working-directory: plateform
       - name: Run PHPUnit
         if: false # Remove this line if PHPUnit is installed
-        run: docker compose --file plateform/compose.yaml --file plateform/compose.override.yaml exec -T php bin/phpunit
+        run: docker compose --file compose.yaml --file compose.override.yaml exec -T php bin/phpunit
+        working-directory: plateform
       - name: Doctrine Schema Validator
         if: false # Remove this line if Doctrine ORM is installed
-        run: docker compose --file plateform/compose.yaml --file plateform/compose.override.yaml exec -T php bin/console -e test doctrine:schema:validate
+        run: docker compose --file compose.yaml --file compose.override.yaml exec -T php bin/console -e test doctrine:schema:validate
+        working-directory: plateform
 
   publish:
     name: Build & Push Images
@@ -149,7 +153,6 @@ jobs:
           VALIDATE_CHECKOV: false
           VALIDATE_TRIVY: false
           VALIDATE_PHP_BUILTIN: false
-          VALIDATE_PHPCS: false
-          VALIDATE_PHPSTAN: false
-          VALIDATE_PHPLINT: false
-          VALIDATE_COMPOSER: false
+          VALIDATE_PHP_PHPCS: false
+          VALIDATE_PHP_PHPSTAN: false
+          VALIDATE_PHP_PSALM: false
