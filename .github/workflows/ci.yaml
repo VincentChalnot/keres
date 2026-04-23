@@ -39,9 +39,8 @@ jobs:
           push: false
           load: true
           tags: ghcr.io/vincentchalnot/keres/php:${{ github.sha }}
-          cache-from: |
-            type=gha,scope=php
-          cache-to: type=gha,scope=php,mode=max
+          cache-from: type=gha,scope=php-plateform
+          cache-to: type=gha,scope=php-plateform,mode=max
 
       - name: Build php-worker image
         uses: docker/build-push-action@v6
@@ -52,9 +51,7 @@ jobs:
           push: false
           load: true
           tags: ghcr.io/vincentchalnot/keres/php-worker:${{ github.sha }}
-          cache-from: |
-            type=gha,scope=php-worker
-          cache-to: type=gha,scope=php-worker,mode=max
+          cache-from: type=gha,scope=php-plateform
 
       - name: Build backend image
         uses: docker/build-push-action@v6
@@ -116,7 +113,7 @@ jobs:
           tags: |
             ghcr.io/vincentchalnot/keres/php:latest
             ghcr.io/vincentchalnot/keres/php:${{ github.sha }}
-          cache-from: type=gha,scope=php
+          cache-from: type=gha,scope=php-plateform
 
       - name: Push php-worker image
         uses: docker/build-push-action@v6
@@ -128,7 +125,7 @@ jobs:
           tags: |
             ghcr.io/vincentchalnot/keres/php-worker:latest
             ghcr.io/vincentchalnot/keres/php-worker:${{ github.sha }}
-          cache-from: type=gha,scope=php-worker
+          cache-from: type=gha,scope=php-plateform
 
       - name: Push backend image
         uses: docker/build-push-action@v6
