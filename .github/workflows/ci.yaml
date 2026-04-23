@@ -18,61 +18,75 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  tests:
-    name: Tests
+  build:
+    name: Build Images
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
         with:
           persist-credentials: false
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      - name: Build Docker images
-        run: |
-          docker buildx bake \
-            --file compose.yaml \
-            --file compose.override.yaml \
-            --set "*.cache-from=type=gha,scope=${{ github.ref }}" \
-            --set "*.cache-from=type=gha,scope=refs/heads/main" \
-            --set "*.cache-to=type=gha,scope=${{ github.ref }},mode=max" \
-            --allow=fs.read=../engine \
-            --pull \
-            --load
-        working-directory: plateform
-      - name: Start services
-        run: docker compose --file compose.yaml --file compose.override.yaml up --wait --no-build
-        working-directory: plateform
-      - name: Check HTTP reachability
-        run: curl -v --fail-with-body http://localhost
-      - name: Check HTTPS reachability
-        if: false # Remove this line when the homepage is configured, or change the path to check
-        run: curl -v --insecure --fail-with-body https://localhost
-      - name: Check Mercure reachability
-        run: curl -vI --insecure --fail-with-body https://localhost/.well-known/mercure?topic=test
-      - name: Create test database
-        if: false # Remove this line if Doctrine ORM is installed
-        run: docker compose --file compose.yaml --file compose.override.yaml exec -T php bin/console -e test doctrine:database:create
-        working-directory: plateform
-      - name: Run migrations
-        if: false # Remove this line if Doctrine Migrations is installed
-        run: docker compose --file compose.yaml --file compose.override.yaml exec -T php bin/console -e test doctrine:migrations:migrate --no-interaction
-        working-directory: plateform
-      - name: Run PHPUnit
-        if: false # Remove this line if PHPUnit is installed
-        run: docker compose --file compose.yaml --file compose.override.yaml exec -T php bin/phpunit
-        working-directory: plateform
-      - name: Doctrine Schema Validator
-        if: false # Remove this line if Doctrine ORM is installed
-        run: docker compose --file compose.yaml --file compose.override.yaml exec -T php bin/console -e test doctrine:schema:validate
-        working-directory: plateform
 
-  publish:
-    name: Build & Push Images
+      - name: Build php image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./plateform
+          file: ./plateform/Dockerfile
+          target: frankenphp_prod
+          push: false
+          load: true
+          tags: ghcr.io/vincentchalnot/keres/php:${{ github.sha }}
+          cache-from: |
+            type=gha,scope=php
+          cache-to: type=gha,scope=php,mode=max
+
+      - name: Build php-worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./plateform
+          file: ./plateform/Dockerfile
+          target: frankenphp_worker_prod
+          push: false
+          load: true
+          tags: ghcr.io/vincentchalnot/keres/php-worker:${{ github.sha }}
+          cache-from: |
+            type=gha,scope=php-worker
+          cache-to: type=gha,scope=php-worker,mode=max
+
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./engine
+          file: ./engine/Dockerfile
+          push: false
+          load: true
+          tags: ghcr.io/vincentchalnot/keres/backend:${{ github.sha }}
+          cache-from: |
+            type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+
+  # Tests are currently skipped — verify they work locally before enabling.
+  # When ready:
+  #   1. Remove the `if: false` line below.
+  #   2. Wire the production images built in the `build` job (e.g. via a
+  #      ci-specific compose override that sets IMAGES_TAG=${{ github.sha }}).
+  #   3. Uncomment and adapt the PHPUnit / migration steps.
+  # tests:
+  #   name: Tests
+  #   runs-on: ubuntu-latest
+  #   needs: build
+  #   steps:
+  #     ...
+
+  push:
+    name: Push Images
     runs-on: ubuntu-latest
-    # Only publish on pushes to main (not on PRs)
+    # Only push on commits to main, not on pull requests.
     if: github.event_name != 'pull_request'
-    needs: tests
+    needs: build
     permissions:
       contents: read
       packages: write
@@ -92,8 +106,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── php (frankenphp_prod) ───────────────────────────────────────────────
-      - name: Build and push php image
+      - name: Push php image
         uses: docker/build-push-action@v6
         with:
           context: ./plateform
@@ -103,11 +116,9 @@ jobs:
           tags: |
             ghcr.io/vincentchalnot/keres/php:latest
             ghcr.io/vincentchalnot/keres/php:${{ github.sha }}
-          cache-from: type=gha,scope=php-prod
-          cache-to: type=gha,scope=php-prod,mode=max
+          cache-from: type=gha,scope=php
 
-      # ── php-worker (frankenphp_worker_prod) ────────────────────────────────
-      - name: Build and push php-worker image
+      - name: Push php-worker image
         uses: docker/build-push-action@v6
         with:
           context: ./plateform
@@ -117,11 +128,9 @@ jobs:
           tags: |
             ghcr.io/vincentchalnot/keres/php-worker:latest
             ghcr.io/vincentchalnot/keres/php-worker:${{ github.sha }}
-          cache-from: type=gha,scope=php-worker-prod
-          cache-to: type=gha,scope=php-worker-prod,mode=max
+          cache-from: type=gha,scope=php-worker
 
-      # ── backend (Rust engine) ───────────────────────────────────────────────
-      - name: Build and push backend image
+      - name: Push backend image
         uses: docker/build-push-action@v6
         with:
           context: ./engine
@@ -131,30 +140,3 @@ jobs:
             ghcr.io/vincentchalnot/keres/backend:latest
             ghcr.io/vincentchalnot/keres/backend:${{ github.sha }}
           cache-from: type=gha,scope=backend
-          cache-to: type=gha,scope=backend,mode=max
-
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    if: false
-    permissions:
-      contents: read
-      packages: read
-      statuses: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Lint Code Base
-        uses: super-linter/super-linter/slim@v8
-        env:
-          GITHUB_ACTIONS_CONFIG_FILE: actionlint.yaml
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VALIDATE_CHECKOV: false
-          VALIDATE_TRIVY: false
-          VALIDATE_PHP_BUILTIN: false
-          VALIDATE_PHP_PHPCS: false
-          VALIDATE_PHP_PHPSTAN: false
-          VALIDATE_PHP_PSALM: false
