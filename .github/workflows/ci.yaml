@@ -72,6 +72,9 @@ jobs:
     needs: build-base
     # Run whether build-base was skipped (no Dockerfile.base changes) or succeeded
     if: always() && needs.build-base.result != 'failure'
+    permissions:
+      contents: read
+      packages: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
