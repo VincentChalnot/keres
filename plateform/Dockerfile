@@ -96,6 +96,20 @@ COPY --link frankenphp/conf.d/20-app.dev.ini $PHP_INI_DIR/app.conf.d/
 
 CMD [ "frankenphp", "run", "--config", "/etc/frankenphp/Caddyfile", "--watch" ]
 
+# Node builder stage: compile frontend assets for production
+FROM node:24-alpine AS node_builder
+
+WORKDIR /app
+
+# Install dependencies first (layer-cached independently of source changes)
+COPY --link package.json package-lock.json ./
+RUN npm ci
+
+# Copy sources needed for the build
+COPY --link assets ./assets
+COPY --link vite.config.js tsconfig.json* ./
+RUN npm run build
+
 # Prod FrankenPHP image
 FROM frankenphp_base AS frankenphp_prod
 
@@ -112,6 +126,8 @@ RUN set -eux; \
 
 # copy sources
 COPY --link --exclude=frankenphp/ . ./
+# Inject the frontend assets built by node_builder (overrides the empty public/build/)
+COPY --from=node_builder /app/public/build ./public/build
 
 RUN set -eux; \
 	mkdir -p var/cache var/log var/share; \
