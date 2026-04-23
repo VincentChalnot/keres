@@ -7,7 +7,10 @@ pub mod move_ordering;
 pub mod negamax;
 pub mod quiescence;
 
-use crate::engine::constants::MAX_KILLER_DEPTH;
+use crate::engine::constants::{
+    BLUNDER_PROBABILITY, DEPTH_RANDOMIZATION_ENABLED, DEPTH_REDUCTION_PROBABILITY,
+    MAX_KILLER_DEPTH, MULTI_PV_COUNT,
+};
 use crate::engine::search::killer::KillerTable;
 use crate::engine::search::loop_detection::LoopDetector;
 use crate::engine::search::negamax::negamax;
@@ -16,6 +19,7 @@ use crate::engine::tt::TranspositionTable;
 use crate::engine::types::SearchConfig;
 use crate::game::Game;
 use crate::moves::Move;
+use rand::RngExt;
 use rayon::prelude::*;
 use std::time::Instant;
 
@@ -58,6 +62,7 @@ pub fn root_search(
     recorder: Option<&TreeRecorder>,
 ) -> RootSearchResult {
     let start = Instant::now();
+    let mut rng = rand::rng();
 
     // Generate all root moves.
     let potential_moves = game.get_all_moves();
@@ -76,6 +81,17 @@ pub fn root_search(
                 elapsed: start.elapsed(),
             },
         };
+    }
+
+    // ── Difficulty: depth randomization ──────────────────────────────────────
+    // Sometimes reduce the search depth by 1 at the root to weaken tactical
+    // accuracy.
+    let mut effective_config = config.clone();
+    if DEPTH_RANDOMIZATION_ENABLED
+        && effective_config.max_depth > 1
+        && rng.random_bool(DEPTH_REDUCTION_PROBABILITY)
+    {
+        effective_config.max_depth -= 1;
     }
 
     // Evaluate each root move in parallel.
@@ -107,7 +123,7 @@ pub fn root_search(
                 1,
                 -crate::engine::constants::KING_VALUE,
                 crate::engine::constants::KING_VALUE,
-                config,
+                &effective_config,
                 &mut ld,
                 &mut killers,
                 tt_ptr,
@@ -120,23 +136,29 @@ pub fn root_search(
         })
         .collect();
 
-    // Pick the best root move.
-    let (best_move, best_score) = results
-        .iter()
-        .max_by_key(|(_, s)| *s)
-        .map(|&(mv, s)| (Some(mv), s))
-        .unwrap_or((None, -crate::engine::constants::KING_VALUE));
+    // ── Difficulty: move selection ───────────────────────────────────────────
+    // Apply blunder or MultiPV pruning to introduce controlled imperfection.
+    let mut sorted_results = results;
+    sorted_results.sort_by(|a, b| b.1.cmp(&a.1));
+
+    let (chosen_move, chosen_score) =
+        if BLUNDER_PROBABILITY > 0.0 && rng.random_bool(BLUNDER_PROBABILITY) {
+            // Random blunder: pick any legal move uniformly at random.
+            let idx = rng.random_range(0..sorted_results.len());
+            sorted_results[idx]
+        } else {
+            // MultiPV pruning: pick uniformly at random among the top N candidates.
+            let top_n = sorted_results.len().min(MULTI_PV_COUNT).max(1);
+            let pick_idx = rng.random_range(0..top_n);
+            sorted_results[pick_idx]
+        };
 
     // Extract PV by re-running a single-threaded search and following best moves.
-    let pv = if let Some(bm) = best_move {
-        extract_pv(game, bm, config)
-    } else {
-        vec![]
-    };
+    let pv = extract_pv(game, chosen_move, &effective_config);
 
     RootSearchResult {
-        best_move,
-        best_score,
+        best_move: Some(chosen_move),
+        best_score: chosen_score,
         pv,
         stats: SearchStats {
             nodes_visited: 0, // simplified; full counting omitted for brevity
