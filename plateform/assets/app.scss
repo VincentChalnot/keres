@@ -21,14 +21,14 @@ $keres-bg: #010101;
 
 @font-face {
     font-family: 'Carolingia';
-    src: url('../public/fonts/carolingia.ttf') format('truetype');
+    src: url('/fonts/carolingia.ttf') format('truetype');
     font-weight: normal;
     font-style: normal;
 }
 
 @font-face {
     font-family: 'RomanSerif';
-    src: url('../public/fonts/RomanSerif.ttf') format('truetype');
+    src: url('/fonts/RomanSerif.ttf') format('truetype');
     font-weight: normal;
     font-style: normal;
 }
