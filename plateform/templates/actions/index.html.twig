@@ -35,7 +35,9 @@
             </ul>
         </div>
         <div class="section-img">
-            <img src="{{ asset('images/gameplay-preview.webp') }}" alt="Gameplay Preview"/>
+            <a href="{{ asset('images/board-art-01.webp') }}" class="lightbox-trigger">
+                <img src="{{ asset('images/gameplay-preview.webp') }}" alt="Gameplay Preview"/>
+            </a>
             <a href="{{ path('rules') }}" class="button is-rounded is-primary">Read the rules</a>
         </div>
     </section>
@@ -71,9 +73,11 @@
             <p class="title is-4">45€</p>
             <a href="#" class="button is-rounded is-primary">Pre-order Collector's Edition</a>
         </div>
-        <a class="section-img" href="{{ asset('/images/real_board_full.webp') }}" target="_blank">
-            <img src="{{ asset('/images/real_board_small.webp') }}" alt="Keres Box"/>
-        </a>
+        <div class="section-img">
+            <a href="{{ asset('/images/real_board_full.webp') }}" class="lightbox-trigger">
+                <img src="{{ asset('/images/real_board_small.webp') }}" alt="Keres Box"/>
+            </a>
+        </div>
     </section>
 
     <!-- Newsletter Section -->
@@ -97,6 +101,12 @@
                 updates. Unsubscribe anytime.</p>
         </div>
     </section>
+
+    <!-- Lightbox overlay -->
+    <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer">
+        <button class="lightbox__close" id="lightbox-close" aria-label="Close">&times;</button>
+        <img class="lightbox__img" id="lightbox-img" src="" alt=""/>
+    </div>
 
 {% endblock %}
 

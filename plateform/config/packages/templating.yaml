@@ -8,3 +8,9 @@ sidus_template:
             template: 'actions/play.html.twig'
         rules:
             template: 'actions/rules.html.twig'
+        legal_notice:
+            template: 'actions/legal_notice.html.twig'
+        terms:
+            template: 'actions/terms.html.twig'
+        contact:
+            template: 'actions/contact.html.twig'
