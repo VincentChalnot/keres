@@ -19,41 +19,66 @@
 </head>
 <body>
 {% block topnav %}
-    {#<nav class="site-topnav" aria-label="Main navigation">
-        <a href="{{ path('index') }}" class="site-topnav__logo" aria-label="Keres home">
-            <img src="{{ asset('rook.svg') }}" alt="" width="32" height="32" aria-hidden="true">
-            <span class="site-topnav__logo-text">Keres</span>
-        </a>
-        <div class="site-topnav__links">
-            {% block nav_extra %}{% endblock %}
-            <a href="{{ path('rules') }}" class="site-topnav__link">Rules</a>
-            <a href="{{ path('new_game') }}" class="site-topnav__link site-topnav__link--cta">Play</a>
-        </div>
-    </nav>#}
-    <nav class="navbar" role="navigation" aria-label="main navigation">
+    <nav class="navbar site-navbar" role="navigation" aria-label="Main navigation">
         <div class="container">
             <div class="navbar-brand">
-                <a class="navbar-item" href="/">
-                    <strong>KERES</strong>
+                <a class="navbar-item site-navbar__logo" href="{{ path('index') }}" aria-label="Keres home">
+                    <img src="{{ asset('rook.svg') }}" alt="" width="32" height="32" aria-hidden="true">
+                    <span class="site-navbar__logo-text">Keres</span>
                 </a>
             </div>
-            <div class="navbar-end">
-                <div class="navbar-item">
-                    {% if app.user %}
-                        {% if app.user.avatarUrl %}
-                            <img src="{{ app.user.avatarUrl }}" alt="Avatar" style="width:28px;height:28px;border-radius:50%;margin-right:8px;">
+            <div class="navbar-menu">
+                <div class="navbar-start">
+                    {% block nav_extra %}{% endblock %}
+                    <a href="{{ path('rules') }}" class="navbar-item">Rules</a>
+                </div>
+                <div class="navbar-end">
+                    <div class="navbar-item">
+                        <a href="{{ path('new_game') }}" class="button is-primary is-rounded is-small">Play</a>
+                    </div>
+                    <div class="navbar-item">
+                        {% if app.user %}
+                            {% if app.user.avatarUrl %}
+                                <img src="{{ app.user.avatarUrl }}" alt="Avatar" class="site-navbar__avatar">
+                            {% else %}
+                                <span class="icon mr-2">
+                                    <i class="fa-solid fa-circle-user" aria-hidden="true"></i>
+                                </span>
+                            {% endif %}
+                            <span class="site-navbar__username">{{ app.user.displayName ?? app.user.email }}</span>
+                            <a href="{{ path('logout') }}" class="button is-small is-rounded is-outlined is-light">
+                                <span class="icon">
+                                    <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+                                </span>
+                                <span>Logout</span>
+                            </a>
+                        {% else %}
+                            <a href="{{ path('login') }}" class="button is-small is-rounded is-outlined is-light">
+                                <span class="icon">
+                                    <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i>
+                                </span>
+                                <span>Login</span>
+                            </a>
                         {% endif %}
-                        <span style="margin-right:12px;">{{ app.user.displayName ?? app.user.email }}</span>
-                        <a href="{{ path('logout') }}" class="button is-small is-rounded is-outlined is-light">Logout</a>
-                    {% else %}
-                        <a href="{{ path('login') }}" class="button is-small is-rounded is-outlined is-light">Login</a>
-                    {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
     </nav>
 {% endblock %}
 {% block body %}{% endblock %}
+{% block footer %}
+<footer class="footer">
+    <div class="content has-text-centered">
+        <p>&copy; Keres 2025-2026</p>
+        <nav>
+            <a href="{{ path('legal_notice') }}">Mentions légales</a>
+            <a href="{{ path('terms') }}">Conditions générales de vente</a>
+            <a href="{{ path('contact') }}">Contact</a>
+        </nav>
+    </div>
+</footer>
+{% endblock %}
 {% block end_javascripts %}{% endblock %}
 </body>
 </html>

@@ -7,6 +7,7 @@
         "type-check": "tsc --noEmit"
     },
     "dependencies": {
+        "@fortawesome/fontawesome-free": "^7.2.0",
         "bulma": "^1.0.4",
         "cheerio": "^1.1.2",
         "sass": "^1.97.3",

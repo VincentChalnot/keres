@@ -98,14 +98,16 @@
         </div>
     </section>
 
-    <!-- Footer -->
+{% endblock %}
+
+{% block footer %}
     <footer class="footer">
         <div class="content has-text-centered">
             <p>&copy; Keres 2025-2026</p>
             <nav>
-                <a href="#">Legal Notice</a>
-                <a href="#">Terms of Sales</a>
-                <a href="#">Contact</a>
+                <a href="{{ path('legal_notice') }}">Mentions légales</a>
+                <a href="{{ path('terms') }}">Conditions générales de vente</a>
+                <a href="{{ path('contact') }}">Contact</a>
             </nav>
         </div>
     </footer>

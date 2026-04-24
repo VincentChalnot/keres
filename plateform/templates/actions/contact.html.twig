@@ -1,0 +1,68 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Contact{% endblock %}
+
+{% block body %}
+<main class="section">
+    <div class="container">
+        <div class="columns is-centered">
+            <div class="column is-7">
+                <h1 class="title">Nous contacter</h1>
+                <p class="subtitle">Une question sur le jeu, la plateforme, une commande ou un partenariat ? Utilisez le formulaire ci-dessous.</p>
+
+                {% if sent %}
+                    <div class="notification is-success">
+                        <strong>Votre message a bien été envoyé.</strong> Nous vous répondrons dans les meilleurs délais.
+                    </div>
+                {% endif %}
+
+                {{ form_start(form, {attr: {novalidate: 'novalidate', class: 'box'}}) }}
+
+                    <div class="field">
+                        {{ form_label(form.name, null, {label_attr: {class: 'label'}}) }}
+                        <div class="control">
+                            {{ form_widget(form.name, {attr: {class: 'input'}}) }}
+                        </div>
+                        {{ form_errors(form.name) }}
+                    </div>
+
+                    <div class="field">
+                        {{ form_label(form.email, null, {label_attr: {class: 'label'}}) }}
+                        <div class="control">
+                            {{ form_widget(form.email, {attr: {class: 'input'}}) }}
+                        </div>
+                        {{ form_errors(form.email) }}
+                    </div>
+
+                    <div class="field">
+                        {{ form_label(form.subject, null, {label_attr: {class: 'label'}}) }}
+                        <div class="control">
+                            {{ form_widget(form.subject, {attr: {class: 'input'}}) }}
+                        </div>
+                        {{ form_errors(form.subject) }}
+                    </div>
+
+                    <div class="field">
+                        {{ form_label(form.message, null, {label_attr: {class: 'label'}}) }}
+                        <div class="control">
+                            {{ form_widget(form.message, {attr: {class: 'textarea'}}) }}
+                        </div>
+                        {{ form_errors(form.message) }}
+                    </div>
+
+                    <p class="help mb-4">
+                        Les informations saisies dans ce formulaire sont utilisées uniquement pour répondre à votre demande et ne sont pas transmises à des tiers (RGPD).
+                    </p>
+
+                    <div class="field">
+                        <div class="control">
+                            {{ form_widget(form.submit, {attr: {class: 'button is-primary is-rounded'}}) }}
+                        </div>
+                    </div>
+
+                {{ form_end(form) }}
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}

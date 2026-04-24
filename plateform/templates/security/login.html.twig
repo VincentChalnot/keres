@@ -13,13 +13,22 @@
 
                         <div class="buttons is-centered">
                             <a href="{{ path('oidc_login', {provider: 'google'}) }}" class="button is-rounded is-light is-fullwidth mb-3">
-                                Login with Google
+                                <span class="icon">
+                                    <i class="fa-brands fa-google" aria-hidden="true"></i>
+                                </span>
+                                <span>Login with Google</span>
                             </a>
                             <a href="{{ path('oidc_login', {provider: 'discord'}) }}" class="button is-rounded is-light is-fullwidth mb-3">
-                                Login with Discord
+                                <span class="icon">
+                                    <i class="fa-brands fa-discord" aria-hidden="true"></i>
+                                </span>
+                                <span>Login with Discord</span>
                             </a>
                             <a href="{{ path('oidc_login', {provider: 'facebook'}) }}" class="button is-rounded is-light is-fullwidth mb-3">
-                                Login with Facebook
+                                <span class="icon">
+                                    <i class="fa-brands fa-facebook" aria-hidden="true"></i>
+                                </span>
+                                <span>Login with Facebook</span>
                             </a>
                         </div>
                     </div>
