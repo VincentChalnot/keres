@@ -35,7 +35,7 @@
             </ul>
         </div>
         <div class="section-img">
-            <img src="{{ asset('images/gameplay-preview.webp') }}" alt="Gameplay Preview" />
+            <img src="{{ asset('images/gameplay-preview.webp') }}" alt="Gameplay Preview"/>
             <a href="{{ path('rules') }}" class="button is-rounded is-primary">Read the rules</a>
         </div>
     </section>
@@ -43,7 +43,7 @@
     <!-- Author/Vision Section -->
     <section class="section section-flex">
         <div class="section-img">
-            <img src="{{ asset('images/avatar.webp') }}" alt="Author Avatar" />
+            <img src="{{ asset('images/avatar.webp') }}" alt="Author Avatar"/>
         </div>
         <div>
             <h3>Vincent Chalnot
@@ -64,9 +64,6 @@
 
     <!-- Pre-order Section -->
     <section class="section section-flex">
-        <div class="section-img">
-            <img src="{{ asset('/images/board-preview-sm.webp') }}" alt="Keres Box"/>
-        </div>
         <div>
             <h4>Collector's Edition</h4>
             <p>Pre-order the physical edition and own a piece of strategy
@@ -74,6 +71,9 @@
             <p class="title is-4">45€</p>
             <a href="#" class="button is-rounded is-primary">Pre-order Collector's Edition</a>
         </div>
+        <a class="section-img" href="{{ asset('/images/real_board_full.webp') }}" target="_blank">
+            <img src="{{ asset('/images/real_board_small.webp') }}" alt="Keres Box"/>
+        </a>
     </section>
 
     <!-- Newsletter Section -->
