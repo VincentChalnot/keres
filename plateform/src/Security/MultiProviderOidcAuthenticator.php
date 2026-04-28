@@ -16,10 +16,14 @@ use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPassport;
 use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface;
+use Symfony\Component\Security\Http\Util\TargetPathTrait;
 
 class MultiProviderOidcAuthenticator extends AbstractAuthenticator implements AuthenticationEntryPointInterface
 {
+    use TargetPathTrait;
+
     public const SESSION_PROVIDER_KEY = '_oidc_provider';
+    private const FIREWALL_NAME = 'main';
 
     public function __construct(
         private readonly OidcClientLocator $oidcClientLocator,
@@ -67,6 +71,11 @@ class MultiProviderOidcAuthenticator extends AbstractAuthenticator implements Au
     {
         $request->getSession()->remove(self::SESSION_PROVIDER_KEY);
 
+        $targetPath = $this->getTargetPath($request->getSession(), self::FIREWALL_NAME);
+        if ($targetPath) {
+            return new RedirectResponse($targetPath);
+        }
+
         return new RedirectResponse($this->router->generate('index'));
     }
 
@@ -79,6 +88,8 @@ class MultiProviderOidcAuthenticator extends AbstractAuthenticator implements Au
 
     public function start(Request $request, ?AuthenticationException $authException = null): Response
     {
+        $this->saveTargetPath($request->getSession(), self::FIREWALL_NAME, $request->getUri());
+
         return new RedirectResponse($this->router->generate('login'));
     }
 }

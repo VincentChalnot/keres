@@ -6,13 +6,13 @@ namespace App\Entity;
 use App\Repository\UserRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Doctrine\ORM\PersistentCollection;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: '`user`')]
-#[ORM\UniqueConstraint(name: 'uniq_provider_provider_id', columns: ['provider', 'provider_id'])]
 class User implements UserInterface
 {
     #[ORM\Id]
@@ -28,12 +28,6 @@ class User implements UserInterface
     #[ORM\Column(type: Types::STRING, length: 1024, nullable: true)]
     private ?string $avatarUrl = null;
 
-    #[ORM\Column(type: Types::STRING, length: 32)]
-    private string $provider;
-
-    #[ORM\Column(type: Types::STRING, length: 255)]
-    private string $providerId;
-
     /** @var string[] */
     #[ORM\Column(type: Types::JSON)]
     private array $roles = ['ROLE_USER'];
@@ -41,11 +35,12 @@ class User implements UserInterface
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
-    public function __construct(string $provider, string $providerId, string $email)
+    #[ORM\OneToMany(mappedBy: 'user', targetEntity: UserAuth::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    private PersistentCollection $auths;
+
+    public function __construct(string $email)
     {
         $this->id = Uuid::v4();
-        $this->provider = $provider;
-        $this->providerId = $providerId;
         $this->email = $email;
         $this->createdAt = new \DateTimeImmutable();
     }
@@ -91,16 +86,6 @@ class User implements UserInterface
         return $this;
     }
 
-    public function getProvider(): string
-    {
-        return $this->provider;
-    }
-
-    public function getProviderId(): string
-    {
-        return $this->providerId;
-    }
-
     /** @return string[] */
     public function getRoles(): array
     {
@@ -130,5 +115,10 @@ class User implements UserInterface
 
     public function eraseCredentials(): void
     {
+    }
+
+    public function getAuths(): PersistentCollection
+    {
+        return $this->auths;
     }
 }

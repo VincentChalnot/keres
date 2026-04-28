@@ -24,6 +24,7 @@ security:
 
     access_control:
         - { path: ^/admin, roles: ROLE_ADMIN }
+        - { path: ^/play, roles: ROLE_USER }
 
 when@test:
     security:

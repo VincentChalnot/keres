@@ -39,7 +39,12 @@ class NewGameAction extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             $data = $form->getData();
 
-            $game = new Game();
+            $user = $this->getUser();
+            if (!$user instanceof User) {
+                throw $this->createAccessDeniedException('User is required to create a game');
+            }
+
+            $game = new Game($user, $data['opponentType']);
             $game->setIsWhite(
                 match ($data['playerSide']) {
                     'white' => true,
@@ -47,12 +52,6 @@ class NewGameAction extends AbstractController
                     'random' => (bool) random_int(0, 1),
                 }
             );
-            $game->setOpponentType($data['opponentType']);
-
-            $user = $this->getUser();
-            if ($user instanceof User) {
-                $game->setOwner($user);
-            }
 
             $this->entityManager->persist($game);
             $this->entityManager->flush();
@@ -63,7 +62,12 @@ class NewGameAction extends AbstractController
         if ($this->publicMode) {
             $allGames = [];
         } else {
-            $allGames = $this->gameRepository->findAllActive();
+            $user = $this->getUser();
+            if ($user instanceof User) {
+                $allGames = $this->gameRepository->findAllActiveByOwner($user);
+            } else {
+                $allGames = [];
+            }
         }
 
         return [

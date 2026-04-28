@@ -1,3 +1,5 @@
+@use "sass:color";
+
 // ─── Bulma – must be first @use ───────────────────────────────────────────────
 // Pass brand colours directly so the @use call is the very first rule.
 
@@ -526,7 +528,7 @@ footer.footer {
     flex-shrink: 0;
 
     &:hover {
-        background: lighten($keres-dark, 10%);
+        background: color.adjust($keres-dark, $lightness: 10%);
     }
 }
 

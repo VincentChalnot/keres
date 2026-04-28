@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace App\Security;
 
 use App\Entity\User;
+use App\Entity\UserAuth;
+use App\Repository\UserAuthRepository;
 use App\Repository\UserRepository;
 use Drenso\OidcBundle\Model\OidcTokens;
 use Drenso\OidcBundle\Model\OidcUserData;
@@ -13,15 +15,13 @@ use Symfony\Component\Security\Core\Exception\UnsupportedUserException;
 use Symfony\Component\Security\Core\Exception\UserNotFoundException;
 use Symfony\Component\Security\Core\User\UserInterface;
 
-/**
- * @implements OidcUserProviderInterface<User>
- */
 class OidcUserProvider implements OidcUserProviderInterface
 {
     private ?string $currentProvider = null;
 
     public function __construct(
         private readonly UserRepository $userRepository,
+        private readonly UserAuthRepository $userAuthRepository,
         private readonly EntityManagerInterface $entityManager,
     ) {
     }
@@ -39,29 +39,31 @@ class OidcUserProvider implements OidcUserProviderInterface
         $displayName = $userData->getFullName() ?: $userData->getDisplayName() ?: null;
         $avatarUrl = $userData->getUserDataString('picture') ?: null;
 
-        $user = $this->userRepository->findByProviderAndProviderId($provider, $sub);
+        $existingAuth = $this->userAuthRepository->findByProviderAndProviderId($provider, $sub);
 
-        if ($user === null) {
-            // First login: create a new user
-            $user = new User($provider, $sub, $email);
-            $user->setDisplayName($displayName);
-            $user->setAvatarUrl($avatarUrl);
-            $this->entityManager->persist($user);
+        if ($existingAuth !== null) {
+            $existingAuth->getUser()->setDisplayName($displayName);
+            $existingAuth->getUser()->setAvatarUrl($avatarUrl);
         } else {
-            // Subsequent logins: update displayName and avatarUrl if changed, do NOT change email
-            $user->setDisplayName($displayName);
-            $user->setAvatarUrl($avatarUrl);
+            $user = $this->userRepository->findByEmail($email);
+
+            if ($user === null) {
+                $user = new User($email);
+                $user->setDisplayName($displayName);
+                $user->setAvatarUrl($avatarUrl);
+                $this->entityManager->persist($user);
+            } else {
+                $user->setDisplayName($displayName);
+                $user->setAvatarUrl($avatarUrl);
+            }
+
+            $auth = new UserAuth($user, $provider, $sub);
+            $this->entityManager->persist($auth);
         }
 
         $this->entityManager->flush();
     }
 
-    /**
-     * Resolve the user email from OIDC data, handling the case where Discord
-     * may not provide an email address.
-     *
-     * TODO: handle missing Discord email gracefully in the UI
-     */
     public static function resolveEmail(string $email, string $provider, string $sub, string $fallback = ''): string
     {
         if (empty($email) && $provider === 'discord') {

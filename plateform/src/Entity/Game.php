@@ -68,12 +68,13 @@ class Game
      * @param OpponentType $opponentType
      * @param bool|null $isWhite If null, will be chosen randomly
      */
-    public function __construct(OpponentType $opponentType = OpponentType::AI, ?bool $isWhite = null)
+    public function __construct(User $owner, OpponentType $opponentType = OpponentType::AI, ?bool $isWhite = null)
     {
         $this->uuid = Uuid::v4();
         $this->createdAt = new \DateTimeImmutable();
         $this->gameMoves = new ArrayCollection();
         $this->opponentTypeValue = $opponentType->value;
+        $this->owner = $owner;
         if ($isWhite === null) {
             $this->isWhite = (bool) random_int(0, 1);
         } else {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Repository;
 
 use App\Entity\Game;
+use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Uid\Uuid;
@@ -30,10 +31,12 @@ class GameRepository extends ServiceEntityRepository
     /**
      * @return Game[]
      */
-    public function findAllActive(): array
+    public function findAllActiveByOwner(User $owner): array
     {
         return $this->createQueryBuilder('g')
             ->andWhere('g.deletedAt IS NULL')
+            ->andWhere('g.owner = :owner')
+            ->setParameter('owner', $owner)
             ->orderBy('g.createdAt', 'DESC')
             ->getQuery()
             ->getResult();
