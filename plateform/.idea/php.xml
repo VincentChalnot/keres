@@ -42,7 +42,6 @@
       <path value="$PROJECT_DIR$/vendor/symfony/filesystem" />
       <path value="$PROJECT_DIR$/vendor/symfony/routing" />
       <path value="$PROJECT_DIR$/vendor/symfony/console" />
-      <path value="$PROJECT_DIR$/vendor/sidus/template-bundle" />
       <path value="$PROJECT_DIR$/vendor/composer" />
       <path value="$PROJECT_DIR$/vendor/runtime/frankenphp-symfony" />
       <path value="$PROJECT_DIR$/vendor/symfony/runtime" />
@@ -123,6 +122,13 @@
       <path value="$PROJECT_DIR$/vendor/symfony/mailer" />
       <path value="$PROJECT_DIR$/vendor/egulias/email-validator" />
       <path value="$PROJECT_DIR$/vendor/symfony/validator" />
+      <path value="$PROJECT_DIR$/vendor/pagerfanta/pagerfanta" />
+      <path value="$PROJECT_DIR$/vendor/symfony/translation" />
+      <path value="$PROJECT_DIR$/vendor/sidus/filter-bundle" />
+      <path value="$PROJECT_DIR$/vendor/sidus/datagrid-bundle" />
+      <path value="$PROJECT_DIR$/vendor/sidus/admin-bundle" />
+      <path value="$PROJECT_DIR$/vendor/sidus/template-bundle" />
+      <path value="$PROJECT_DIR$/vendor/symfony/web-profiler-bundle" />
     </include_path>
   </component>
   <component name="PhpInterpreters">

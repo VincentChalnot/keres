@@ -11,10 +11,13 @@
         "ext-iconv": "*",
         "doctrine/doctrine-bundle": "^2.18.2",
         "doctrine/doctrine-migrations-bundle": "^3.7",
-        "doctrine/orm": "^3.6.3",
+        "doctrine/orm": "^3.6.4",
         "drenso/symfony-oidc-bundle": "^4.3.1",
         "pentatrion/vite-bundle": "^8.2.4",
         "runtime/frankenphp-symfony": "^0.2.0",
+        "sidus/admin-bundle": "v5.x-dev",
+        "sidus/datagrid-bundle": "v4.x-dev",
+        "sidus/filter-bundle": "v6.x-dev",
         "sidus/template-bundle": ">=1",
         "symfony/asset": "7.3.*",
         "symfony/console": "7.3.*",
@@ -40,11 +43,20 @@
             "symfony/runtime": true
         },
         "bump-after-update": true,
+        "optimize-autoloader": true,
+        "preferred-install": {
+            "sidus/*": "source",
+            "*": "dist"
+        },
         "sort-packages": true
     },
     "autoload": {
         "psr-4": {
-            "App\\": "src/"
+            "App\\": "src/",
+            "Sidus\\AdminBundle\\": "vendor/sidus/admin-bundle",
+            "Sidus\\DataGridBundle\\": "vendor/sidus/datagrid-bundle",
+            "Sidus\\FilterBundle\\": "vendor/sidus/filter-bundle",
+            "Sidus\\TemplateBundle\\": "vendor/sidus/template-bundle"
         }
     },
     "autoload-dev": {
@@ -83,5 +95,9 @@
             "require": "7.3.*",
             "docker": true
         }
+    },
+    "require-dev": {
+        "symfony/stopwatch": "7.3.*",
+        "symfony/web-profiler-bundle": "7.3.*"
     }
 }

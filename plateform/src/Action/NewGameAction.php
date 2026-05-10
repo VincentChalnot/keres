@@ -21,8 +21,6 @@ class NewGameAction extends AbstractController
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly GameRepository $gameRepository,
-        #[Autowire(env: 'bool:APP_PUBLIC_MODE')]
-        private readonly bool $publicMode = true,
     ) {
     }
 
@@ -33,16 +31,16 @@ class NewGameAction extends AbstractController
     )]
     public function __(Request $request): RedirectResponse|array
     {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            throw $this->createAccessDeniedException('User is required to create a game');
+        }
+
         $form = $this->createForm(NewGameType::class);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
             $data = $form->getData();
-
-            $user = $this->getUser();
-            if (!$user instanceof User) {
-                throw $this->createAccessDeniedException('User is required to create a game');
-            }
 
             $game = new Game($user, $data['opponentType']);
             $game->setIsWhite(
@@ -59,20 +57,10 @@ class NewGameAction extends AbstractController
             return $this->redirectToRoute('play', ['uuid' => $game->getUuid()]);
         }
 
-        if ($this->publicMode) {
-            $allGames = [];
-        } else {
-            $user = $this->getUser();
-            if ($user instanceof User) {
-                $allGames = $this->gameRepository->findAllActiveByOwner($user);
-            } else {
-                $allGames = [];
-            }
-        }
+        $allGames = $this->gameRepository->findAllActiveByOwner($user);
 
         return [
             'form' => $form->createView(),
-            'publicMode' => $this->publicMode,
             'inProgressGames' => array_filter($allGames, static fn(Game $g) => !$g->isGameOver()),
             'finishedGames' => array_filter($allGames, static fn(Game $g) => $g->isGameOver()),
         ];
