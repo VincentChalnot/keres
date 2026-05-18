@@ -16,7 +16,7 @@ class UserAuth
 {
     #[ORM\Id]
     #[ORM\Column(type: 'uuid')]
-    private readonly Uuid $id;
+    private Uuid $id;
 
     #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'auths')]
     #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id', nullable: false)]

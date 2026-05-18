@@ -6,6 +6,7 @@ namespace App\Security;
 
 use Drenso\OidcBundle\OidcClientLocator;
 use Drenso\OidcBundle\Security\Exception\OidcAuthenticationException;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -23,13 +24,14 @@ class MultiProviderOidcAuthenticator extends AbstractAuthenticator implements Au
 {
     use TargetPathTrait;
 
-    public const SESSION_PROVIDER_KEY = '_oidc_provider';
-    private const FIREWALL_NAME = 'main';
+    public const string SESSION_PROVIDER_KEY = '_oidc_provider';
+    private const string FIREWALL_NAME = 'main';
 
     public function __construct(
         private readonly OidcClientLocator $oidcClientLocator,
         private readonly OidcUserProvider $oidcUserProvider,
         private readonly RouterInterface $router,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -44,13 +46,18 @@ class MultiProviderOidcAuthenticator extends AbstractAuthenticator implements Au
     {
         $provider = $request->getSession()->get(self::SESSION_PROVIDER_KEY, 'google');
         $this->oidcUserProvider->setProvider($provider);
+        $this->logger->info('OIDC Authentication started', ['provider' => $provider]);
 
         try {
+            $this->logger->info('Getting OIDC client for provider: ' . $provider);
             $client = $this->oidcClientLocator->getClient($provider);
+
+            $this->logger->info('Authenticating with OIDC client');
             $tokens = $client->authenticate($request);
             $userData = $client->retrieveUserInfo($tokens);
 
             $userIdentifier = $userData->getUserDataString('sub');
+            $this->logger->info('User identifier from sub claim', ['sub' => $userIdentifier]);
 
             if (empty($userIdentifier)) {
                 throw new AuthenticationException('No "sub" claim found in OIDC user data.');
@@ -58,7 +65,8 @@ class MultiProviderOidcAuthenticator extends AbstractAuthenticator implements Au
 
             $this->oidcUserProvider->ensureUserExists($userIdentifier, $userData, $tokens);
 
-            $email = OidcUserProvider::resolveEmail($userData->getEmail(), $provider, $userIdentifier);
+            $email = OidcUserProvider::resolveEmail($userData->getEmail(), $provider, $userIdentifier, $userIdentifier);
+            $this->logger->info('Email resolved', ['email' => $email]);
 
             return new SelfValidatingPassport(new UserBadge(
                 $email,

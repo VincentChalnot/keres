@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Entity;
 
 use App\Repository\UserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\ORM\PersistentCollection;
@@ -18,7 +20,7 @@ class User implements UserInterface
 {
     #[ORM\Id]
     #[ORM\Column(type: UuidType::NAME)]
-    private readonly Uuid $id;
+    private Uuid $id;
 
     #[ORM\Column(type: Types::STRING, length: 255, unique: true)]
     private string $email;
@@ -36,14 +38,21 @@ class User implements UserInterface
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
-    #[ORM\OneToMany(mappedBy: 'user', targetEntity: UserAuth::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
-    private PersistentCollection $auths;
+    /** @var Collection<UserAuth> */
+    #[ORM\OneToMany(
+        targetEntity: UserAuth::class,
+        mappedBy: 'user',
+        cascade: ['persist', 'remove'],
+        orphanRemoval: true,
+    )]
+    private Collection $auths;
 
     public function __construct(string $email)
     {
         $this->id = Uuid::v4();
         $this->email = $email;
         $this->createdAt = new \DateTimeImmutable();
+        $this->auths = new ArrayCollection();
     }
 
     public function getId(): Uuid
@@ -56,11 +65,9 @@ class User implements UserInterface
         return $this->email;
     }
 
-    public function setEmail(string $email): self
+    public function setEmail(string $email): void
     {
         $this->email = $email;
-
-        return $this;
     }
 
     public function getDisplayName(): ?string
@@ -68,11 +75,9 @@ class User implements UserInterface
         return $this->displayName;
     }
 
-    public function setDisplayName(?string $displayName): self
+    public function setDisplayName(?string $displayName): void
     {
         $this->displayName = $displayName;
-
-        return $this;
     }
 
     public function getAvatarUrl(): ?string
@@ -80,14 +85,14 @@ class User implements UserInterface
         return $this->avatarUrl;
     }
 
-    public function setAvatarUrl(?string $avatarUrl): self
+    public function setAvatarUrl(?string $avatarUrl): void
     {
         $this->avatarUrl = $avatarUrl;
-
-        return $this;
     }
 
-    /** @return string[] */
+    /**
+     * @return string[]
+     */
     public function getRoles(): array
     {
         $roles = $this->roles;
@@ -96,12 +101,12 @@ class User implements UserInterface
         return array_unique($roles);
     }
 
-    /** @param string[] $roles */
-    public function setRoles(array $roles): self
+    /**
+     * @param string[] $roles
+     */
+    public function setRoles(array $roles): void
     {
         $this->roles = $roles;
-
-        return $this;
     }
 
     public function getCreatedAt(): \DateTimeImmutable
@@ -118,8 +123,13 @@ class User implements UserInterface
     {
     }
 
-    public function getAuths(): PersistentCollection
+    public function getAuths(): Collection
     {
         return $this->auths;
+    }
+
+    public function addAuth(UserAuth $auth): void
+    {
+        $this->auths->add($auth);
     }
 }
