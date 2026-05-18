@@ -4,10 +4,10 @@
     <content url="file://$MODULE_DIR$">
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" packagePrefix="App\" />
       <sourceFolder url="file://$MODULE_DIR$/tests" isTestSource="true" packagePrefix="App\Tests\" />
-      <sourceFolder url="file://$MODULE_DIR$/vendor/sidus/admin-bundle" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/vendor/sidus/datagrid-bundle" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/vendor/sidus/filter-bundle" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/vendor/sidus/template-bundle" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/vendor/sidus/admin-bundle" isTestSource="false" packagePrefix="Sidus\AdminBundle\" />
+      <sourceFolder url="file://$MODULE_DIR$/vendor/sidus/datagrid-bundle" isTestSource="false" packagePrefix="Sidus\DataGridBundle\" />
+      <sourceFolder url="file://$MODULE_DIR$/vendor/sidus/filter-bundle" isTestSource="false" packagePrefix="Sidus\FilterBundle\" />
+      <sourceFolder url="file://$MODULE_DIR$/vendor/sidus/template-bundle" isTestSource="false" packagePrefix="Sidus\TemplateBundle\" />
       <excludeFolder url="file://$MODULE_DIR$/vendor/symfony/asset" />
       <excludeFolder url="file://$MODULE_DIR$/vendor/pentatrion/vite-bundle" />
       <excludeFolder url="file://$MODULE_DIR$/vendor/symfony/http-client" />

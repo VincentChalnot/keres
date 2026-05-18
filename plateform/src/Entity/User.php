@@ -17,7 +17,7 @@ class User implements UserInterface
 {
     #[ORM\Id]
     #[ORM\Column(type: UuidType::NAME)]
-    private readonly Uuid $id;
+    private Uuid $id;
 
     #[ORM\Column(type: Types::STRING, length: 255, unique: true)]
     private string $email;
