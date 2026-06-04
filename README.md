@@ -11,7 +11,7 @@
 
 🎮 **[Play now at playkeres.com](http://playkeres.com)**
 
-!["Board illustration"](plateform/public/images/board-art-03.webp "Board illustration")
+!["Board illustration"](platform/public/images/board-art-03.webp "Board illustration")
 
 ---
 
@@ -132,9 +132,9 @@ Deployed via Docker Compose + CI/CD pipeline
 
 ## Screenshots
 
-> ![SCREENSHOT: Homepage / game list](plateform/public/images/screenshot-homepage.webp)
+> ![SCREENSHOT: Homepage / game list](platform/public/images/screenshot-homepage.webp)
 
-> ![In-game board — mid-game position](plateform/public/images/screenshot-gameplay.webp)
+> ![In-game board — mid-game position](platform/public/images/screenshot-gameplay.webp)
 
 ---
 
@@ -146,7 +146,7 @@ production series uses turned Jura wood pieces, engraved with an [xTool F1](http
 The web platform and physical product are complementary distribution channels: the platform reaches players who prefer
 digital play; the physical version targets events and influencer seeding.
 
-> ![Physical prototype — wooden pieces on board](plateform/public/images/real_board_full.webp)
+> ![Physical prototype — wooden pieces on board](platform/public/images/real_board_full.webp)
  
 ---
 

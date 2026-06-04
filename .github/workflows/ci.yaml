@@ -36,7 +36,7 @@ jobs:
       - name: Check if Dockerfile.base changed
         id: filter
         run: |
-          if git diff --name-only HEAD^ HEAD 2>/dev/null | grep -q '^plateform/Dockerfile.base$'; then
+          if git diff --name-only HEAD^ HEAD 2>/dev/null | grep -q '^platform/Dockerfile.base$'; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -57,8 +57,8 @@ jobs:
         if: steps.filter.outputs.changed == 'true'
         uses: docker/build-push-action@v6
         with:
-          context: ./plateform
-          file: ./plateform/Dockerfile.base
+          context: ./platform
+          file: ./platform/Dockerfile.base
           push: true
           tags: |
             ghcr.io/vincentchalnot/keres/php-base:latest
@@ -94,25 +94,25 @@ jobs:
       - name: Build php image
         uses: docker/build-push-action@v6
         with:
-          context: ./plateform
-          file: ./plateform/Dockerfile
+          context: ./platform
+          file: ./platform/Dockerfile
           target: frankenphp_prod
           push: false
           load: true
           tags: ghcr.io/vincentchalnot/keres/php:${{ github.sha }}
-          cache-from: type=gha,scope=php-plateform
-          cache-to: type=gha,scope=php-plateform,mode=max
+          cache-from: type=gha,scope=php-platform
+          cache-to: type=gha,scope=php-platform,mode=max
 
       - name: Build php-worker image
         uses: docker/build-push-action@v6
         with:
-          context: ./plateform
-          file: ./plateform/Dockerfile
+          context: ./platform
+          file: ./platform/Dockerfile
           target: frankenphp_worker_prod
           push: false
           load: true
           tags: ghcr.io/vincentchalnot/keres/php-worker:${{ github.sha }}
-          cache-from: type=gha,scope=php-plateform
+          cache-from: type=gha,scope=php-platform
 
       - name: Build backend image
         uses: docker/build-push-action@v6
@@ -167,26 +167,26 @@ jobs:
       - name: Push php image
         uses: docker/build-push-action@v6
         with:
-          context: ./plateform
-          file: ./plateform/Dockerfile
+          context: ./platform
+          file: ./platform/Dockerfile
           target: frankenphp_prod
           push: true
           tags: |
             ghcr.io/vincentchalnot/keres/php:latest
             ghcr.io/vincentchalnot/keres/php:${{ github.sha }}
-          cache-from: type=gha,scope=php-plateform
+          cache-from: type=gha,scope=php-platform
 
       - name: Push php-worker image
         uses: docker/build-push-action@v6
         with:
-          context: ./plateform
-          file: ./plateform/Dockerfile
+          context: ./platform
+          file: ./platform/Dockerfile
           target: frankenphp_worker_prod
           push: true
           tags: |
             ghcr.io/vincentchalnot/keres/php-worker:latest
             ghcr.io/vincentchalnot/keres/php-worker:${{ github.sha }}
-          cache-from: type=gha,scope=php-plateform
+          cache-from: type=gha,scope=php-platform
 
       - name: Push backend image
         uses: docker/build-push-action@v6

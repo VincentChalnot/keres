@@ -19,7 +19,7 @@ For production, you should use a process supervisor like Supervisor or systemd t
 Create `/etc/supervisor/conf.d/keres-messenger.conf`:
 ```ini
 [program:keres-messenger]
-command=php /path/to/plateform/bin/console messenger:consume async --time-limit=3600
+command=php /path/to/platform/bin/console messenger:consume async --time-limit=3600
 user=www-data
 numprocs=2
 startsecs=0
