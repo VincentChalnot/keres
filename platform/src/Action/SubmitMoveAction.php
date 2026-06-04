@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Action;
@@ -38,6 +39,7 @@ readonly class SubmitMoveAction
     public function __(string $uuid, Request $request): Response
     {
         $game = $this->gameRepository->findByUuid(Uuid::fromString($uuid));
+
         if (!$game) {
             return new JsonResponse(
                 ['error' => 'Game not found'],
@@ -53,7 +55,7 @@ readonly class SubmitMoveAction
         }
 
         // In AI mode, validate that it's the player's turn
-        if (($game->getOpponentType() === OpponentType::AI) && $game->isWhiteTurn() !== $game->isWhite()) {
+        if ((OpponentType::AI === $game->getOpponentType()) && $game->isWhiteTurn() !== $game->isWhite()) {
             // Check if it's the player's turn
             return new JsonResponse(
                 ['error' => 'Not your turn'],
@@ -80,7 +82,7 @@ readonly class SubmitMoveAction
         }
 
         // For AI mode, return the response and dispatch async message to process AI move
-        if (!$game->isGameOver() && $game->getOpponentType() === OpponentType::AI) {
+        if (!$game->isGameOver() && OpponentType::AI === $game->getOpponentType()) {
             $this->messageBus->dispatch(
                 new ProcessAiMoveMessage(
                     $uuid,

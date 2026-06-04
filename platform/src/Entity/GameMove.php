@@ -1,6 +1,8 @@
 <?php
-/** @noinspection PhpClassCanBeReadonlyInspection */
+
 declare(strict_types=1);
+
+/** @noinspection PhpClassCanBeReadonlyInspection */
 
 namespace App\Entity;
 

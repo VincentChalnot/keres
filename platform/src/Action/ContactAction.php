@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Action;
@@ -7,7 +8,6 @@ use App\Form\ContactType;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
@@ -21,7 +21,8 @@ class ContactAction
         private readonly FormFactoryInterface $formFactory,
         private readonly MailerInterface $mailer,
         private readonly UrlGeneratorInterface $urlGenerator,
-    ) {}
+    ) {
+    }
 
     #[Route(
         path: '/contact',
@@ -40,8 +41,8 @@ class ContactAction
                 ->from('no-reply@keres.fr')
                 ->to('contact@keres.fr')
                 ->replyTo($data['email'])
-                ->subject('[Keres Contact] ' . $data['subject'])
-                ->text(sprintf(
+                ->subject('[Keres Contact] '.$data['subject'])
+                ->text(\sprintf(
                     "Nom : %s\nE-mail : %s\n\nMessage :\n%s",
                     $data['name'],
                     $data['email'],

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Entity;
@@ -65,7 +66,6 @@ class Game
     private Collection $gameMoves;
 
     /**
-     * @param OpponentType $opponentType
      * @param bool|null $isWhite If null, will be chosen randomly
      */
     public function __construct(User $owner, OpponentType $opponentType = OpponentType::AI, ?bool $isWhite = null)
@@ -75,7 +75,8 @@ class Game
         $this->gameMoves = new ArrayCollection();
         $this->opponentTypeValue = $opponentType->value;
         $this->owner = $owner;
-        if ($isWhite === null) {
+
+        if (null === $isWhite) {
             $this->isWhite = (bool) random_int(0, 1);
         } else {
             $this->isWhite = $isWhite;
@@ -183,7 +184,7 @@ class Game
 
     public function isDeleted(): bool
     {
-        return $this->deletedAt !== null;
+        return null !== $this->deletedAt;
     }
 
     public function getOwner(): ?User
@@ -200,7 +201,7 @@ class Game
 
     public function isGameOver(): bool
     {
-        return $this->gameOverAt !== null;
+        return null !== $this->gameOverAt;
     }
 
     /**
@@ -213,7 +214,7 @@ class Game
 
     public function isWhiteTurn(): bool
     {
-        return $this->gameMoves->count() % 2 === 0;
+        return 0 === $this->gameMoves->count() % 2;
     }
 
     public function addMove(Move $move): GameMove
@@ -227,7 +228,8 @@ class Game
     public function getLastMoveAt(): ?\DateTimeImmutable
     {
         $lastMove = $this->gameMoves->last();
-        if ($lastMove === false) {
+
+        if (false === $lastMove) {
             return null;
         }
 
@@ -237,6 +239,7 @@ class Game
     public function getMovesData(): MovesData
     {
         $data = new MovesData();
+
         foreach ($this->gameMoves as $moveEntity) {
             $data->addMove($moveEntity->getMove()->getMoveData());
         }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Engine;
 
 use App\Entity\Game;
@@ -25,6 +27,7 @@ readonly class GameEngine
     {
         $movesData = $game->getMovesData();
         $boardData = $this->engineApi->replayMoves($movesData);
+
         return new BoardMovesData($boardData, $movesData);
     }
 
@@ -43,6 +46,7 @@ readonly class GameEngine
 
         try {
             $connection->beginTransaction();
+
             try {
                 $newMove = $this->boardTreeManager->getGameMove($game, $boardMovesData);
                 $this->entityManager->persist($newMove);
@@ -65,7 +69,8 @@ readonly class GameEngine
                         'UPDATE '.$tableName.' SET version = version + 1 WHERE id = :id AND version = :version',
                         ['id' => $game->getId(), 'version' => $expectedVersion]
                     );
-                    if ($rowsAffected === 0) {
+
+                    if (0 === $rowsAffected) {
                         throw OptimisticLockException::lockFailed($game);
                     }
                 }
@@ -73,6 +78,7 @@ readonly class GameEngine
                 $connection->commit();
             } catch (\Throwable $e) {
                 $connection->rollBack();
+
                 throw $e;
             }
         } finally {

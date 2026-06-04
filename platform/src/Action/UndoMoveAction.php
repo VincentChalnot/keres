@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Action;
@@ -45,10 +46,11 @@ readonly class UndoMoveAction
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        $this->entityManager->wrapInTransaction(function (EntityManagerInterface $em) use ($game) {
+        $this->entityManager->wrapInTransaction(function (EntityManagerInterface $em) use ($game): void {
             $lastMove = $this->removeLastMoveFromGame($game);
             $em->remove($lastMove);
-            if ($game->getOpponentType() === OpponentType::AI) {
+
+            if (OpponentType::AI === $game->getOpponentType()) {
                 // In AI mode, undo both player move and AI response
                 try {
                     $aiLastMove = $this->removeLastMoveFromGame($game);
@@ -69,7 +71,8 @@ readonly class UndoMoveAction
     private function removeLastMoveFromGame($game): GameMove
     {
         $lastElement = $game->getGameMoves()->last();
-        if ($lastElement === false) {
+
+        if (false === $lastElement) {
             throw new \LogicException('Unexpected error retrieving last move.');
         }
         $game->getGameMoves()->removeElement($lastElement);

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Model;
@@ -28,7 +29,7 @@ readonly class BoardData
 
     public function __construct(public string $data)
     {
-        if (strlen($data) !== self::BOARD_DATA_SIZE) {
+        if (self::BOARD_DATA_SIZE !== \strlen($data)) {
             throw new \InvalidArgumentException('Invalid board data size');
         }
         /** @var int $flags */
@@ -37,7 +38,7 @@ readonly class BoardData
         $this->gameOver = (bool) ($flags & 0b01000000);
         $this->whiteWins = (bool) ($flags & 0b00100000);
         $this->draw = (bool) ($flags & 0b00010000);
-        $this->movesWithoutCapture = ord($data[82]);
+        $this->movesWithoutCapture = \ord($data[82]);
     }
 
     public function getPositionData(): string

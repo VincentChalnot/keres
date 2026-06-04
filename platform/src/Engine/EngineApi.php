@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Engine;
@@ -32,7 +33,7 @@ readonly class EngineApi
 
     private function callApi(string $endpoint, string $body): string
     {
-        $url = rtrim($this->backendApiUrl, '/') . '/' . ltrim($endpoint, '/');
+        $url = rtrim($this->backendApiUrl, '/').'/'.ltrim($endpoint, '/');
         $apiResponse = $this->httpClient->request(
             'POST',
             $url,
@@ -43,10 +44,9 @@ readonly class EngineApi
                 ],
             ]
         );
-        if ($apiResponse->getStatusCode() !== 200) {
-            throw new \RuntimeException(
-                "API call to {$endpoint} failed with status code ".$apiResponse->getStatusCode()
-            );
+
+        if (200 !== $apiResponse->getStatusCode()) {
+            throw new \RuntimeException("API call to {$endpoint} failed with status code ".$apiResponse->getStatusCode());
         }
 
         return $apiResponse->getContent();

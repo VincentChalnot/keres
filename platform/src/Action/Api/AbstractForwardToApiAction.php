@@ -1,15 +1,14 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Action\Api;
 
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Attribute\AsController;
-use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-readonly abstract class AbstractForwardToApiAction
+abstract readonly class AbstractForwardToApiAction
 {
     public function __construct(
         private HttpClientInterface $httpClient,
@@ -22,7 +21,7 @@ readonly abstract class AbstractForwardToApiAction
         // Remove the '/api' prefix using regexp to forward to the backend service
         $requestUri = preg_replace('#^/api#', '', $request->getRequestUri());
 
-        $url = rtrim($this->backendApiUrl, '/') . $requestUri;
+        $url = rtrim($this->backendApiUrl, '/').$requestUri;
         $apiResponse = $this->httpClient->request(
             $request->getMethod(),
             $url,

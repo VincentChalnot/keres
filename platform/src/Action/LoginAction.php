@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Action;
@@ -36,7 +37,8 @@ class LoginAction extends AbstractController
     public function oidcLogin(string $provider, Request $request): RedirectResponse
     {
         $validProviders = ['google', 'discord', 'facebook'];
-        if (!in_array($provider, $validProviders, true)) {
+
+        if (!\in_array($provider, $validProviders, true)) {
             throw $this->createNotFoundException('Unknown provider.');
         }
 

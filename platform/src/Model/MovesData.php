@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Model;
@@ -27,15 +28,18 @@ class MovesData
     public function addMove(MoveData $moveData): self
     {
         $this->moves[] = $moveData;
+
         return $this;
     }
 
     public function toBinary(): string
     {
         $data = '';
+
         foreach ($this->moves as $move) {
             $data .= $move->data;
         }
+
         return $data;
     }
 }

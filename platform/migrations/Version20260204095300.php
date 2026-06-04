@@ -8,7 +8,7 @@ use Doctrine\DBAL\Schema\Schema;
 use Doctrine\Migrations\AbstractMigration;
 
 /**
- * Add messenger transport tables
+ * Add messenger transport tables.
  */
 final class Version20260204095300 extends AbstractMigration
 {

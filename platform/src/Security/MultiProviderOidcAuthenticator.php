@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Security;
@@ -34,7 +35,7 @@ class MultiProviderOidcAuthenticator extends AbstractAuthenticator implements Au
 
     public function supports(Request $request): ?bool
     {
-        return $request->attributes->get('_route') === 'oidc_login_check'
+        return 'oidc_login_check' === $request->attributes->get('_route')
             && $request->query->has('code')
             && $request->query->has('state');
     }
@@ -50,6 +51,7 @@ class MultiProviderOidcAuthenticator extends AbstractAuthenticator implements Au
             $userData = $client->retrieveUserInfo($tokens);
 
             $userIdentifier = $userData->getUserDataString('sub');
+
             if (empty($userIdentifier)) {
                 throw new AuthenticationException('No "sub" claim found in OIDC user data.');
             }
@@ -72,6 +74,7 @@ class MultiProviderOidcAuthenticator extends AbstractAuthenticator implements Au
         $request->getSession()->remove(self::SESSION_PROVIDER_KEY);
 
         $targetPath = $this->getTargetPath($request->getSession(), self::FIREWALL_NAME);
+
         if ($targetPath) {
             return new RedirectResponse($targetPath);
         }

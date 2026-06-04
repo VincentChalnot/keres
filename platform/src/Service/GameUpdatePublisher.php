@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Service;
@@ -34,7 +35,7 @@ readonly class GameUpdatePublisher
 
         $update = new Update(
             "game/{$gameUuid}",
-            json_encode($data, JSON_THROW_ON_ERROR),
+            json_encode($data, \JSON_THROW_ON_ERROR),
         );
 
         $this->hub->publish($update);

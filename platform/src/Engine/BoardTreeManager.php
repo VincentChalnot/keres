@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Engine;
@@ -28,12 +29,14 @@ readonly class BoardTreeManager
         $toBoardPosition = $this->getBoardPosition($boardMovesData->boardData);
 
         $lastMove = $game->getGameMoves()->last();
+
         if (!$lastMove) {
             $fromBoardPosition = $this->getRootBoardPosition();
         } else {
             $fromBoardPosition = $lastMove->getMove()->getToBoardPosition();
         }
         $lastMoveData = $boardMovesData->movesData->getMoves()->last();
+
         if (!$lastMoveData instanceof MoveData) {
             throw new \RuntimeException('No moves found in BoardMovesData');
         }
@@ -49,6 +52,7 @@ readonly class BoardTreeManager
             'moveData' => $moveData->data,
             'fromBoardPosition' => $fromBoardPosition,
         ]);
+
         if ($move) {
             if ($move->getToBoardPosition() !== $toBoardPosition) {
                 throw new \RuntimeException('Inconsistent toBoardPosition for existing Move');
@@ -57,19 +61,19 @@ readonly class BoardTreeManager
             $move = new Move($moveData, $fromBoardPosition, $toBoardPosition);
 
             $em = $this->getEntityManager();
-            $em->wrapInTransaction(function (EntityManagerInterface $em) use ($toBoardPosition, $move) {
+            $em->wrapInTransaction(static function (EntityManagerInterface $em) use ($toBoardPosition, $move): void {
                 $em->persist($toBoardPosition);
                 $em->persist($move);
             });
         }
 
         return $move;
-
     }
 
     private function getEntityManager(): EntityManagerInterface
     {
         $em = $this->managerRegistry->getManagerForClass(Move::class);
+
         if (!$em) {
             throw new \RuntimeException('No entity manager found for Move class');
         }
@@ -81,6 +85,7 @@ readonly class BoardTreeManager
     {
         $em = $this->getEntityManager();
         $repository = $em->getRepository($entityClass);
+
         if (!$repository instanceof EntityRepository) {
             throw new \RuntimeException("Repository for {$entityClass} is not an EntityRepository");
         }
@@ -99,10 +104,11 @@ readonly class BoardTreeManager
     {
         $repo = $this->getRepository(BoardPosition::class);
         $boardPosition = $repo->findOneBy(['boardPositionData' => $boardData->getPositionData()]);
+
         if (!$boardPosition) {
             $boardPosition = new BoardPosition($boardData);
             $em = $this->managerRegistry->getManager();
-            $em->wrapInTransaction(function (EntityManagerInterface $em) use ($boardPosition) {
+            $em->wrapInTransaction(static function (EntityManagerInterface $em) use ($boardPosition): void {
                 $em->persist($boardPosition);
             });
         }

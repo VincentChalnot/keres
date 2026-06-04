@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Action;
@@ -40,6 +41,7 @@ class NewGameAction extends AbstractController
             $data = $form->getData();
 
             $user = $this->getUser();
+
             if (!$user instanceof User) {
                 throw $this->createAccessDeniedException('User is required to create a game');
             }
@@ -63,6 +65,7 @@ class NewGameAction extends AbstractController
             $allGames = [];
         } else {
             $user = $this->getUser();
+
             if ($user instanceof User) {
                 $allGames = $this->gameRepository->findAllActiveByOwner($user);
             } else {
@@ -73,8 +76,8 @@ class NewGameAction extends AbstractController
         return [
             'form' => $form->createView(),
             'publicMode' => $this->publicMode,
-            'inProgressGames' => array_filter($allGames, static fn(Game $g) => !$g->isGameOver()),
-            'finishedGames' => array_filter($allGames, static fn(Game $g) => $g->isGameOver()),
+            'inProgressGames' => array_filter($allGames, static fn (Game $g) => !$g->isGameOver()),
+            'finishedGames' => array_filter($allGames, static fn (Game $g) => $g->isGameOver()),
         ];
     }
 }

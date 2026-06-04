@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Model;
@@ -9,7 +10,7 @@ readonly class MoveData
 
     public function __construct(public string $data)
     {
-        if (strlen($data) !== self::MOVE_DATA_SIZE) {
+        if (self::MOVE_DATA_SIZE !== \strlen($data)) {
             throw new \InvalidArgumentException('Invalid move data size');
         }
     }

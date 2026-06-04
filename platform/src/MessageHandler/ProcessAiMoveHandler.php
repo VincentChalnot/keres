@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\MessageHandler;
@@ -23,6 +24,7 @@ readonly class ProcessAiMoveHandler
     public function __invoke(ProcessAiMoveMessage $message): void
     {
         $game = $this->gameRepository->findByUuid(Uuid::fromString($message->gameUuid));
+
         if (!$game) {
             throw new \RuntimeException('Game not found: '.$message->gameUuid);
         }
