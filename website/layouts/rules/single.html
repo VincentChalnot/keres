@@ -1,0 +1,61 @@
+{{ define "title" }}{{ i18n "rules_title" }}{{ end }}
+
+{{ define "main" }}
+<section class="px-4 py-8">
+  <div class="container mx-auto max-w-3xl">
+    <h2>{{ i18n "rules_title" }}</h2>
+    <p class="intro">{{ i18n "rules_intro" }}</p>
+
+    <h3>{{ i18n "rules_objective_title" }}</h3>
+    <div class="callout callout-warning">
+      <strong>{{ i18n "rules_objective_text" }}</strong>
+    </div>
+
+    <h3>{{ i18n "rules_basics_title" }}</h3>
+    <ul>
+      <li>{{ i18n "rules_basics_1" }}</li>
+      <li>{{ i18n "rules_basics_2" }}</li>
+      <li>{{ i18n "rules_basics_3" }}</li>
+      <li>{{ i18n "rules_basics_4" }}</li>
+      <li>{{ i18n "rules_basics_5" }}</li>
+    </ul>
+
+    <h3>{{ i18n "rules_stacking_title" }}</h3>
+    <p>{{ i18n "rules_stacking_text" }}</p>
+    <h4>{{ i18n "rules_stacking_conditions_title" }}</h4>
+    <ul>
+      <li>{{ i18n "rules_stacking_cond_1" }}</li>
+      <li>{{ i18n "rules_stacking_cond_2" }}</li>
+      <li>{{ i18n "rules_stacking_cond_3" }}</li>
+    </ul>
+
+    <div class="callout">
+      <strong>{{ i18n "rules_separation_title" }}</strong> {{ i18n "rules_separation_text" }}
+    </div>
+
+    <h3>🎲 {{ i18n "rules_position_title" }}</h3>
+    <img src="/images/movesets/Start.svg" class="board-start" alt="Start position"/>
+
+    <div style="page-break-after: always"></div>
+    <h3>♟️ {{ i18n "rules_pieces_title" }}</h3>
+
+    <div class="piece-grid">
+      {{ partial "piece-card.html" (dict "key" "ballista" "name" (i18n "piece_ballista") "symbol" (i18n "piece_symbol_ballista") "image" "Ballista" "movement" (i18n "move_ballista") "note" (i18n "note_ballista")) }}
+      {{ partial "piece-card.html" (dict "key" "rook" "name" (i18n "piece_rook") "symbol" (i18n "piece_symbol_rook") "image" "Rook" "movement" (i18n "move_rook")) }}
+      {{ partial "piece-card.html" (dict "key" "bishop" "name" (i18n "piece_bishop") "symbol" (i18n "piece_symbol_bishop") "image" "Bishop" "movement" (i18n "move_bishop")) }}
+      {{ partial "piece-card.html" (dict "key" "king" "name" (i18n "piece_king") "symbol" (i18n "piece_symbol_king") "image" "King" "movement" (i18n "move_king") "note" (i18n "note_king")) }}
+      {{ partial "piece-card.html" (dict "key" "soldier" "name" (i18n "piece_soldier") "symbol" (i18n "piece_symbol_soldier") "image" "Soldier" "movement" (i18n "move_soldier") "note" (i18n "note_soldier")) }}
+      {{ partial "piece-card.html" (dict "key" "paladin" "name" (i18n "piece_paladin") "symbol" (i18n "piece_symbol_paladin") "image" "Paladin" "movement" (i18n "move_paladin")) }}
+      {{ partial "piece-card.html" (dict "key" "guard" "name" (i18n "piece_guard") "symbol" (i18n "piece_symbol_guard") "image" "Guard" "movement" (i18n "move_guard")) }}
+      {{ partial "piece-card.html" (dict "key" "knight" "name" (i18n "piece_knight") "symbol" (i18n "piece_symbol_knight") "image" "Knight" "movement" (i18n "move_knight") "note" (i18n "note_knight")) }}
+    </div>
+
+    <h3>⭐ {{ i18n "rules_promotions_title" }}</h3>
+    <p>{{ i18n "rules_promotions_text" }}</p>
+    <ul>
+      <li><strong>{{ i18n "promo_soldier" }}</strong></li>
+      <li><strong>{{ i18n "promo_ballista" }}</strong></li>
+    </ul>
+  </div>
+</section>
+{{ end }}

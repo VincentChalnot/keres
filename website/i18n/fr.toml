@@ -1,0 +1,290 @@
+[home]
+  other = "L'Art du Jeu Abstrait"
+[nav_rules]
+  other = "Règles"
+[nav_play]
+  other = "Jouer"
+[nav_login]
+  other = "Connexion"
+[nav_logout]
+  other = "Déconnexion"
+[footer_copyright]
+  other = "© Keres 2025-2026"
+[footer_legal]
+  other = "Mentions légales"
+[footer_terms]
+  other = "Conditions générales de vente"
+[footer_contact]
+  other = "Contact"
+[hero_baseline]
+  other = "L'art du jeu abstrait"
+[hero_cta]
+  other = "Jouer Gratuitement"
+[hero_intro]
+  other = "Keres s'inspire des grands jeux de stratégie classiques et les enrichit d'un élégant mécanisme d'empilement. Cette innovation ouvre un nouveau territoire tactique à explorer, où chaque partie met votre intelligence à l'épreuve, et non votre mémoire. Nouveau terrain de jeu, décisions profondes, liberté renouvelée."
+[section_concept_title]
+  other = "Tactique pure, liberté totale"
+[section_concept_text]
+  other = "Un duel à deux joueurs, sans hasard, sans information cachée. Keres vous offre un espace tactique où empiler vos pièces amplifie leur mouvement, tandis que les séparer multiplie vos menaces. Pas de méta figée, pas de build optimal. Juste vous, votre adversaire, et la satisfaction de voir vos stratégies prendre vie sur le plateau."
+[bullet_randomness]
+  other = "Zéro hasard, information complète"
+[bullet_style]
+  other = "Votre style, vos stratégies"
+[bullet_duration]
+  other = "Parties de 30 à 50 minutes"
+[read_rules]
+  other = "Lire les règles"
+[section_author_title]
+  other = "Développeur Web & Créateur de Jeu Indépendant"
+[section_author_bio1]
+  other = "Passionné de jeux de stratégie abstraits (Go, Shogi, échecs), j'ai créé Keres pour retrouver ce qui me fascine : des règles simples, une profondeur infinie. Développeur et maker perfectionniste, j'ai conçu chaque aspect du projet — du moteur de jeu à la plateforme web, des pièces gravées au design d'interface."
+[section_author_bio2]
+  other = "Mon ambition : construire une communauté autour de Keres, organiser des tournois, et offrir une expérience premium qui honore les classiques tout en ouvrant de nouveaux horizons. Keres est conçu pour être joué en ligne d'abord, car c'est là qu'on trouve vraiment le temps de jouer."
+[section_collector_title]
+  other = "Édition Collector"
+[section_collector_text]
+  other = "Précommandez l'édition physique et possédez un morceau d'histoire stratégique."
+[preorder_cta]
+  other = "Précommander l'Édition Collector"
+[section_newsletter_title]
+  other = "Restez Informés"
+[newsletter_label]
+  other = "Adresse email"
+[newsletter_placeholder]
+  other = "Votre adresse email"
+[newsletter_cta]
+  other = "S'abonner"
+[newsletter_privacy]
+  other = "Nous respectons votre vie privée. Votre email sera uniquement utilisé pour les actualités de Keres. Désabonnez-vous à tout moment."
+[lightbox_close]
+  other = "Fermer"
+[rules_title]
+  other = "Règles du Jeu Keres"
+[rules_intro]
+  other = "Jeu combinatoire abstrait sur plateau 9×9 avec des pièces empilables"
+[rules_objective_title]
+  other = "Objectif du Jeu"
+[rules_objective_text]
+  other = "Victoire : La partie se termine immédiatement lorsqu'un joueur capture le Roi adverse."
+[rules_basics_title]
+  other = "Principes de Base"
+[rules_basics_1]
+  other = "Le plateau est un damier 9×9"
+[rules_basics_2]
+  other = "À chaque tour, un joueur déplace une seule pièce ou pile"
+[rules_basics_3]
+  other = "Une pièce capture une pièce ennemie en se déplaçant sur sa case"
+[rules_basics_4]
+  other = "Capturer une pile retire la pile entière"
+[rules_basics_5]
+  other = "Les pièces ne peuvent pas traverser d'autres pièces (sauf le cavalier)"
+[rules_stacking_title]
+  other = "Règles d'Empilement"
+[rules_stacking_text]
+  other = "Les pièces peuvent être empilées pour fusionner leurs capacités de mouvement. Une pile se déplace en combinant tous les mouvements possibles des pièces qui la composent."
+[rules_stacking_conditions_title]
+  other = "Conditions d'empilement :"
+[rules_stacking_cond_1]
+  other = "La pièce cible doit être accessible selon le mouvement de la pièce qui se déplace"
+[rules_stacking_cond_2]
+  other = "La pièce cible ne doit pas déjà être empilée"
+[rules_stacking_cond_3]
+  other = "Le Roi ne peut jamais être empilé"
+[rules_separation_title]
+  other = "Séparation :"
+[rules_separation_text]
+  other = "Une pile peut être séparée en déplaçant uniquement la pièce du dessus selon son propre mouvement."
+[rules_position_title]
+  other = "Disposition Initiale"
+[rules_pieces_title]
+  other = "Les Pièces et Leurs Mouvements"
+[rules_promotions_title]
+  other = "Promotions"
+[rules_promotions_text]
+  other = "Lorsqu'une pièce atteint la dernière ligne opposée, une promotion obligatoire s'effectue :"
+[piece_ballista]
+  other = "Baliste"
+[piece_rook]
+  other = "Tour"
+[piece_bishop]
+  other = "Fou"
+[piece_king]
+  other = "Roi"
+[piece_soldier]
+  other = "Soldat"
+[piece_paladin]
+  other = "Paladin"
+[piece_guard]
+  other = "Garde"
+[piece_knight]
+  other = "Cavalier"
+[piece_symbol_ballista]
+  other = "B"
+[piece_symbol_rook]
+  other = "T"
+[piece_symbol_bishop]
+  other = "F"
+[piece_symbol_king]
+  other = "R"
+[piece_symbol_soldier]
+  other = "S"
+[piece_symbol_paladin]
+  other = "P"
+[piece_symbol_guard]
+  other = "G"
+[piece_symbol_knight]
+  other = "C"
+[move_ballista]
+  other = "Illimité vers l'avant uniquement"
+[move_rook]
+  other = "Illimité orthogonalement"
+[move_bishop]
+  other = "Illimité en diagonale"
+[move_king]
+  other = "1 case dans toutes les directions"
+[move_soldier]
+  other = "1 case en diagonale avant"
+[move_paladin]
+  other = "1 ou 2 cases orthogonalement"
+[move_guard]
+  other = "1 ou 2 cases en diagonale"
+[move_knight]
+  other = "Mouvement en L"
+[note_ballista]
+  other = "Promotion en Tour"
+[note_king]
+  other = "Ne peut pas être empilé"
+[note_soldier]
+  other = "Promotion en Paladin"
+[note_knight]
+  other = "Peut sauter par-dessus les pièces"
+[promo_soldier]
+  other = "Soldat (S) → Paladin (P)"
+[promo_ballista]
+  other = "Baliste (B) → Tour (T)"
+[legal_title]
+  other = "Mentions légales"
+[legal_subtitle]
+  other = "Conformément aux articles 6-III et 19 de la Loi n° 2004-575 du 21 juin 2004 pour la Confiance dans l'économie numérique (LCEN)."
+[legal_editor_title]
+  other = "Éditeur du site"
+[legal_editor_text]
+  other = "Le site keres.fr est édité par :"
+[legal_editor_name]
+  other = "Vincent Chalnot"
+[legal_editor_desc]
+  other = "Développeur indépendant – Micro-entrepreneur"
+[legal_editor_address]
+  other = "Adresse : [Votre adresse postale]"
+[legal_editor_email]
+  other = "E-mail :"
+[legal_editor_siret]
+  other = "SIRET : [Numéro SIRET]"
+[legal_director_title]
+  other = "Directeur de la publication"
+[legal_director_text]
+  other = "Vincent Chalnot"
+[legal_hosting_title]
+  other = "Hébergement"
+[legal_hosting_text]
+  other = "Ce site est hébergé par :"
+[legal_hosting_name]
+  other = "[Nom de l'hébergeur]"
+[legal_hosting_address]
+  other = "[Adresse de l'hébergeur]"
+[legal_hosting_website]
+  other = "[Site web de l'hébergeur]"
+[legal_ip_title]
+  other = "Propriété intellectuelle"
+[legal_ip_text1]
+  other = "L'ensemble du contenu de ce site (textes, images, graphismes, logo, icônes, sons, logiciels, règles du jeu, moteur de jeu) est la propriété exclusive de Vincent Chalnot, sauf mention contraire. Toute reproduction, distribution, modification, adaptation, retransmission ou publication de ces différents éléments est strictement interdite sans l'accord exprès par écrit de Vincent Chalnot."
+[legal_ip_text2]
+  other = "Le jeu Keres, ses règles, son système de jeu et son nom sont des créations originales de Vincent Chalnot, protégées par le droit d'auteur."
+[legal_gdpr_title]
+  other = "Données personnelles et RGPD"
+[legal_gdpr_text1]
+  other = "Dans le cadre de l'utilisation du site Keres, des données personnelles peuvent être collectées (adresse e-mail lors de l'inscription ou de la connexion via un fournisseur d'identité tiers, historique des parties). Ces données sont traitées conformément au Règlement Général sur la Protection des Données (RGPD – Règlement UE 2016/679)."
+[legal_gdpr_text2]
+  other = "Vous disposez d'un droit d'accès, de rectification, de suppression et de portabilité de vos données, ainsi que d'un droit d'opposition et de limitation du traitement. Pour exercer ces droits, contactez-nous à l'adresse :"
+[legal_gdpr_text3]
+  other = "En cas de litige, vous pouvez également introduire une réclamation auprès de la"
+[legal_cookies_title]
+  other = "Cookies"
+[legal_cookies_text]
+  other = "Ce site peut utiliser des cookies techniques strictement nécessaires au bon fonctionnement de la plateforme (session utilisateur, préférences d'affichage). Aucun cookie de traçage publicitaire n'est déposé sans votre consentement."
+[legal_links_title]
+  other = "Liens hypertextes"
+[legal_links_text]
+  other = "Le site Keres peut contenir des liens vers d'autres sites. Vincent Chalnot n'est pas responsable du contenu de ces sites tiers et décline toute responsabilité quant aux informations qui y figurent."
+[legal_law_title]
+  other = "Droit applicable"
+[legal_law_text]
+  other = "Les présentes mentions légales sont régies par le droit français. En cas de litige, les tribunaux français seront seuls compétents."
+[terms_title]
+  other = "Conditions Générales de Vente"
+[terms_subtitle]
+  other = "En vigueur au 1er janvier 2025 – Applicables aux commandes de l'Édition Collector Keres."
+[terms_seller_title]
+  other = "Identification du vendeur"
+[terms_seller_text]
+  other = "Vincent Chalnot – Micro-entrepreneur – SIRET : [Numéro SIRET] – Adresse : [Votre adresse postale]"
+[terms_object_title]
+  other = "Objet"
+[terms_object_text]
+  other = "Les présentes Conditions Générales de Vente (CGV) régissent les ventes du jeu de plateau Keres – Édition Collector réalisées via le site keres.fr. Toute commande passée implique l'acceptation pleine et entière de ces CGV."
+[terms_product_title]
+  other = "Produit"
+[terms_product_text]
+  other = "L'Édition Collector Keres est un jeu de plateau physique fabriqué en série limitée, comprenant le plateau de jeu, les pièces gravées et le livret de règles. Les photographies et descriptions présentées sur le site sont aussi fidèles que possible au produit réel."
+[terms_price_title]
+  other = "Prix"
+[terms_price_text]
+  other = "Les prix sont indiqués en euros (€) toutes taxes comprises (TTC). Le vendeur se réserve le droit de modifier ses prix à tout moment ; les produits sont facturés au tarif en vigueur au moment de la validation de la commande."
+[terms_price_amount]
+  other = "Prix de l'Édition Collector : 45 € (frais de port en sus, calculés selon la destination)."
+[terms_order_title]
+  other = "Commande et pré-commande"
+[terms_order_text]
+  other = "La commande devient ferme après validation par le client et encaissement du paiement. Dans le cadre d'une pré-commande, le client est informé que le produit sera expédié à la date de fabrication communiquée sur le site, et qu'il peut annuler sa commande et être intégralement remboursé avant l'expédition."
+[terms_payment_title]
+  other = "Paiement"
+[terms_payment_text]
+  other = "Le paiement s'effectue en ligne par les moyens sécurisés proposés lors de la commande. Le paiement est exigible intégralement à la commande. Les données bancaires ne sont pas conservées par le vendeur."
+[terms_delivery_title]
+  other = "Livraison"
+[terms_delivery_text]
+  other = "Les commandes sont expédiées à l'adresse indiquée par le client lors de la commande. Les délais de livraison indicatifs sont communiqués sur le site et débutent à partir de la date d'expédition. Le vendeur ne peut être tenu responsable des retards imputables aux transporteurs ou à des événements indépendants de sa volonté (force majeure)."
+[terms_withdrawal_title]
+  other = "Droit de rétractation"
+[terms_withdrawal_text1]
+  other = "Conformément aux articles L.221-18 et suivants du Code de la consommation, le client dispose d'un délai de 14 jours à compter de la réception du produit pour exercer son droit de rétractation, sans avoir à motiver sa décision. Le produit doit être retourné en parfait état dans son emballage d'origine. Les frais de retour sont à la charge du client."
+[terms_withdrawal_text2]
+  other = "Pour exercer ce droit, contactez-nous à :"
+[terms_withdrawal_text3]
+  other = "Le remboursement sera effectué dans les 14 jours suivant la réception du retour."
+[terms_withdrawal_text4]
+  other = "Exception : le droit de rétractation ne s'applique pas aux produits personnalisés ou fabriqués sur mesure."
+[terms_warranty_title]
+  other = "Garanties légales"
+[terms_warranty_text]
+  other = "Tout produit vendu bénéficie de la garantie légale de conformité (articles L.217-4 et suivants du Code de la consommation) et de la garantie légale contre les vices cachés (articles 1641 et suivants du Code civil). En cas de défaut constaté, contactez-nous à"
+[terms_platform_title]
+  other = "Accès à la plateforme en ligne"
+[terms_platform_text]
+  other = "L'accès à la plateforme de jeu en ligne keres.fr est distinct de la vente du produit physique. La plateforme est fournie « en l'état », sans garantie de disponibilité permanente. Le vendeur se réserve le droit de modifier ou d'interrompre l'accès à la plateforme sans préavis."
+[terms_data_title]
+  other = "Données personnelles"
+[terms_data_text]
+  other = "Les données collectées lors d'une commande (nom, adresse, e-mail) sont utilisées exclusivement pour le traitement et le suivi de la commande. Elles ne sont pas transmises à des tiers à des fins commerciales. Vous disposez d'un droit d'accès, de rectification et de suppression de vos données en contactant :"
+[terms_law_title]
+  other = "Droit applicable et litiges"
+[terms_law_text1]
+  other = "Les présentes CGV sont soumises au droit français. En cas de litige, une solution amiable sera recherchée en priorité. À défaut, le litige sera soumis aux tribunaux compétents du ressort du domicile du vendeur."
+[terms_law_text2]
+  other = "Conformément aux dispositions du Code de la consommation concernant la médiation de la consommation, le client peut recourir gratuitement à un médiateur de la consommation en vue de la résolution amiable d'un litige."
+[terms_law_text3]
+  other = "Pour en savoir plus :"
+[lang_switch]
+  other = "English"
+[skip_to_content]
+  other = "Aller au contenu"

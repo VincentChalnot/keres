@@ -1,0 +1,8 @@
+<div class="piece-card">
+  <div class="piece-name"><i class="piece-icon primary {{ .key }}"></i> {{ .name }} ({{ .symbol }})</div>
+  <img src="/images/movesets/{{ .image }}.svg" alt="{{ .name }} moves" />
+  <p class="piece-description">
+    {{ .movement }}<br>
+    {{ if .note }}<strong>{{ .note }}</strong>{{ end }}
+  </p>
+</div>

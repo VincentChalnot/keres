@@ -1,0 +1,143 @@
+{{ define "navbar" }}{{ end }}
+
+{{ define "title" }}{{ i18n "home" }}{{ end }}
+
+{{ define "main" }}
+<header class="text-center flex flex-col items-center mb-8">
+  <h1>KERES</h1>
+  <p class="hero-baseline">{{ i18n "hero_baseline" }}</p>
+  <a href="{{ .Site.Params.platformURL }}/new_game" class="inline-flex items-center justify-center rounded-full border border-keres-light text-keres-light font-bold px-6 py-2 text-sm hover:bg-keres-light hover:text-keres-bg transition-colors hover:no-underline shadow-[1px_1px_12px_#000]" target="_blank" rel="noopener">
+    {{ i18n "hero_cta" }}
+  </a>
+  <div class="hero-img">
+    <img src="/images/landing-dark.webp" alt="Keres Board"/>
+  </div>
+  <div class="hero-content">
+    <p>{{ i18n "hero_intro" }}</p>
+  </div>
+</header>
+
+<section class="section-flex">
+  <div class="flex-1">
+    <h2>{{ i18n "section_concept_title" }}</h2>
+    <p>{{ i18n "section_concept_text" }}</p>
+    <ul>
+      <li>{{ i18n "bullet_randomness" }}</li>
+      <li>{{ i18n "bullet_style" }}</li>
+      <li>{{ i18n "bullet_duration" }}</li>
+    </ul>
+  </div>
+  <div class="section-img">
+    <a href="/images/board-art-01.webp" class="lightbox-trigger">
+      <img src="/images/gameplay-preview.webp" alt="Gameplay Preview"/>
+    </a>
+    {{ with .Site.GetPage "/rules" }}
+    <a href="{{ .RelPermalink }}" class="btn inline-flex items-center justify-center rounded-full bg-keres-primary text-keres-bg font-bold px-5 py-2 text-sm hover:no-underline hover:opacity-90 transition-opacity">
+      {{ i18n "read_rules" }}
+    </a>
+    {{ end }}
+  </div>
+</section>
+
+<section class="section-flex">
+  <div class="section-img">
+    <img src="/images/avatar.webp" alt="Author Avatar"/>
+  </div>
+  <div>
+    <h3>{{ .Site.Params.authorName }} - {{ i18n "section_author_title" }}</h3>
+    <p>{{ i18n "section_author_bio1" }}</p>
+    <p><b>{{ i18n "section_author_bio2" }}</b></p>
+  </div>
+</section>
+
+<section class="section-flex">
+  <div>
+    <h4>{{ i18n "section_collector_title" }}</h4>
+    <p>{{ i18n "section_collector_text" }}</p>
+    <p class="text-2xl font-bold">45€</p>
+    <a href="#" class="btn inline-flex items-center justify-center rounded-full bg-keres-primary text-keres-bg font-bold px-5 py-2 text-sm hover:no-underline hover:opacity-90 transition-opacity">
+      {{ i18n "preorder_cta" }}
+    </a>
+  </div>
+  <div class="section-img">
+    <a href="/images/real_board_full.webp" class="lightbox-trigger">
+      <img src="/images/real_board_small.webp" alt="Keres Box"/>
+    </a>
+  </div>
+</section>
+
+<section class="section-flex">
+  <div>
+    <h5>{{ i18n "section_newsletter_title" }}</h5>
+    <form>
+      <div class="mb-4">
+        <label class="block text-sm mb-1" for="newsletter">{{ i18n "newsletter_label" }}</label>
+        <input class="w-full px-3 py-2 rounded bg-keres-surface border border-keres-dark text-keres-light placeholder:text-gray-500 focus:outline-none focus:border-keres-primary" type="email" id="newsletter" placeholder="{{ i18n "newsletter_placeholder" }}" required/>
+      </div>
+      <button type="submit" class="inline-flex items-center justify-center rounded-full bg-keres-primary text-keres-bg font-bold px-5 py-2 text-sm hover:opacity-90 transition-opacity">
+        {{ i18n "newsletter_cta" }}
+      </button>
+    </form>
+    <p class="mt-4 text-sm text-gray-400">{{ i18n "newsletter_privacy" }}</p>
+  </div>
+</section>
+
+{{ partial "lightbox.html" . }}
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const lightbox = document.getElementById("lightbox");
+    const lightboxImg = document.getElementById("lightbox-img");
+    const lightboxClose = document.getElementById("lightbox-close");
+    if (!lightbox || !lightboxImg || !lightboxClose) return;
+
+    const open = (src, alt) => {
+      lightboxImg.src = src;
+      lightboxImg.alt = alt || "";
+      lightbox.classList.add("is-active");
+      document.body.style.overflow = "hidden";
+    };
+    const close = () => {
+      lightbox.classList.remove("is-active");
+      document.body.style.overflow = "";
+      lightboxImg.src = "";
+    };
+
+    document.querySelectorAll("a.lightbox-trigger").forEach(trigger => {
+      trigger.addEventListener("click", e => {
+        e.preventDefault();
+        const img = trigger.querySelector("img");
+        open(trigger.href, img ? img.alt : "");
+      });
+    });
+
+    lightboxClose.addEventListener("click", close);
+    lightbox.addEventListener("click", e => { if (e.target === lightbox) close(); });
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && lightbox.classList.contains("is-active")) close(); });
+  });
+</script>
+
+<style>
+  .hero-img img {
+    margin-top: -130px;
+    margin-bottom: -200px;
+  }
+</style>
+{{ end }}
+
+{{ define "footer" }}
+<footer class="bg-transparent text-keres-light py-8 text-center border-t border-keres-dark">
+  <div>
+    <p>{{ i18n "footer_copyright" }}</p>
+    <nav>
+      {{ with .Site.GetPage "/legal-notice" }}
+      <a href="{{ .RelPermalink }}" class="text-keres-primary mx-3 hover:underline">{{ i18n "footer_legal" }}</a>
+      {{ end }}
+      {{ with .Site.GetPage "/terms-of-sale" }}
+      <a href="{{ .RelPermalink }}" class="text-keres-primary mx-3 hover:underline">{{ i18n "footer_terms" }}</a>
+      {{ end }}
+      <a href="{{ .Site.Params.platformURL }}/contact" class="text-keres-primary mx-3 hover:underline" target="_blank" rel="noopener">{{ i18n "footer_contact" }}</a>
+    </nav>
+  </div>
+</footer>
+{{ end }}

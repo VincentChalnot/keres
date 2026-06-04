@@ -1,0 +1,15 @@
+[en]
+  languageName = "English"
+  languageCode = "en-US"
+  contentDir = "content/en"
+  weight = 1
+  [en.params]
+    flag = "🇬🇧"
+
+[fr]
+  languageName = "Français"
+  languageCode = "fr-FR"
+  contentDir = "content/fr"
+  weight = 2
+  [fr.params]
+    flag = "🇫🇷"

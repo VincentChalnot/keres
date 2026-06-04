@@ -1,0 +1,40 @@
+<nav class="sticky top-0 z-[100] bg-keres-bg/70 backdrop-blur border-b border-keres-dark" role="navigation" aria-label="Main navigation">
+  <div class="container mx-auto px-4 flex items-center justify-between h-14">
+    <a class="flex items-center gap-3 hover:no-underline" href="{{ "" | relLangURL }}" aria-label="Keres home">
+      <img src="/rook.svg" alt="" width="32" height="32" aria-hidden="true">
+      <span class="font-carolingia text-[2.4rem] text-keres-light leading-none pt-1">Keres</span>
+    </a>
+
+    <div class="flex items-center gap-4">
+      {{ with .Site.GetPage "/rules" }}
+      <a href="{{ .RelPermalink }}" class="text-keres-light hover:text-keres-primary hover:no-underline transition-colors">
+        {{ i18n "nav_rules" }}
+      </a>
+      {{ end }}
+
+      <a href="{{ .Site.Params.platformURL }}/new_game" class="inline-flex items-center justify-center rounded-full bg-keres-primary text-keres-bg font-bold px-4 py-1 text-sm hover:no-underline hover:opacity-90 transition-opacity" target="_blank" rel="noopener">
+        {{ i18n "nav_play" }}
+      </a>
+
+      <a href="{{ .Site.Params.platformURL }}/login" class="flex items-center text-keres-light hover:text-keres-primary transition-colors text-sm px-3 py-1 border border-keres-dark rounded-full hover:no-underline">
+        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 15l-4-4m0 0l-6 6m6-6l-6-6"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 12H9"/>
+        </svg>
+        {{ i18n "nav_login" }}
+      </a>
+
+      <div class="border-l border-keres-dark h-6 mx-1"></div>
+
+      {{ if eq .Lang "en" }}
+        {{ range where .Site.Home.AllTranslations "Lang" "fr" }}
+        <a href="{{ .RelPermalink }}" class="text-sm text-keres-secondary hover:text-keres-primary hover:no-underline transition-colors" title="Français">FR</a>
+        {{ end }}
+      {{ else }}
+        {{ range where .Site.Home.AllTranslations "Lang" "en" }}
+        <a href="{{ .RelPermalink }}" class="text-sm text-keres-secondary hover:text-keres-primary hover:no-underline transition-colors" title="English">EN</a>
+        {{ end }}
+      {{ end }}
+    </div>
+  </div>
+</nav>

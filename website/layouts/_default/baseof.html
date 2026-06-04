@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="{{ .Lang }}" data-theme="dark">
+<head>
+  {{ partial "head.html" . }}
+</head>
+<body>
+<a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[9999] focus:bg-keres-primary focus:text-keres-bg focus:px-4 focus:py-2 focus:rounded">{{ i18n "skip_to_content" }}</a>
+
+{{ block "navbar" . }}
+  {{ partial "navbar.html" . }}
+{{ end }}
+
+<main id="main-content">
+{{ block "main" . }}{{ end }}
+</main>
+
+{{ block "footer" . }}
+  {{ partial "footer.html" . }}
+{{ end }}
+
+{{ block "end_scripts" . }}{{ end }}
+</body>
+</html>

@@ -1,0 +1,290 @@
+[home]
+  other = "The Art of Abstract Play"
+[nav_rules]
+  other = "Rules"
+[nav_play]
+  other = "Play"
+[nav_login]
+  other = "Login"
+[nav_logout]
+  other = "Logout"
+[footer_copyright]
+  other = "© Keres 2025-2026"
+[footer_legal]
+  other = "Legal Notice"
+[footer_terms]
+  other = "Terms of Sale"
+[footer_contact]
+  other = "Contact"
+[hero_baseline]
+  other = "The art of abstract play"
+[hero_cta]
+  other = "Play for Free"
+[hero_intro]
+  other = "Keres draws from classic strategy games and enriches them with an elegant stacking mechanic. This innovation opens new tactical territory to explore, where every game challenges your intelligence rather than your memory. Fresh playing ground, deep decisions, renewed freedom."
+[section_concept_title]
+  other = "Pure tactics, total freedom"
+[section_concept_text]
+  other = "A two-player duel, no randomness, no hidden information. Keres gives you a tactical space where stacking your pieces amplifies their movement, while separating them multiplies your threats. No fixed meta, no optimal build. Just you, your opponent, and the satisfaction of seeing your strategies come to life on the board."
+[bullet_randomness]
+  other = "Zero randomness, complete information"
+[bullet_style]
+  other = "Your style, your strategies"
+[bullet_duration]
+  other = "Games last 30 to 50 minutes"
+[read_rules]
+  other = "Read the rules"
+[section_author_title]
+  other = "Web Developer & Indie Game Designer"
+[section_author_bio1]
+  other = "A lover of abstract strategy games (Go, Shogi, chess), I created Keres to recapture what fascinates me: simple rules, infinite depth. As a perfectionist developer and maker, I designed every aspect of the project — from game engine to web platform, from engraved pieces to interface design."
+[section_author_bio2]
+  other = "My ambition: build a community around Keres, organize tournaments, and deliver a premium experience that honors the classics while opening new territory. Keres is designed to be played online first, because that's where we actually find time to play."
+[section_collector_title]
+  other = "Collector's Edition"
+[section_collector_text]
+  other = "Pre-order the physical edition and own a piece of strategy history."
+[preorder_cta]
+  other = "Pre-order Collector's Edition"
+[section_newsletter_title]
+  other = "Stay Updated"
+[newsletter_label]
+  other = "Email address"
+[newsletter_placeholder]
+  other = "Your email address"
+[newsletter_cta]
+  other = "Subscribe"
+[newsletter_privacy]
+  other = "We respect your privacy. Your email will only be used for Keres updates. Unsubscribe anytime."
+[lightbox_close]
+  other = "Close"
+[rules_title]
+  other = "Keres Game Rules"
+[rules_intro]
+  other = "Abstract combinatorial game on a 9×9 board with stackable pieces"
+[rules_objective_title]
+  other = "Objective"
+[rules_objective_text]
+  other = "Victory: The game ends immediately when a player captures the opponent's King."
+[rules_basics_title]
+  other = "Basic Principles"
+[rules_basics_1]
+  other = "The board is a 9×9 checkerboard"
+[rules_basics_2]
+  other = "On each turn, a player moves a single piece or stack"
+[rules_basics_3]
+  other = "A piece captures an enemy piece by moving onto its square"
+[rules_basics_4]
+  other = "Capturing a stack removes the entire stack"
+[rules_basics_5]
+  other = "Pieces cannot pass through other pieces (except the Knight)"
+[rules_stacking_title]
+  other = "Stacking Rules"
+[rules_stacking_text]
+  other = "Pieces can be stacked to merge their movement abilities. A stack moves by combining all possible movements of the pieces that compose it."
+[rules_stacking_conditions_title]
+  other = "Stacking conditions:"
+[rules_stacking_cond_1]
+  other = "The target piece must be reachable according to the moving piece's movement"
+[rules_stacking_cond_2]
+  other = "The target piece must not already be stacked"
+[rules_stacking_cond_3]
+  other = "The King can never be stacked"
+[rules_separation_title]
+  other = "Separation:"
+[rules_separation_text]
+  other = "A stack can be separated by moving only the top piece according to its own movement."
+[rules_position_title]
+  other = "Starting Position"
+[rules_pieces_title]
+  other = "Pieces and Their Movements"
+[rules_promotions_title]
+  other = "Promotions"
+[rules_promotions_text]
+  other = "When a piece reaches the opposite last rank, a mandatory promotion takes effect:"
+[piece_ballista]
+  other = "Ballista"
+[piece_rook]
+  other = "Rook"
+[piece_bishop]
+  other = "Bishop"
+[piece_king]
+  other = "King"
+[piece_soldier]
+  other = "Soldier"
+[piece_paladin]
+  other = "Paladin"
+[piece_guard]
+  other = "Guard"
+[piece_knight]
+  other = "Knight"
+[piece_symbol_ballista]
+  other = "B"
+[piece_symbol_rook]
+  other = "R"
+[piece_symbol_bishop]
+  other = "B"
+[piece_symbol_king]
+  other = "K"
+[piece_symbol_soldier]
+  other = "S"
+[piece_symbol_paladin]
+  other = "P"
+[piece_symbol_guard]
+  other = "G"
+[piece_symbol_knight]
+  other = "N"
+[move_ballista]
+  other = "Unlimited forward only"
+[move_rook]
+  other = "Unlimited orthogonally"
+[move_bishop]
+  other = "Unlimited diagonally"
+[move_king]
+  other = "1 square in all directions"
+[move_soldier]
+  other = "1 square diagonally forward"
+[move_paladin]
+  other = "1 or 2 squares orthogonally"
+[move_guard]
+  other = "1 or 2 squares diagonally"
+[move_knight]
+  other = "L-shaped movement"
+[note_ballista]
+  other = "Promotes to Rook"
+[note_king]
+  other = "Cannot be stacked"
+[note_soldier]
+  other = "Promotes to Paladin"
+[note_knight]
+  other = "Can jump over pieces"
+[promo_soldier]
+  other = "Soldier (S) → Paladin (P)"
+[promo_ballista]
+  other = "Ballista (B) → Rook (R)"
+[legal_title]
+  other = "Legal Notice"
+[legal_subtitle]
+  other = "In accordance with Articles 6-III and 19 of Law No. 2004-575 of June 21, 2004 on Confidence in the Digital Economy (LCEN)."
+[legal_editor_title]
+  other = "Website Publisher"
+[legal_editor_text]
+  other = "The site keres.fr is published by:"
+[legal_editor_name]
+  other = "Vincent Chalnot"
+[legal_editor_desc]
+  other = "Independent Developer – Micro-entrepreneur"
+[legal_editor_address]
+  other = "Address: [Your postal address]"
+[legal_editor_email]
+  other = "Email:"
+[legal_editor_siret]
+  other = "SIRET: [SIRET Number]"
+[legal_director_title]
+  other = "Publication Director"
+[legal_director_text]
+  other = "Vincent Chalnot"
+[legal_hosting_title]
+  other = "Hosting"
+[legal_hosting_text]
+  other = "This site is hosted by:"
+[legal_hosting_name]
+  other = "[Hosting provider name]"
+[legal_hosting_address]
+  other = "[Hosting provider address]"
+[legal_hosting_website]
+  other = "[Hosting provider website]"
+[legal_ip_title]
+  other = "Intellectual Property"
+[legal_ip_text1]
+  other = "All content of this site (texts, images, graphics, logo, icons, sounds, software, game rules, game engine) is the exclusive property of Vincent Chalnot, unless otherwise stated. Any reproduction, distribution, modification, adaptation, retransmission or publication of these elements is strictly prohibited without the express written consent of Vincent Chalnot."
+[legal_ip_text2]
+  other = "The game Keres, its rules, its game system and its name are original creations of Vincent Chalnot, protected by copyright."
+[legal_gdpr_title]
+  other = "Personal Data and GDPR"
+[legal_gdpr_text1]
+  other = "As part of using the Keres site, personal data may be collected (email address during registration or login via a third-party identity provider, game history). This data is processed in accordance with the General Data Protection Regulation (GDPR – EU Regulation 2016/679)."
+[legal_gdpr_text2]
+  other = "You have the right to access, rectify, delete and port your data, as well as the right to object and restrict processing. To exercise these rights, contact us at:"
+[legal_gdpr_text3]
+  other = "In case of dispute, you may also file a complaint with the"
+[legal_cookies_title]
+  other = "Cookies"
+[legal_cookies_text]
+  other = "This site may use technical cookies strictly necessary for the proper functioning of the platform (user session, display preferences). No advertising tracking cookies are deposited without your consent."
+[legal_links_title]
+  other = "Hypertext Links"
+[legal_links_text]
+  other = "The Keres site may contain links to other sites. Vincent Chalnot is not responsible for the content of these third-party sites and disclaims any liability regarding the information contained therein."
+[legal_law_title]
+  other = "Applicable Law"
+[legal_law_text]
+  other = "These legal notices are governed by French law. In case of dispute, French courts shall have exclusive jurisdiction."
+[terms_title]
+  other = "Terms and Conditions of Sale"
+[terms_subtitle]
+  other = "Effective as of January 1, 2025 – Applicable to orders of the Keres Collector's Edition."
+[terms_seller_title]
+  other = "Seller Identification"
+[terms_seller_text]
+  other = "Vincent Chalnot – Micro-entrepreneur – SIRET: [SIRET Number] – Address: [Your postal address]"
+[terms_object_title]
+  other = "Purpose"
+[terms_object_text]
+  other = "These Terms and Conditions of Sale (TCS) govern the sales of the Keres – Collector's Edition board game made through the site keres.fr. Placing an order implies full and unconditional acceptance of these TCS."
+[terms_product_title]
+  other = "Product"
+[terms_product_text]
+  other = "The Keres Collector's Edition is a physical board game manufactured in a limited series, including the game board, engraved pieces and the rulebook. The photographs and descriptions presented on the site are as faithful as possible to the actual product."
+[terms_price_title]
+  other = "Price"
+[terms_price_text]
+  other = "Prices are indicated in euros (€) including all taxes. The seller reserves the right to modify prices at any time; products are invoiced at the rate in effect at the time of order confirmation."
+[terms_price_amount]
+  other = "Collector's Edition price: 45 € (shipping costs additional, calculated based on destination)."
+[terms_order_title]
+  other = "Order and Pre-order"
+[terms_order_text]
+  other = "The order becomes firm after validation by the customer and payment receipt. In the context of a pre-order, the customer is informed that the product will be shipped on the manufacturing date communicated on the site, and may cancel the order and be fully refunded before shipment."
+[terms_payment_title]
+  other = "Payment"
+[terms_payment_text]
+  other = "Payment is made online through the secure means offered at checkout. Full payment is due upon ordering. Banking data is not retained by the seller."
+[terms_delivery_title]
+  other = "Delivery"
+[terms_delivery_text]
+  other = "Orders are shipped to the address provided by the customer at checkout. Indicative delivery times are communicated on the site and start from the shipping date. The seller cannot be held responsible for delays attributable to carriers or events beyond their control (force majeure)."
+[terms_withdrawal_title]
+  other = "Right of Withdrawal"
+[terms_withdrawal_text1]
+  other = "In accordance with Articles L.221-18 et seq. of the French Consumer Code, the customer has a period of 14 days from receipt of the product to exercise their right of withdrawal, without having to justify their decision. The product must be returned in perfect condition in its original packaging. Return shipping costs are borne by the customer."
+[terms_withdrawal_text2]
+  other = "To exercise this right, contact us at:"
+[terms_withdrawal_text3]
+  other = "The refund will be processed within 14 days of receiving the return."
+[terms_withdrawal_text4]
+  other = "Exception: the right of withdrawal does not apply to personalized or custom-made products."
+[terms_warranty_title]
+  other = "Legal Warranties"
+[terms_warranty_text]
+  other = "Any product sold benefits from the legal warranty of conformity (Articles L.217-4 et seq. of the French Consumer Code) and the legal warranty against hidden defects (Articles 1641 et seq. of the French Civil Code). In case of a defect found, contact us at"
+[terms_platform_title]
+  other = "Access to the Online Platform"
+[terms_platform_text]
+  other = "Access to the keres.fr online gaming platform is separate from the sale of the physical product. The platform is provided \"as is\", without guarantee of permanent availability. The seller reserves the right to modify or interrupt access to the platform without notice."
+[terms_data_title]
+  other = "Personal Data"
+[terms_data_text]
+  other = "Data collected during an order (name, address, email) is used exclusively for order processing and tracking. It is not transmitted to third parties for commercial purposes. You have the right to access, rectify and delete your data by contacting"
+[terms_law_title]
+  other = "Applicable Law and Disputes"
+[terms_law_text1]
+  other = "These TCS are governed by French law. In case of dispute, an amicable solution will be sought first. Failing that, the dispute will be submitted to the competent courts of the seller's domicile."
+[terms_law_text2]
+  other = "In accordance with the provisions of the French Consumer Code concerning consumer mediation, the customer may use a consumer mediator free of charge for the amicable resolution of a dispute."
+[terms_law_text3]
+  other = "To learn more:"
+[lang_switch]
+  other = "Français"
+[skip_to_content]
+  other = "Skip to content"
