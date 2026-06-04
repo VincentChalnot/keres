@@ -5,13 +5,13 @@
 This agent operates exclusively inside the `platform/` directory, which is the
 root of this workspace. Do **not** modify anything outside this directory.
 
-| Path | Access | Notes |
-|---|---|---|
-| `platform/` | Read + Write | This workspace |
-| `../docs/` | Read-only | General game rules and architecture — useful context for the renderer |
-| `../engine/src/server.rs` | Read-only | API endpoint signatures and binary payload shapes only |
-| `../engine/` (rest) | **Off-limits** | Rust game engine, game rules, AI logic — never touch |
-| `../` (rest) | **Off-limits** | Monorepo root — irrelevant to this workspace |
+| Path                      | Access         | Notes                                                                 |
+|---------------------------|----------------|-----------------------------------------------------------------------|
+| `platform/`               | Read + Write   | This workspace                                                        |
+| `../docs/`                | Read-only      | General game rules and architecture — useful context for the renderer |
+| `../engine/src/server.rs` | Read-only      | API endpoint signatures and binary payload shapes only                |
+| `../engine/` (rest)       | **Off-limits** | Rust game engine, game rules, AI logic — never touch                  |
+| `../` (rest)              | **Off-limits** | Monorepo root — irrelevant to this workspace                          |
 
 ## Project Overview
 
@@ -20,6 +20,7 @@ It does **not** implement game rules. All game logic lives in the Rust engine
 (`../engine/`), communicated via a binary HTTP API.
 
 Platform responsibilities:
+
 - User authentication and game session management (Symfony/PHP)
 - Relaying moves to/from the Rust engine and persisting the resulting board tree
 - Rendering the board state as SVG (TypeScript)
@@ -44,34 +45,34 @@ knowledge (piece names, SVG representations, movement descriptions).
 
 ### PHP / Symfony (`src/`)
 
-| Directory | Role |
-|---|---|
-| `src/Action/` | Symfony controllers (HTTP actions) |
-| `src/Entity/` | Doctrine ORM entities |
-| `src/Model/` | Value objects and binary DTOs (no Doctrine) |
-| `src/Engine/` | Rust API bridge — stable, low-churn code |
-| `src/Service/` | Business logic services |
-| `src/Message/` + `src/MessageHandler/` | Symfony Messenger async jobs |
-| `src/Event/` | Domain events (autoconfigured via `#[AsEventListener]`) |
-| `src/Form/` | Symfony forms |
-| `src/Security/` | Authentication / authorization |
-| `src/Repository/` | Doctrine repositories |
-| `src/Command/` | Symfony console commands |
+| Directory                              | Role                                                    |
+|----------------------------------------|---------------------------------------------------------|
+| `src/Action/`                          | Symfony controllers (HTTP actions)                      |
+| `src/Entity/`                          | Doctrine ORM entities                                   |
+| `src/Model/`                           | Value objects and binary DTOs (no Doctrine)             |
+| `src/Engine/`                          | Rust API bridge — stable, low-churn code                |
+| `src/Service/`                         | Business logic services                                 |
+| `src/Message/` + `src/MessageHandler/` | Symfony Messenger async jobs                            |
+| `src/Event/`                           | Domain events (autoconfigured via `#[AsEventListener]`) |
+| `src/Form/`                            | Symfony forms                                           |
+| `src/Security/`                        | Authentication / authorization                          |
+| `src/Repository/`                      | Doctrine repositories                                   |
+| `src/Command/`                         | Symfony console commands                                |
 
 ### TypeScript / Vite (`assets/`)
 
-| File / Directory | Role |
-|---|---|
-| `assets/typescript/src/app.ts` | Main entry point — wires all components |
-| `src/models/types.ts` | Core domain types: `Board`, `Piece`, `Move`, `PotentialMove`, `TileState` |
-| `src/utils/boardUtils.ts` | **All** binary encode/decode functions — single source of truth for wire format |
-| `src/controllers/GameController.ts` | Central mediator: clicks, drag, API calls, Mercure events |
-| `src/models/GameState.ts` | In-memory reactive state |
-| `src/network/GameAPI.ts` | HTTP client (`/api`, `application/octet-stream`) |
-| `src/network/MercureClient.ts` | Mercure SSE subscription |
-| `src/views/IBoardView.ts` | Renderer interface |
-| `src/views/SVGBoardView.ts` | **Active renderer** — SVG, inline sprite sheet |
-| `src/views/ThreeJSBoardView.ts` | Inactive renderer — do not modify unless explicitly asked |
+| File / Directory                    | Role                                                                            |
+|-------------------------------------|---------------------------------------------------------------------------------|
+| `assets/typescript/src/app.ts`      | Main entry point — wires all components                                         |
+| `src/models/types.ts`               | Core domain types: `Board`, `Piece`, `Move`, `PotentialMove`, `TileState`       |
+| `src/utils/boardUtils.ts`           | **All** binary encode/decode functions — single source of truth for wire format |
+| `src/controllers/GameController.ts` | Central mediator: clicks, drag, API calls, Mercure events                       |
+| `src/models/GameState.ts`           | In-memory reactive state                                                        |
+| `src/network/GameAPI.ts`            | HTTP client (`/api`, `application/octet-stream`)                                |
+| `src/network/MercureClient.ts`      | Mercure SSE subscription                                                        |
+| `src/views/IBoardView.ts`           | Renderer interface                                                              |
+| `src/views/SVGBoardView.ts`         | **Active renderer** — SVG, inline sprite sheet                                  |
+| `src/views/ThreeJSBoardView.ts`     | Inactive renderer — do not modify unless explicitly asked                       |
 
 ## Domain Model
 
@@ -100,11 +101,11 @@ Do **not** introduce JSON serialization on this path.
 
 **Board state — 83 bytes** (`BoardData` PHP / `Board` TS):
 
-| Bytes | Content |
-|---|---|
-| 0–80 | 81 squares of the 9×9 board (one byte per cell, piece encoding owned by the engine) |
-| 81 | Flags (big-endian): `0x80` whiteToMove, `0x40` gameOver, `0x20` whiteWins, `0x10` draw |
-| 82 | `movesWithoutCapture` counter (uint8, 50-move rule) |
+| Bytes | Content                                                                                |
+|-------|----------------------------------------------------------------------------------------|
+| 0–80  | 81 squares of the 9×9 board (one byte per cell, piece encoding owned by the engine)    |
+| 81    | Flags (big-endian): `0x80` whiteToMove, `0x40` gameOver, `0x20` whiteWins, `0x10` draw |
+| 82    | `movesWithoutCapture` counter (uint8, 50-move rule)                                    |
 
 **Move — 2 bytes** (`MoveData`): opaque blob, no client-side parsing beyond storage.
 
@@ -121,10 +122,10 @@ Do **not** introduce JSON serialization on this path.
 Two endpoints, both `POST`, binary in/out, base URL injected via `$backendApiUrl`
 (env var `BACKEND_API_URL`):
 
-| Endpoint | Request | Response |
-|---|---|---|
-| `/replay-moves` | `MovesData` binary (2N bytes) | 83 bytes → `BoardData` |
-| `/engine-move-game` | `MovesData` binary (2N bytes) | 2 bytes → `MoveData` |
+| Endpoint            | Request                       | Response               |
+|---------------------|-------------------------------|------------------------|
+| `/replay-moves`     | `MovesData` binary (2N bytes) | 83 bytes → `BoardData` |
+| `/engine-move-game` | `MovesData` binary (2N bytes) | 2 bytes → `MoveData`   |
 
 - `EngineApi` — makes raw HTTP calls
 - `GameEngine` — consumes results, updates `Game` entity, handles game-over detection
@@ -199,12 +200,12 @@ Run `composer cs:fix` to auto-correct style issues.
 
 ```
 User action → GameController → GameAPI (HTTP /api, binary)
-                                    ↓
-                             Symfony Action → GameEngine → EngineApi → Rust
-                                    ↓
-                             Mercure hub (SSE)
-                                    ↓
-                          MercureClient → GameController → GameState → SVGBoardView
+                          ↓
+    Symfony Action → GameEngine → EngineApi → Rust
+                          ↓
+                  Mercure hub (SSE)
+                          ↓
+MercureClient → GameController → GameState → SVGBoardView
 ```
 
 AI moves are dispatched as `ProcessAiMoveMessage` to the `async` transport and
