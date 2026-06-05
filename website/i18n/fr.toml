@@ -16,46 +16,12 @@
   other = "Conditions générales de vente"
 [footer_contact]
   other = "Contact"
-[hero_baseline]
-  other = "L'art du jeu abstrait"
-[hero_cta]
-  other = "Jouer Gratuitement"
-[hero_intro]
-  other = "Keres s'inspire des grands jeux de stratégie classiques et les enrichit d'un élégant mécanisme d'empilement. Cette innovation ouvre un nouveau territoire tactique à explorer, où chaque partie met votre intelligence à l'épreuve, et non votre mémoire. Nouveau terrain de jeu, décisions profondes, liberté renouvelée."
-[section_concept_title]
-  other = "Tactique pure, liberté totale"
-[section_concept_text]
-  other = "Un duel à deux joueurs, sans hasard, sans information cachée. Keres vous offre un espace tactique où empiler vos pièces amplifie leur mouvement, tandis que les séparer multiplie vos menaces. Pas de méta figée, pas de build optimal. Juste vous, votre adversaire, et la satisfaction de voir vos stratégies prendre vie sur le plateau."
-[bullet_randomness]
-  other = "Zéro hasard, information complète"
-[bullet_style]
-  other = "Votre style, vos stratégies"
-[bullet_duration]
-  other = "Parties de 30 à 50 minutes"
-[read_rules]
-  other = "Lire les règles"
-[section_author_title]
-  other = "Développeur Web & Créateur de Jeu Indépendant"
-[section_author_bio1]
-  other = "Passionné de jeux de stratégie abstraits (Go, Shogi, échecs), j'ai créé Keres pour retrouver ce qui me fascine : des règles simples, une profondeur infinie. Développeur et maker perfectionniste, j'ai conçu chaque aspect du projet — du moteur de jeu à la plateforme web, des pièces gravées au design d'interface."
-[section_author_bio2]
-  other = "Mon ambition : construire une communauté autour de Keres, organiser des tournois, et offrir une expérience premium qui honore les classiques tout en ouvrant de nouveaux horizons. Keres est conçu pour être joué en ligne d'abord, car c'est là qu'on trouve vraiment le temps de jouer."
-[section_collector_title]
-  other = "Édition Collector"
-[section_collector_text]
-  other = "Précommandez l'édition physique et possédez un morceau d'histoire stratégique."
-[preorder_cta]
-  other = "Précommander l'Édition Collector"
-[section_newsletter_title]
-  other = "Restez Informés"
 [newsletter_label]
   other = "Adresse email"
 [newsletter_placeholder]
   other = "Votre adresse email"
 [newsletter_cta]
   other = "S'abonner"
-[newsletter_privacy]
-  other = "Nous respectons votre vie privée. Votre email sera uniquement utilisé pour les actualités de Keres. Désabonnez-vous à tout moment."
 [lightbox_close]
   other = "Fermer"
 [rules_title]

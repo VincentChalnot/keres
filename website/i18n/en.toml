@@ -16,46 +16,12 @@
   other = "Terms of Sale"
 [footer_contact]
   other = "Contact"
-[hero_baseline]
-  other = "The art of abstract play"
-[hero_cta]
-  other = "Play for Free"
-[hero_intro]
-  other = "Keres draws from classic strategy games and enriches them with an elegant stacking mechanic. This innovation opens new tactical territory to explore, where every game challenges your intelligence rather than your memory. Fresh playing ground, deep decisions, renewed freedom."
-[section_concept_title]
-  other = "Pure tactics, total freedom"
-[section_concept_text]
-  other = "A two-player duel, no randomness, no hidden information. Keres gives you a tactical space where stacking your pieces amplifies their movement, while separating them multiplies your threats. No fixed meta, no optimal build. Just you, your opponent, and the satisfaction of seeing your strategies come to life on the board."
-[bullet_randomness]
-  other = "Zero randomness, complete information"
-[bullet_style]
-  other = "Your style, your strategies"
-[bullet_duration]
-  other = "Games last 30 to 50 minutes"
-[read_rules]
-  other = "Read the rules"
-[section_author_title]
-  other = "Web Developer & Indie Game Designer"
-[section_author_bio1]
-  other = "A lover of abstract strategy games (Go, Shogi, chess), I created Keres to recapture what fascinates me: simple rules, infinite depth. As a perfectionist developer and maker, I designed every aspect of the project — from game engine to web platform, from engraved pieces to interface design."
-[section_author_bio2]
-  other = "My ambition: build a community around Keres, organize tournaments, and deliver a premium experience that honors the classics while opening new territory. Keres is designed to be played online first, because that's where we actually find time to play."
-[section_collector_title]
-  other = "Collector's Edition"
-[section_collector_text]
-  other = "Pre-order the physical edition and own a piece of strategy history."
-[preorder_cta]
-  other = "Pre-order Collector's Edition"
-[section_newsletter_title]
-  other = "Stay Updated"
 [newsletter_label]
   other = "Email address"
 [newsletter_placeholder]
   other = "Your email address"
 [newsletter_cta]
   other = "Subscribe"
-[newsletter_privacy]
-  other = "We respect your privacy. Your email will only be used for Keres updates. Unsubscribe anytime."
 [lightbox_close]
   other = "Close"
 [rules_title]

@@ -1,0 +1,30 @@
+{{ $name := .name }}
+{{ $block := .Site.GetPage (printf "/blocks/%s" $name) }}
+{{ with $block }}
+  {{ $alt := .Params.alt | default "" }}
+
+  {{ if not ($.contentOnly | default false) }}
+    {{ with .Params.image }}
+      <div class="section-img">
+        {{ if $block.Params.lightbox }}
+          <a href="{{ $block.Params.lightbox }}" class="lightbox-trigger">
+            <img src="{{ . }}" alt="{{ $alt }}" />
+          </a>
+        {{ else }}
+          <img src="{{ . }}" alt="{{ $alt }}" />
+        {{ end }}
+      </div>
+    {{ end }}
+  {{ end }}
+
+  {{ if not ($.imageOnly | default false) }}
+    {{ .Content }}
+
+    {{ $btnUrl := $.buttonUrl | default .Params.button.url }}
+    {{ with .Params.button }}
+      <a href="{{ $btnUrl }}" class="btn inline-flex items-center justify-center rounded-full bg-keres-primary text-keres-bg font-bold px-5 py-2 text-sm hover:no-underline hover:opacity-90 transition-opacity">
+        {{ .label }}
+      </a>
+    {{ end }}
+  {{ end }}
+{{ end }}
