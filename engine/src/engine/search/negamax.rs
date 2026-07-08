@@ -122,7 +122,9 @@ pub fn negamax(
 
         if undo.is_king_captured() {
             game.unmake(mv, undo);
-            best_score = KING_VALUE;
+            // Prefer shallower king captures: subtract depth so immediate
+            // captures (depth 0) score higher than those found deeper.
+            best_score = KING_VALUE - depth as i32;
             best_move = Some(*mv);
             break;
         }
