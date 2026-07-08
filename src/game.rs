@@ -1123,4 +1123,49 @@ mod tests {
         game.unmake(&mv, undo);
         assert!(!game.is_game_over());
     }
+
+    #[test]
+    fn find_missed_king_captures() {
+        use base64::{engine::general_purpose, Engine as _};
+
+        let b64 = "Tx6XEEkcAQrBHIsEPhqABDYXiQa4UpRSuRIWD7sYkw6lXI8PPBkeFDIUhgKlDp8eqEoEBkUivQrEAg1UhQMNFJ0KjAoHBKgVyx0rUbkSlQU0FaIQuxWhFQgNKyNOHsYnmgiLCdAjTyi8ItAnEQcTDqUXggFHBIMKDgWcDq8SHQ8uEx4TpQrPZkwhTydFJ00nOhgmD5UUziJCHUUVOiIqDEgJGBESAKIngA0eCwgClgpKHA==";
+        let move_bytes = general_purpose::STANDARD.decode(b64).unwrap();
+
+        let mut game = Game::new();
+
+        for i in (0..move_bytes.len()).step_by(2) {
+            let move_u16 = u16::from_le_bytes([move_bytes[i], move_bytes[i + 1]]);
+            let mv = Move::from_u16(move_u16);
+            let move_num = i / 2 + 1;
+            let side = if game.is_white_to_move() { "W" } else { "B" };
+
+            // Before making the move, check if the side to move can capture the opponent's king
+            let all_moves = game.get_all_moves();
+            let mut king_capture_moves = Vec::new();
+            for pm in &all_moves {
+                for m in pm.to_moves() {
+                    if let Some(piece) = game.board.get_piece(&m.to) {
+                        if piece.is_king() && piece.color != game.color_to_move() {
+                            let from_piece = game.board.get_piece(&m.from)
+                                .map(|p| format!("{:?}/{:?}", p.bottom, p.top))
+                                .unwrap_or("?".to_string());
+                            king_capture_moves.push(format!("{} from {} to {} (piece: {})",
+                                m.to_string(), m.from.to_string(), m.to.to_string(), from_piece));
+                        }
+                    }
+                }
+            }
+
+            if !king_capture_moves.is_empty() {
+                println!("=== Move {} ({}): KING CAPTURE AVAILABLE ===", move_num, side);
+                for km in &king_capture_moves {
+                    println!("  {}", km);
+                }
+                println!("  -> But played {}", mv.to_string());
+                println!();
+            }
+
+            let _undo = game.make(&mv);
+        }
+    }
 }

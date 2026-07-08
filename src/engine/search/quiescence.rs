@@ -51,7 +51,8 @@ pub fn quiescence(
         let undo = game.make_unchecked(&mv);
         if undo.is_king_captured() {
             game.unmake(&mv, undo);
-            return KING_VALUE;
+            // Prefer shallower king captures
+            return KING_VALUE - depth as i32;
         }
 
         let node_id = recorder
