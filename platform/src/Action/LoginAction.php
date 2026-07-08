@@ -50,7 +50,7 @@ class LoginAction extends AbstractController
         $scopes = match ($provider) {
             'google' => ['openid', 'email', 'profile'],
             'facebook' => ['openid', 'email', 'public_profile'],
-            'discord' => ['identify', 'email'],
+            'discord' => ['openid', 'identify', 'email'],
         };
 
         return $client->generateAuthorizationRedirect(scopes: $scopes);
