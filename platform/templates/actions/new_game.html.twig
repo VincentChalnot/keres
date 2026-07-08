@@ -40,7 +40,6 @@
                         {{ form_end(form) }}
                     </div>
 
-                    {% if not publicMode %}
                     <h3 class="title is-4 mt-5">In Progress</h3>
                     {% for game in inProgressGames %}
                         {# @var game \App\Entity\Game #}
@@ -104,7 +103,6 @@
                     {% else %}
                         <p>No finished games.</p>
                     {% endfor %}
-                    {% endif %}
                 </div>
             </div>
         </div>
