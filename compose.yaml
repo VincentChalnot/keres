@@ -30,6 +30,7 @@ x-app-env: &app-env
   MERCURE_PUBLISHER_JWT_KEY: ${CADDY_MERCURE_JWT_SECRET}
   MERCURE_SUBSCRIBER_JWT_KEY: ${CADDY_MERCURE_JWT_SECRET}
   BACKEND_API_URL: http://backend:3000
+  AI_BACKEND_API_URL: http://backend:3000
 
 x-php-env: &php-env
   <<: *app-env

@@ -11,7 +11,8 @@ services:
         autowire: true      # Automatically injects dependencies in your services.
         autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
         bind:
-            $backendApiUrl: '%env(BACKEND_API_URL)%' # Example of binding an environment variable to a service argument
+            $backendApiUrl: '%env(BACKEND_API_URL)%'
+            $aiBackendApiUrl: '%env(AI_BACKEND_API_URL)%'
 
     # makes classes in src/ available to be used as services
     # this creates a service per class whose id is the fully-qualified class name

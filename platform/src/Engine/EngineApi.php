@@ -14,6 +14,7 @@ readonly class EngineApi
     public function __construct(
         private HttpClientInterface $httpClient,
         private string $backendApiUrl,
+        private string $aiBackendApiUrl,
     ) {
     }
 
@@ -26,14 +27,18 @@ readonly class EngineApi
 
     public function aiMove(MovesData $movesData): MoveData
     {
-        $moveData = $this->callApi('engine-move-game', $movesData->toBinary());
+        try {
+            $moveData = $this->callApi('engine-move-game', $movesData->toBinary(), $this->aiBackendApiUrl);
+        } catch (\RuntimeException) {
+            $moveData = $this->callApi('engine-move-game', $movesData->toBinary());
+        }
 
         return new MoveData($moveData);
     }
 
-    private function callApi(string $endpoint, string $body): string
+    private function callApi(string $endpoint, string $body, ?string $baseUrl = null): string
     {
-        $url = rtrim($this->backendApiUrl, '/').'/'.ltrim($endpoint, '/');
+        $url = rtrim($baseUrl ?? $this->backendApiUrl, '/').'/'.ltrim($endpoint, '/');
         $apiResponse = $this->httpClient->request(
             'POST',
             $url,
