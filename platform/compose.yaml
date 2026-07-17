@@ -4,6 +4,9 @@ name: keres
 x-app-env: &app-env
   SERVER_NAME: ${SERVER_NAME:-localhost}:${HTTPS_PORT:-443}
   DEFAULT_URI: https://${SERVER_NAME:-localhost}:${HTTPS_PORT:-443}
+  # Caddy site address — dev keeps Caddy on :443 with mounted certs (Caddy owns TLS).
+  # Prod overrides this to http://${SERVER_NAME} so Caddy runs cleartext behind Traefik.
+  CADDY_SITE_ADDRESS: ${SERVER_NAME:-localhost}:${HTTPS_PORT:-443}
   MERCURE_PUBLISHER_JWT_KEY: ${MERCURE_JWT_SECRET:-!ChangeThisMercureHubJWTSecretKey!}
   MERCURE_SUBSCRIBER_JWT_KEY: ${MERCURE_JWT_SECRET:-!ChangeThisMercureHubJWTSecretKey!}
   # Run "composer require symfony/orm-pack" to install and configure Doctrine ORM

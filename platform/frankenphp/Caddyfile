@@ -16,7 +16,12 @@
 
 {$CADDY_EXTRA_CONFIG}
 
-{$SERVER_NAME:localhost} {
+# Site address is decoupled from SERVER_NAME so prod can run Caddy on plain
+# HTTP (:80) behind Traefik-terminated TLS, while dev keeps Caddy on :443 with
+# mounted certs.  Set CADDY_SITE_ADDRESS per environment:
+#   dev  → local.playkeres.com:443   (Caddy owns TLS)
+#   prod → http://playkeres.com       (Traefik owns TLS, Caddy is cleartext)
+{$CADDY_SITE_ADDRESS:localhost} {
 	log {
 		{$CADDY_SERVER_LOG_OPTIONS}
 		# Redact the authorization query parameter that can be set by Mercure

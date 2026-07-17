@@ -8,13 +8,18 @@
 #   POSTGRES_USER            Database user
 #   POSTGRES_PASSWORD        Database password
 #   POSTGRES_DB              Database name
-#   CADDY_MERCURE_JWT_SECRET Mercure JWT secret (random 32+ char string)
-#   INFOMANIAK_API_TOKEN     Infomaniak API token for DNS-01 ACME challenge
+#   MERCURE_JWT_SECRET Mercure JWT secret (random 32+ char string)
+#   INFOMANIAK_API_TOKEN     Infomaniak API token for DNS-01 ACME (consumed by
+#                            the Traefik service on the prod server, not here)
 #
 # Optional .env variables:
 #   POSTGRES_VERSION         Defaults to 16
 #   POSTGRES_CHARSET         Defaults to utf8
 #   IMAGES_TAG               Docker image tag to deploy (defaults to latest)
+#   TRUSTED_PROXIES          Comma-separated CIDR/IPs trusted to set
+#                            X-Forwarded-* headers. Defaults to 172.16.0.0/12,::/0
+#                            (covers default docker subnets). Tighten to the
+#                            proxy network's actual CIDR if desired.
 
 name: keres
 
@@ -29,8 +34,13 @@ x-app-env: &app-env
 
 x-php-env: &php-env
   <<: *app-env
-  CADDY_GLOBAL_OPTIONS: "acme_dns infomaniak ${INFOMANIAK_API_TOKEN}"
-  INFOMANIAK_API_TOKEN: ${INFOMANIAK_API_TOKEN}
+  # Caddy listens on plain HTTP (:80) — Traefik owns TLS and ACME now.
+  CADDY_SITE_ADDRESS: "http://${SERVER_NAME}"
+  # Trust the docker proxy network so Symfony walks X-Forwarded-For and
+  # Request::getClientIp() returns the real client instead of Traefik's IP.
+  # 172.16.0.0/12 covers default docker subnets; tighten to the proxy
+  # network's CIDR if desired (docker network inspect proxy).
+  TRUSTED_PROXIES: "${TRUSTED_PROXIES:-172.16.0.0/12,::/0}"
 
 services:
   php:
@@ -45,8 +55,9 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     # Expose only to Traefik via the shared proxy network; no host ports needed.
-    # Traefik uses SSL passthrough so Caddy handles TLS end-to-end (required for
-    # HTTP/2 and Mercure/SSE to work correctly).
+    # Traefik terminates TLS (Infomaniak DNS-01 ACME) and forwards cleartext
+    # HTTP to Caddy on :80.  X-Forwarded-For is injected by Traefik; Symfony
+    # trusts the proxy network via TRUSTED_PROXIES to recover the real client IP.
     networks:
       - default
       - proxy
@@ -65,15 +76,15 @@ services:
       traefik.http.middlewares.keres-redirect-https.redirectscheme.scheme: "https"
       traefik.http.middlewares.keres-redirect-https.redirectscheme.permanent: "true"
 
-      # ── HTTPS (TCP passthrough — Caddy owns TLS, HTTP/2 + Mercure work) ───
-      # We use a TCP router with passthrough so that:
-      #   1. Caddy manages its own ACME certificate (autocert).
-      #   2. HTTP/2 and SSE/Mercure work without Traefik terminating TLS.
-      traefik.tcp.routers.keres-https.rule: "HostSNI(`${SERVER_NAME}`)"
-      traefik.tcp.routers.keres-https.entrypoints: "websecure"
-      traefik.tcp.routers.keres-https.tls.passthrough: "true"
-      traefik.tcp.routers.keres-https.service: "keres-https-svc"
-      traefik.tcp.services.keres-https-svc.loadbalancer.server.port: "443"
+      # ── HTTPS — Traefik terminates TLS, forwards cleartext HTTP to Caddy:80
+      # Traefik owns ACME (Infomaniak DNS-01, configured in traefik.yml) and
+      # injects X-Forwarded-For automatically on HTTP routers.
+      traefik.http.routers.keres-https.rule: "Host(`${SERVER_NAME}`)"
+      traefik.http.routers.keres-https.entrypoints: "websecure"
+      traefik.http.routers.keres-https.tls: "true"
+      traefik.http.routers.keres-https.tls.certresolver: "letsencrypt"
+      traefik.http.routers.keres-https.service: "keres-https-svc"
+      traefik.http.services.keres-https-svc.loadbalancer.server.port: "80"
 
   php-worker:
     image: ghcr.io/vincentchalnot/keres/php-worker:${IMAGES_TAG:-latest}
@@ -117,7 +128,8 @@ services:
       - database_data:/var/lib/postgresql/data:rw
 
 volumes:
-  # Caddy certificate store — persisted so autocert isn't re-triggered on every restart.
+  # Caddy runtime state (Mercure subscriptions, etc.).  Caddy no longer stores
+  # ACME certs — Traefik owns TLS now — but still uses /data for ephemeral state.
   caddy_data:
   caddy_config:
   # PostgreSQL data — backed up externally via db-backup.sh.

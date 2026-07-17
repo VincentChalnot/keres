@@ -1,6 +1,15 @@
 # see https://symfony.com/doc/current/reference/configuration/framework.html
+parameters:
+    # Default to empty string = trust no proxy (safe for dev where Caddy is the edge).
+    # Prod sets TRUSTED_PROXIES to the docker network CIDR Traefik uses to reach us.
+    env(TRUSTED_PROXIES): ''
+
 framework:
     secret: '%env(APP_SECRET)%'
+
+    # Trust X-Forwarded-* headers from these IPs/ranges so Request::getClientIp()
+    # returns the real client instead of the reverse proxy.  Comma-separated.
+    trusted_proxies: '%env(TRUSTED_PROXIES)%'
 
     # Note that the session will be started ONLY if you read or write from it.
     session: true
