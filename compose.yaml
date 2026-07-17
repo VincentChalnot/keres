@@ -82,7 +82,7 @@ services:
       traefik.http.routers.keres-https.rule: "Host(`${SERVER_NAME}`)"
       traefik.http.routers.keres-https.entrypoints: "websecure"
       traefik.http.routers.keres-https.tls: "true"
-      traefik.http.routers.keres-https.tls.certresolver: "letsencrypt"
+      traefik.http.routers.keres-https.tls.certresolver: "${CERT_RESOLVER:-letsencrypt}"
       traefik.http.routers.keres-https.service: "keres-https-svc"
       traefik.http.services.keres-https-svc.loadbalancer.server.port: "80"
 
