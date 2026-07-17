@@ -24,6 +24,10 @@ RUN set -eux; \
 
 COPY --link frankenphp/conf.d/20-app.dev.ini $PHP_INI_DIR/app.conf.d/
 
+# Always copy the Caddyfile from source so changes take effect on every image
+# build, not only when the slow base image (Dockerfile.base) is rebuilt.
+COPY --link frankenphp/Caddyfile /etc/frankenphp/Caddyfile
+
 CMD [ "frankenphp", "run", "--config", "/etc/frankenphp/Caddyfile", "--watch" ]
 
 # Node builder stage: compile frontend assets for production
@@ -48,6 +52,10 @@ ENV APP_ENV=prod
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
 COPY --link frankenphp/conf.d/20-app.prod.ini $PHP_INI_DIR/app.conf.d/
+
+# Always copy the Caddyfile from source so changes take effect on every image
+# build, not only when the slow base image (Dockerfile.base) is rebuilt.
+COPY --link frankenphp/Caddyfile /etc/frankenphp/Caddyfile
 
 # prevent the reinstallation of vendors at every changes in the source code
 COPY --link composer.* symfony.* ./

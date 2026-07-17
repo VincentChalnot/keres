@@ -35,6 +35,13 @@
 	root /app/public
 	encode zstd br gzip
 
+	# In production Caddy runs behind Traefik-terminated TLS on plain HTTP (:80).
+	# Caddy would set X-Forwarded-Proto to "http" based on the incoming connection,
+	# overwriting Traefik's correct "https" value.  Force it back so Symfony's
+	# Request::isSecure(), getScheme(), and OIDC redirect-URI generation are correct.
+	# In dev Caddy owns TLS (:443) and already sets "https" — redundant but harmless.
+	request_header X-Forwarded-Proto https
+
 	mercure {
 		# Publisher JWT key
 		publisher_jwt {env.MERCURE_PUBLISHER_JWT_KEY} {env.MERCURE_PUBLISHER_JWT_ALG}
