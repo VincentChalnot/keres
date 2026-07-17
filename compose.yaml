@@ -20,17 +20,12 @@ name: keres
 
 x-app-env: &app-env
   APP_ENV: prod
-  APP_SECRET: ${APP_SECRET}
-  SERVER_NAME: ${SERVER_NAME}
   DEFAULT_URI: https://${SERVER_NAME}
   DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}?serverVersion=${POSTGRES_VERSION:-16}&charset=${POSTGRES_CHARSET:-utf8}
+  MERCURE_PUBLISHER_JWT_KEY: ${MERCURE_JWT_SECRET:-!ChangeThisMercureHubJWTSecretKey!}
+  MERCURE_SUBSCRIBER_JWT_KEY: ${MERCURE_JWT_SECRET:-!ChangeThisMercureHubJWTSecretKey!}
   MERCURE_URL: https://${SERVER_NAME}/.well-known/mercure
   MERCURE_PUBLIC_URL: https://${SERVER_NAME}/.well-known/mercure
-  MERCURE_JWT_SECRET: ${CADDY_MERCURE_JWT_SECRET}
-  MERCURE_PUBLISHER_JWT_KEY: ${CADDY_MERCURE_JWT_SECRET}
-  MERCURE_SUBSCRIBER_JWT_KEY: ${CADDY_MERCURE_JWT_SECRET}
-  BACKEND_API_URL: http://backend:3000
-  AI_BACKEND_API_URL: http://backend:3000
 
 x-php-env: &php-env
   <<: *app-env
@@ -41,6 +36,7 @@ services:
   php:
     image: ghcr.io/vincentchalnot/keres/php:${IMAGES_TAG:-latest}
     restart: unless-stopped
+    env_file: .env
     environment:
       <<: *php-env
     security_opt:
@@ -65,7 +61,9 @@ services:
       # ── HTTP → HTTPS redirect ──────────────────────────────────────────────
       traefik.http.routers.keres-http.rule: "Host(`${SERVER_NAME}`)"
       traefik.http.routers.keres-http.entrypoints: "web"
-      traefik.http.routers.keres-http.middlewares: "redirect-to-https@file"
+      traefik.http.routers.keres-http.middlewares: "keres-redirect-https"
+      traefik.http.middlewares.keres-redirect-https.redirectscheme.scheme: "https"
+      traefik.http.middlewares.keres-redirect-https.redirectscheme.permanent: "true"
 
       # ── HTTPS (TCP passthrough — Caddy owns TLS, HTTP/2 + Mercure work) ───
       # We use a TCP router with passthrough so that:
@@ -80,6 +78,7 @@ services:
   php-worker:
     image: ghcr.io/vincentchalnot/keres/php-worker:${IMAGES_TAG:-latest}
     restart: unless-stopped
+    env_file: .env
     environment:
       <<: *app-env
     security_opt:
