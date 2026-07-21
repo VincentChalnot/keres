@@ -174,6 +174,32 @@ composer cs:fix     # Applies PHP CS Fixer fixes in place
 Run `composer cs:check` before considering any PHP task complete.
 Run `composer cs:fix` to auto-correct style issues.
 
+## Testing via the Integrated Browser
+
+Real auth is Google/Discord OIDC only — no credentials are available to an
+agent. Use the **dev-only login bypass** instead:
+
+```
+GET /dev/login?email=<anything>@example.com
+```
+
+Navigate a browser tab straight to that URL (e.g.
+`https://local.playkeres.com/dev/login?email=agent-test@example.com`). It
+authenticates the session as that user, creating the `User` row on first
+hit — no password, no OIDC round trip. Use different emails to test as
+different users (e.g. two players in the same game).
+
+- Implementation: `App\Security\DevLoginAuthenticator` (`src/Security/`),
+  route in `config/routes/dev/dev_login.yaml`.
+- Only reachable when `kernel.environment == dev`: the route is loaded
+  exclusively in dev, and the authenticator independently refuses outside
+  dev — it does not exist in prod/test.
+- The `/login` page also renders a plain email-input form for this when
+  `app.environment == 'dev'`, for manual use alongside the OIDC buttons.
+- This bypasses `UserAuth`/OIDC provider linkage entirely — it only creates
+  a bare `User` by email. Don't use it to test the OIDC callback flow
+  itself; that still requires real Google/Discord credentials.
+
 ## Conventions
 
 ### PHP
