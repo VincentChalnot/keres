@@ -19,5 +19,11 @@ services:
     App\:
         resource: '../src/'
 
+    # Bound explicitly (not a global _defaults.bind) so only this dev-only
+    # authenticator ever sees kernel.environment.
+    App\Security\DevLoginAuthenticator:
+        arguments:
+            $environment: '%kernel.environment%'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

@@ -1,0 +1,9 @@
+# Dev-only login bypass. This file lives under config/routes/dev/ so
+# Symfony's MicroKernelTrait only imports it when kernel.environment is
+# "dev" — the route does not exist in prod or test.
+#
+# Usage: GET /dev/login?email=someone@example.com
+dev_login:
+    path: /dev/login
+    controller: App\Action\DevLoginAction::check
+    methods: [GET]

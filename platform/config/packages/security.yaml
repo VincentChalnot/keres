@@ -17,6 +17,7 @@ security:
             provider: app_user_provider
             custom_authenticators:
                 - App\Security\MultiProviderOidcAuthenticator
+                - App\Security\DevLoginAuthenticator
             entry_point: App\Security\MultiProviderOidcAuthenticator
             logout:
                 path: logout

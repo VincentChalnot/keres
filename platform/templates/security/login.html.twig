@@ -31,6 +31,19 @@
                                 <span>Login with Facebook</span>
                             </a>#}
                         </div>
+
+                        {% if app.environment == 'dev' %}
+                            <hr>
+                            <p class="subtitle">Dev login (bypasses OIDC)</p>
+                            <form method="get" action="{{ path('dev_login') }}" class="field has-addons">
+                                <div class="control is-expanded">
+                                    <input type="email" name="email" class="input" placeholder="someone@example.com" required>
+                                </div>
+                                <div class="control">
+                                    <button type="submit" class="button is-rounded is-light">Login as</button>
+                                </div>
+                            </form>
+                        {% endif %}
                     </div>
                 </div>
             </div>
