@@ -1,0 +1,50 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Feedback{% endblock %}
+
+{% block body %}
+<main class="section">
+    <div class="container">
+        <div class="columns is-centered">
+            <div class="column is-7">
+                <h1 class="title">Alpha Feedback</h1>
+                <p class="subtitle">Help us improve Keres! Report bugs, suggest features, or share your gameplay experience.</p>
+
+                {% if sent %}
+                    <div class="notification is-success">
+                        <strong>Thank you for your feedback!</strong> We review every submission.
+                    </div>
+                {% endif %}
+
+                {{ form_start(form, {attr: {novalidate: 'novalidate', class: 'box'}}) }}
+
+                    <div class="field">
+                        {{ form_label(form.category, null, {label_attr: {class: 'label'}}) }}
+                        <div class="control">
+                            <div class="select is-fullwidth">
+                                {{ form_widget(form.category) }}
+                            </div>
+                        </div>
+                        {{ form_errors(form.category) }}
+                    </div>
+
+                    <div class="field">
+                        {{ form_label(form.message, null, {label_attr: {class: 'label'}}) }}
+                        <div class="control">
+                            {{ form_widget(form.message, {attr: {class: 'textarea'}}) }}
+                        </div>
+                        {{ form_errors(form.message) }}
+                    </div>
+
+                    <div class="field">
+                        <div class="control">
+                            {{ form_widget(form.submit, {attr: {class: 'button is-primary is-rounded'}}) }}
+                        </div>
+                    </div>
+
+                {{ form_end(form) }}
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}

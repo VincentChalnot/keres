@@ -14,3 +14,5 @@ sidus_template:
             template: 'actions/terms.html.twig'
         contact:
             template: 'actions/contact.html.twig'
+        feedback:
+            template: 'actions/feedback.html.twig'

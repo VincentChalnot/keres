@@ -75,6 +75,9 @@
             <a href="{{ path('legal_notice') }}">Mentions légales</a>
             <a href="{{ path('terms') }}">Conditions générales de vente</a>
             <a href="{{ path('contact') }}">Contact</a>
+            {% if app.user %}
+                <a href="{{ path('feedback') }}">Feedback</a>
+            {% endif %}
         </nav>
     </div>
 </footer>
