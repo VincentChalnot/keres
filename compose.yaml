@@ -1,138 +1,170 @@
-# Production Compose file for Keres platform
-# Place this file on the production server alongside a .env file containing secrets.
-# DO NOT commit this file or the .env to the repository.
+# Development Compose file for Keres (workspace root).
 #
-# Required .env variables (all must be set — no defaults are provided):
-#   SERVER_NAME              e.g. playkeres.com
-#   APP_SECRET               Symfony app secret (random 32+ char string)
-#   POSTGRES_USER            Database user
-#   POSTGRES_PASSWORD        Database password
-#   POSTGRES_DB              Database name
-#   MERCURE_JWT_SECRET Mercure JWT secret (random 32+ char string)
-#   INFOMANIAK_API_TOKEN     Infomaniak API token for DNS-01 ACME (consumed by
-#                            the Traefik service on the prod server, not here)
+# Bring up the full local stack on split domains, with Traefik owning TLS:
+#   - https://local.playkeres.com           → Hugo static site (dev)
+#   - https://app.local.playkeres.com       → Symfony / FrankenPHP app
+#   - https://vite.app.local.playkeres.com  → Vite dev server (HMR over WSS)
+#   - Mailpit UI                            → http://localhost:8025  (host port)
 #
-# Optional .env variables:
-#   POSTGRES_VERSION         Defaults to 16
-#   POSTGRES_CHARSET         Defaults to utf8
-#   IMAGES_TAG               Docker image tag to deploy (defaults to latest)
-#   TRUSTED_PROXIES          Comma-separated CIDR/IPs trusted to set
-#                            X-Forwarded-* headers. Defaults to 172.16.0.0/12,::/0
-#                            (covers default docker subnets). Tighten to the
-#                            proxy network's actual CIDR if desired.
+# Prerequisites (handled by the operator, not this file):
+#   1. External Traefik must be running on the `proxy` docker network.
+#   2. DNS for *.local.playkeres.com must point at 127.0.0.1.
+#   3. Copy .env.dev.example to .env and fill in any local secrets.
+#
+# Usage:
+#   docker network create proxy 2>/dev/null || true
+#   cp .env.dev.example .env
+#   docker compose up --build -d
 
-name: keres
+name: keres-dev
 
 x-app-env: &app-env
-  APP_ENV: prod
-  DEFAULT_URI: https://${SERVER_NAME}
-  DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}?serverVersion=${POSTGRES_VERSION:-16}&charset=${POSTGRES_CHARSET:-utf8}
+  APP_ENV: dev
+  SERVER_NAME: app.local.playkeres.com
+  DEFAULT_URI: https://app.local.playkeres.com
+  CADDY_SITE_ADDRESS: "http://app.local.playkeres.com"   # plain HTTP, Traefik owns TLS
+  DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-!ChangeMe!}@database:5432/${POSTGRES_DB:-app}?serverVersion=${POSTGRES_VERSION:-16}&charset=utf8
   MERCURE_PUBLISHER_JWT_KEY: ${MERCURE_JWT_SECRET:-!ChangeThisMercureHubJWTSecretKey!}
   MERCURE_SUBSCRIBER_JWT_KEY: ${MERCURE_JWT_SECRET:-!ChangeThisMercureHubJWTSecretKey!}
-  MERCURE_URL: https://${SERVER_NAME}/.well-known/mercure
-  MERCURE_PUBLIC_URL: https://${SERVER_NAME}/.well-known/mercure
-
-x-php-env: &php-env
-  <<: *app-env
-  # Caddy listens on plain HTTP (:80) — Traefik owns TLS and ACME now.
-  CADDY_SITE_ADDRESS: "http://${SERVER_NAME}"
-  # Trust the docker proxy network so Symfony walks X-Forwarded-For and
-  # Request::getClientIp() returns the real client instead of Traefik's IP.
-  # 172.16.0.0/12 covers default docker subnets; tighten to the proxy
-  # network's CIDR if desired (docker network inspect proxy).
+  MERCURE_URL: https://app.local.playkeres.com/.well-known/mercure
+  MERCURE_PUBLIC_URL: https://app.local.playkeres.com/.well-known/mercure
+  MERCURE_JWT_SECRET: ${MERCURE_JWT_SECRET:-!ChangeThisMercureHubJWTSecretKey!}
+  BACKEND_API_URL: http://backend:3000
+  AI_BACKEND_API_URL: http://backend:3000
   TRUSTED_PROXIES: "${TRUSTED_PROXIES:-172.16.0.0/12,::/0}"
 
 services:
   php:
-    image: ghcr.io/vincentchalnot/keres/php:${IMAGES_TAG:-latest}
+    build:
+      context: ./platform
+      target: frankenphp_dev
     restart: unless-stopped
-    env_file: .env
     environment:
-      <<: *php-env
+      <<: *app-env
+      FRANKENPHP_WORKER_CONFIG: watch
+      XDEBUG_MODE: "${XDEBUG_MODE:-off}"
     security_opt:
       - label=disable
     volumes:
-      - caddy_data:/data
-      - caddy_config:/config
-    # Expose only to Traefik via the shared proxy network; no host ports needed.
-    # Traefik terminates TLS (Infomaniak DNS-01 ACME) and forwards cleartext
-    # HTTP to Caddy on :80.  X-Forwarded-For is injected by Traefik; Symfony
-    # trusts the proxy network via TRUSTED_PROXIES to recover the real client IP.
-    networks:
-      - default
-      - proxy
+      - ./platform:/app
+      - ./platform/frankenphp/Caddyfile:/etc/frankenphp/Caddyfile:ro
+      - ./platform/frankenphp/conf.d/20-app.dev.ini:/usr/local/etc/php/app.conf.d/20-app.dev.ini:ro
+      - composer_cache:/.cache/composer
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    tty: true
     depends_on:
       database:
         condition: service_healthy
+    networks: [default, proxy]
     labels:
-      # Enable Traefik for this service
       traefik.enable: "true"
       traefik.docker.network: "proxy"
-
-      # ── HTTP → HTTPS redirect ──────────────────────────────────────────────
-      traefik.http.routers.keres-http.rule: "Host(`${SERVER_NAME}`)"
-      traefik.http.routers.keres-http.entrypoints: "web"
-      traefik.http.routers.keres-http.middlewares: "keres-redirect-https"
-      traefik.http.middlewares.keres-redirect-https.redirectscheme.scheme: "https"
-      traefik.http.middlewares.keres-redirect-https.redirectscheme.permanent: "true"
-
-      # ── HTTPS — Traefik terminates TLS, forwards cleartext HTTP to Caddy:80
-      # Traefik owns ACME (Infomaniak DNS-01, configured in traefik.yml) and
-      # injects X-Forwarded-For automatically on HTTP routers.
-      traefik.http.routers.keres-https.rule: "Host(`${SERVER_NAME}`)"
-      traefik.http.routers.keres-https.entrypoints: "websecure"
-      traefik.http.routers.keres-https.tls: "true"
-      traefik.http.routers.keres-https.tls.certresolver: "${CERT_RESOLVER:-letsencrypt}"
-      traefik.http.routers.keres-https.service: "keres-https-svc"
-      traefik.http.services.keres-https-svc.loadbalancer.server.port: "80"
+      traefik.http.routers.keres-app-http.rule: "Host(`app.local.playkeres.com`)"
+      traefik.http.routers.keres-app-http.entrypoints: "websecure"
+      traefik.http.routers.keres-app-http.tls: "true"
+      traefik.http.routers.keres-app-http.tls.certresolver: "${CERT_RESOLVER:-letsencrypt}"
+      traefik.http.routers.keres-app-http.service: "keres-app-svc"
+      traefik.http.services.keres-app-svc.loadbalancer.server.port: "80"
 
   php-worker:
-    image: ghcr.io/vincentchalnot/keres/php-worker:${IMAGES_TAG:-latest}
+    build:
+      context: ./platform
+      target: frankenphp_worker_dev
     restart: unless-stopped
-    env_file: .env
     environment:
       <<: *app-env
+      XDEBUG_MODE: "${XDEBUG_MODE:-off}"
     security_opt:
       - label=disable
-    healthcheck:
-      test: ["CMD", "supervisorctl", "status", "all"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+    volumes:
+      - ./platform:/app
+      - ./platform/frankenphp/conf.d/20-app.dev.ini:/usr/local/etc/php/app.conf.d/20-app.dev.ini:ro
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    tty: true
     depends_on:
       php:
         condition: service_healthy
 
   backend:
-    image: ghcr.io/vincentchalnot/keres/backend:${IMAGES_TAG:-latest}
+    build:
+      context: ./engine
+      dockerfile: Dockerfile
     restart: unless-stopped
     environment:
       - RUST_LOG=info
+
+  node:
+    image: node:24-alpine
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./platform:/app
+    command: ["sh", "-c", "npm install && npm run dev -- --host 0.0.0.0"]
+    networks: [default, proxy]
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "proxy"
+      traefik.http.routers.keres-vite.rule: "Host(`vite.app.local.playkeres.com`)"
+      traefik.http.routers.keres-vite.entrypoints: "websecure"
+      traefik.http.routers.keres-vite.tls: "true"
+      traefik.http.routers.keres-vite.tls.certresolver: "${CERT_RESOLVER:-letsencrypt}"
+      traefik.http.routers.keres-vite.service: "keres-vite-svc"
+      traefik.http.services.keres-vite-svc.loadbalancer.server.port: "5173"
+
+  hugo:
+    image: hugomods/hugo:ci-0.135.0
+    restart: unless-stopped
+    working_dir: /src
+    volumes:
+      - ./website:/src
+    command:
+      - "server"
+      - "--bind=0.0.0.0"
+      - "--port=80"
+      - "--baseURL=https://local.playkeres.com/"
+      - "--environment=development"
+      - "--buildDrafts"
+      - "--disableFastRender"
+      - "--liveReloadPort=443"
+    networks: [default, proxy]
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "proxy"
+      traefik.http.routers.keres-web.rule: "Host(`local.playkeres.com`)"
+      traefik.http.routers.keres-web.entrypoints: "websecure"
+      traefik.http.routers.keres-web.tls: "true"
+      traefik.http.routers.keres-web.tls.certresolver: "${CERT_RESOLVER:-letsencrypt}"
+      traefik.http.routers.keres-web.service: "keres-web-svc"
+      traefik.http.services.keres-web-svc.loadbalancer.server.port: "80"
 
   database:
     image: postgres:${POSTGRES_VERSION:-16}-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-!ChangeMe!}
+      POSTGRES_USER: ${POSTGRES_USER:-app}
     healthcheck:
-      test: ["CMD", "pg_isready", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}"]
+      test: ["CMD", "pg_isready", "-d", "${POSTGRES_DB:-app}", "-U", "${POSTGRES_USER:-app}"]
       timeout: 5s
       retries: 5
       start_period: 60s
-    # Named volume: data is preserved across container restarts but backed up
-    # via the external db-backup.sh script (see crontab setup in README).
     volumes:
       - database_data:/var/lib/postgresql/data:rw
 
+  mailer:
+    image: axllent/mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
 volumes:
-  # Caddy runtime state (Mercure subscriptions, etc.).  Caddy no longer stores
-  # ACME certs — Traefik owns TLS now — but still uses /data for ephemeral state.
-  caddy_data:
-  caddy_config:
-  # PostgreSQL data — backed up externally via db-backup.sh.
+  composer_cache:
   database_data:
 
 networks:

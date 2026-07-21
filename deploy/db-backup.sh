@@ -3,7 +3,7 @@
 #
 # Usage: ./db-backup.sh
 #
-# Place this script next to prod_compose.yaml.
+# Place this script next to compose.yaml.
 # POSTGRES_USER, POSTGRES_DB and PGPASSWORD are read directly from the running
 # database container's environment — no need to source the .env file here.
 #
@@ -19,7 +19,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKUP_DIR="${SCRIPT_DIR}/backups"
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
 
-COMPOSE="docker compose --project-directory ${SCRIPT_DIR} --file ${SCRIPT_DIR}/prod_compose.yaml"
+COMPOSE="docker compose --project-directory ${SCRIPT_DIR} --file ${SCRIPT_DIR}/compose.yaml"
 
 # Read connection parameters straight from the container environment.
 POSTGRES_USER="$($COMPOSE exec -T database printenv POSTGRES_USER)"
@@ -50,5 +50,5 @@ echo "[$(date -Iseconds)] Done."
 # ── Restore instructions ──────────────────────────────────────────────────────
 # To restore a backup:
 #   gunzip -c backups/<timestamp>_<db>.sql.gz | \
-#     docker compose --file prod_compose.yaml exec -T database \
+#     docker compose --file compose.yaml exec -T database \
 #       psql --username=<POSTGRES_USER> --dbname=<POSTGRES_DB>

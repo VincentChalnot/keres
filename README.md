@@ -89,30 +89,32 @@ here, making it slower than CPU-only search.
 ## Architecture overview
 
 ```
-┌─────────────────────────────────────────┐
-│              playkeres.com              │
-│                                         │
-│  ┌─────────────┐    ┌─────────────────┐ │
-│  │  TypeScript │    │  Three.js       │ │
-│  │  SVG client │    │  (in progress)  │ │
-│  └──────┬──────┘    └────────┬────────┘ │
-│         │                   │           │
-│  ┌──────▼───────────────────▼────────┐  │
-│  │         Symfony (PHP)             │  │
-│  │  - Game platform (game-agnostic)  │  │
-│  │  - Stores raw binary move lists   │  │
-│  │  - Pushes updates via Mercure     │  │
-│  └──────────────────┬────────────────┘  │
-│                     │ HTTP API          │
-│  ┌──────────────────▼────────────────┐  │
-│  │         Rust Game Engine          │  │
-│  │  - All game logic                 │  │
-│  │  - Negamax AI (Rayon parallel)    │  │
-│  │  - Binary serialization           │  │
-│  └───────────────────────────────────┘  │
-└─────────────────────────────────────────┘
+                ┌──────────────────────────────────────────────────┐
+                │       Cloudflare (prod) / Traefik (dev)          │
+                │            TLS termination (both envs)           │
+                │   Prod: Infomaniak DNS-01 → LetsEncrypt          │
+                │   Dev:  Infomaniak DNS-01 → LetsEncrypt          │
+                │          (real certs for *.local.playkeres.com)  │
+                └─────────┬────────────────────────┬───────────────┘
+                          │                        │
+          Host: playkeres.com        Host: app.playkeres.com
+          (dev: local.playkeres.com) (dev: app.local.playkeres.com)
+                          │                        │
+        ┌─────────────────▼─────────┐  ┌───────────▼──────────────────┐
+        │  Hugo static build        │  │  FrankenPHP / Symfony        │
+        │  Prod: Cloudflare Pages   │  │  - OIDC auth                 │
+        │  Dev:  Hugo server Docker │  │  - /play* (twig+Vite)        │
+        │  + /api/contact POST      │  │  - /api/* (engine proxy +    │
+        │    (CORS to app subdomain)│  │       contact endpoint)      │
+        └───────────────────────────┘  │  - /.well-known/mercure      │
+                                       └──────┬───────────┬───────────┘
+                                              │           │
+                                        ┌─────▼───┐  ┌────▼─────┐
+                                        │ Postgres│  │ Rust:3000│
+                                        └─────────┘  └──────────┘
 
-Deployed via Docker Compose + CI/CD pipeline
+Vite dev server: routed via Traefik at vite.app.local.playkeres.com
+                 (no direct port publish, no TLS in Vite itself)
 ```
 
 ---
@@ -126,7 +128,8 @@ Deployed via Docker Compose + CI/CD pipeline
 | Frontend    | TypeScript + SVG | Optimized DOM updates                  |
 | 3D renderer | Three.js + glTF  | In development                         |
 | Real-time   | Mercure          | Server-sent events                     |
-| Infra       | Docker Compose   | CI/CD, VPS deployment                  |
+| Static site | Hugo             | Marketing pages on playkeres.com       |
+| Infra       | Docker Compose   | Dev at root, prod under deploy/        |
 
 ---
 
@@ -188,5 +191,25 @@ has been playtested with real players over 10+ years before this platform was bu
 A full rules explanation is available at [playkeres.com/rules](http://playkeres.com/rules).
 
 ---
+
+## Development
+
+The dev environment runs the full split stack — Symfony app, Rust engine, Postgres,
+Mailpit, Vite dev server, and the Hugo static site — under a single `docker compose`
+at the workspace root, with Traefik terminating TLS in front.
+
+```bash
+# Prereqs: external Traefik on a `proxy` network, *.local.playkeres.com → 127.0.0.1
+cp .env.dev.example .env
+docker network create proxy 2>/dev/null || true
+docker compose up --build -d
+# https://local.playkeres.com           → Hugo static site (dev)
+# https://app.local.playkeres.com       → Symfony / FrankenPHP
+# https://vite.app.local.playkeres.com  → Vite HMR (WSS)
+# http://localhost:8025                  → Mailpit UI
+```
+
+Production deployment artifacts live in `deploy/`. See `deploy/README.md` for ops
+details. The Rust engine is unchanged across both environments.
 
 *Solo project by [Vincent Chalnot](https://github.com/VincentChalnot)*

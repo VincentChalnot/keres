@@ -254,3 +254,17 @@
   other = "Français"
 [skip_to_content]
   other = "Skip to content"
+[contact_name]
+  other = "Your name"
+[contact_email]
+  other = "Your email"
+[contact_subject]
+  other = "Subject"
+[contact_message]
+  other = "Message"
+[contact_send]
+  other = "Send message"
+[contact_success]
+  other = "Your message has been sent. We will get back to you shortly."
+[contact_error]
+  other = "An error occurred. Please try again later."

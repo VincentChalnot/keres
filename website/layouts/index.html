@@ -150,7 +150,9 @@
       {{ with .Site.GetPage "/terms-of-sale" }}
       <a href="{{ .RelPermalink }}" class="text-keres-primary mx-3 hover:underline">{{ i18n "footer_terms" }}</a>
       {{ end }}
-      <a href="{{ .Site.Params.platformURL }}/contact" class="text-keres-primary mx-3 hover:underline" target="_blank" rel="noopener">{{ i18n "footer_contact" }}</a>
+      {{ with .Site.GetPage "/contact" }}
+      <a href="{{ .RelPermalink }}" class="text-keres-primary mx-3 hover:underline">{{ i18n "footer_contact" }}</a>
+      {{ end }}
     </nav>
   </div>
 </footer>

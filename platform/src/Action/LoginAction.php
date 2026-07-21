@@ -27,7 +27,7 @@ class LoginAction extends AbstractController
     public function login(): Response
     {
         if ($this->getUser()) {
-            return $this->redirectToRoute('index');
+            return $this->redirectToRoute('new_game');
         }
 
         return $this->render('security/login.html.twig');

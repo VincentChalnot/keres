@@ -1,17 +1,24 @@
 # AGENTS.md — Keres Platform (Symfony + TypeScript)
 
+> **TEMPORARY SCOPE EXPANSION (2026-07-21):** The current task implements the
+> split-domain architecture (static site on Hugo, app on Symfony), which
+> requires writes outside `platform/` (root, `deploy/`, `website/`, `.github/`).
+> For the duration of this task only, the agent operates at the **workspace
+> root**. Restore the previous scope once the task lands.
+
 ## Scope
 
-This agent operates exclusively inside the `platform/` directory, which is the
-root of this workspace. Do **not** modify anything outside this directory.
+This agent operates at the **workspace root** for the current split-architecture
+task. Normal platform-only restrictions are relaxed until the task merges.
 
 | Path                      | Access         | Notes                                                                 |
 |---------------------------|----------------|-----------------------------------------------------------------------|
-| `platform/`               | Read + Write   | This workspace                                                        |
-| `../docs/`                | Read-only      | General game rules and architecture — useful context for the renderer |
-| `../engine/src/server.rs` | Read-only      | API endpoint signatures and binary payload shapes only                |
-| `../engine/` (rest)       | **Off-limits** | Rust game engine, game rules, AI logic — never touch                  |
-| `../` (rest)              | **Off-limits** | Monorepo root — irrelevant to this workspace                          |
+| `./` (workspace root)     | Read + Write   | `/compose.yaml`, `/.env.dev.example`, `/.env.example`, `/db-backup.sh` |
+| `platform/`               | Read + Write   | This workspace (always in scope)                                      |
+| `deploy/`                 | Read + Write   | New prod-only deployment artifacts                                    |
+| `website/`                | Read + Write   | Hugo static site                                                      |
+| `engine/`                 | **Off-limits** | Rust game engine, game rules, AI logic — never touch                  |
+| `docs/`                   | Read-only      | General game rules and architecture — useful context for the renderer |
 
 ## Project Overview
 

@@ -1,7 +1,6 @@
 import {defineConfig} from "vite";
 import symfonyPlugin from "vite-plugin-symfony";
 import {keresSpritesPlugin} from './assets/typescript/vite-plugin-keres-sprites';
-import fs from 'fs';
 
 export default defineConfig({
     plugins: [
@@ -9,18 +8,19 @@ export default defineConfig({
         keresSpritesPlugin(),
     ],
     server: {
-        host: 'local.playkeres.com',
+        host: '0.0.0.0',                                  // accept traffic from Traefik
         port: 5173,
-        https: fs.existsSync('/app/frankenphp/certs/privkey.pem') ? {
-            key: fs.readFileSync('/app/frankenphp/certs/privkey.pem'),
-            cert: fs.readFileSync('/app/frankenphp/certs/fullchain.pem'),
-        } : undefined,
-        hmr: {
-            host: 'local.playkeres.com',
-        },
+        strictPort: true,                                 // fail fast if 5173 is busy
+        origin: 'https://vite.app.local.playkeres.com',  // absolute URLs emitted for HMR client
         cors: {
-            origin: 'https://local.playkeres.com',
+            origin: 'https://app.local.playkeres.com',
             credentials: true,
+        },
+        hmr: {
+            host: 'vite.app.local.playkeres.com',
+            port: 443,                                    // Traefik's TLS port
+            clientPort: 443,
+            protocol: 'wss',
         },
     },
     build: {
@@ -30,6 +30,6 @@ export default defineConfig({
                 app: "./assets/app.js",
                 play: "./assets/typescript/src/app.ts"
             },
-        }
+        },
     },
 });

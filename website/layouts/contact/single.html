@@ -1,0 +1,85 @@
+{{ define "title" }}{{ .Title }}{{ end }}
+
+{{ define "main" }}
+  <section class="px-4 py-8">
+    <div class="container mx-auto max-w-2xl">
+      <h1 class="text-3xl font-bold mb-4">{{ .Title }}</h1>
+
+      <div id="contact-status" class="hidden mb-4 rounded p-3"></div>
+
+      <form id="contact-form" class="space-y-4">
+        <!-- Honeypot: must stay empty -->
+        <div class="hidden" aria-hidden="true">
+          <label>Website (leave empty)
+            <input type="text" name="website" tabindex="-1" autocomplete="off" />
+          </label>
+        </div>
+
+        <div>
+          <label class="block text-sm mb-1" for="name">{{ i18n "contact_name" }}</label>
+          <input class="w-full px-3 py-2 rounded bg-keres-surface border border-keres-dark" type="text" id="name" name="name" required />
+        </div>
+
+        <div>
+          <label class="block text-sm mb-1" for="email">{{ i18n "contact_email" }}</label>
+          <input class="w-full px-3 py-2 rounded bg-keres-surface border border-keres-dark" type="email" id="email" name="email" required />
+        </div>
+
+        <div>
+          <label class="block text-sm mb-1" for="subject">{{ i18n "contact_subject" }}</label>
+          <input class="w-full px-3 py-2 rounded bg-keres-surface border border-keres-dark" type="text" id="subject" name="subject" required />
+        </div>
+
+        <div>
+          <label class="block text-sm mb-1" for="message">{{ i18n "contact_message" }}</label>
+          <textarea class="w-full px-3 py-2 rounded bg-keres-surface border border-keres-dark" id="message" name="message" rows="6" required></textarea>
+        </div>
+
+        <button type="submit" class="inline-flex items-center justify-center rounded-full bg-keres-primary text-keres-bg font-bold px-5 py-2 text-sm hover:opacity-90 transition-opacity">
+          {{ i18n "contact_send" }}
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <script>
+  (function () {
+    var endpoint = {{ .Site.Params.contactEndpoint | jsonify }};
+    var form = document.getElementById("contact-form");
+    var status = document.getElementById("contact-status");
+
+    form.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      status.classList.add("hidden");
+
+      var payload = {
+        name:    form.name.value,
+        email:   form.email.value,
+        subject: form.subject.value,
+        message: form.message.value,
+        website: form.website.value,   // honeypot
+      };
+
+      try {
+        var res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+          status.textContent = {{ i18n "contact_success" | jsonify }};
+          status.className = "mb-4 rounded p-3 bg-green-900/50 text-green-200";
+          form.reset();
+        } else {
+          status.textContent = {{ i18n "contact_error" | jsonify }};
+          status.className = "mb-4 rounded p-3 bg-red-900/50 text-red-200";
+        }
+      } catch (err) {
+        status.textContent = {{ i18n "contact_error" | jsonify }};
+        status.className = "mb-4 rounded p-3 bg-red-900/50 text-red-200";
+      }
+      status.classList.remove("hidden");
+    });
+  })();
+  </script>
+{{ end }}

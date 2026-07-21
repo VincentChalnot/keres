@@ -26,8 +26,7 @@ RUN CGO_ENABLED=1 \
         --with github.com/dunglas/frankenphp/caddy=./caddy/ \
         --with github.com/dunglas/caddy-cbrotli \
         --with github.com/dunglas/mercure/caddy \
-        --with github.com/dunglas/vulcain/caddy \
-        --with github.com/caddy-dns/infomaniak
+        --with github.com/dunglas/vulcain/caddy
 
 
 # Base image: upstream FrankenPHP with the custom binary swapped in

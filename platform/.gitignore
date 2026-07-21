@@ -13,7 +13,10 @@
 /public/build/
 ###< pentatrion/vite-bundle ###
 
-/frankenphp/certs
+# Stale Caddy dev certs (left in tree from the pre-split architecture).
+# Safe to remove manually: sudo rm -rf platform/frankenphp/certs/
+/frankenphp/certs/*.pem
+/frankenphp/certs/.gitkeep
 
 ###> friendsofphp/php-cs-fixer ###
 /.php-cs-fixer.php

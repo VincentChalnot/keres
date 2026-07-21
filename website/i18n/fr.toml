@@ -254,3 +254,17 @@
   other = "English"
 [skip_to_content]
   other = "Aller au contenu"
+[contact_name]
+  other = "Votre nom"
+[contact_email]
+  other = "Votre e-mail"
+[contact_subject]
+  other = "Sujet"
+[contact_message]
+  other = "Message"
+[contact_send]
+  other = "Envoyer le message"
+[contact_success]
+  other = "Votre message a bien été envoyé. Nous vous répondrons dans les meilleurs délais."
+[contact_error]
+  other = "Une erreur est survenue. Merci de réessayer plus tard."

@@ -16,11 +16,10 @@
 
 {$CADDY_EXTRA_CONFIG}
 
-# Site address is decoupled from SERVER_NAME so prod can run Caddy on plain
-# HTTP (:80) behind Traefik-terminated TLS, while dev keeps Caddy on :443 with
-# mounted certs.  Set CADDY_SITE_ADDRESS per environment:
-#   dev  → local.playkeres.com:443   (Caddy owns TLS)
-#   prod → http://playkeres.com       (Traefik owns TLS, Caddy is cleartext)
+# Caddy serves plain HTTP in both dev and prod — Traefik (running in front)
+# owns TLS termination and ACME.  Set CADDY_SITE_ADDRESS per environment:
+#   dev  → http://app.local.playkeres.com
+#   prod → http://app.${SERVER_NAME}
 {$CADDY_SITE_ADDRESS:localhost} {
 	log {
 		{$CADDY_SERVER_LOG_OPTIONS}
@@ -34,13 +33,6 @@
 
 	root /app/public
 	encode zstd br gzip
-
-	# In production Caddy runs behind Traefik-terminated TLS on plain HTTP (:80).
-	# Caddy would set X-Forwarded-Proto to "http" based on the incoming connection,
-	# overwriting Traefik's correct "https" value.  Force it back so Symfony's
-	# Request::isSecure(), getScheme(), and OIDC redirect-URI generation are correct.
-	# In dev Caddy owns TLS (:443) and already sets "https" — redundant but harmless.
-	request_header X-Forwarded-Proto https
 
 	mercure {
 		# Publisher JWT key

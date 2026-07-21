@@ -66,6 +66,24 @@ jobs:
           cache-from: type=gha,scope=php-base
           cache-to: type=gha,scope=php-base,mode=max
 
+  build-hugo:
+    name: Build Hugo site
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: '0.135.0'
+          extended: true
+      - name: Build
+        working-directory: ./website
+        run: hugo --environment production --minify --gc
+
   build:
     name: Build Images
     runs-on: ubuntu-latest

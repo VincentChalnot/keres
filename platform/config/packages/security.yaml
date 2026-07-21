@@ -21,7 +21,7 @@ security:
             entry_point: App\Security\MultiProviderOidcAuthenticator
             logout:
                 path: logout
-                target: index
+                target: https://playkeres.com
 
     access_control:
         - { path: ^/admin, roles: ROLE_ADMIN }
