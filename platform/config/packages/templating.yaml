@@ -1,0 +1,8 @@
+sidus_template:
+    routes:
+        new_game:
+            template: 'actions/new_game.html.twig'
+        play:
+            template: 'actions/play.html.twig'
+        feedback:
+            template: 'actions/feedback.html.twig'

@@ -78,7 +78,7 @@ class DevLoginAuthenticator extends AbstractAuthenticator
             return new RedirectResponse($targetPath);
         }
 
-        return new RedirectResponse($this->router->generate('index'));
+        return new RedirectResponse($this->router->generate('new_game'));
     }
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response

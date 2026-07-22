@@ -200,13 +200,13 @@ at the workspace root, with Traefik terminating TLS in front.
 
 ```bash
 # Prereqs: external Traefik on a `proxy` network, *.local.playkeres.com → 127.0.0.1
-cp .env.dev.example .env
+cp .env.example .env
 docker network create proxy 2>/dev/null || true
 docker compose up --build -d
 # https://local.playkeres.com           → Hugo static site (dev)
 # https://app.local.playkeres.com       → Symfony / FrankenPHP
 # https://vite.app.local.playkeres.com  → Vite HMR (WSS)
-# http://localhost:8025                  → Mailpit UI
+# https://mail.local.playkeres.com      → Mailpit UI
 ```
 
 Production deployment artifacts live in `deploy/`. See `deploy/README.md` for ops

@@ -1,2 +1,3 @@
 /.idea
 .playwright-mcp/
+/.env

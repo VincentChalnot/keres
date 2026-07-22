@@ -1,0 +1,9 @@
+when@dev:
+    pentatrion_vite:
+        # The dev server's public origin (vite.config.js `server.origin`) is
+        # only reachable from the host/browser via Traefik - not from inside
+        # the php container, which talks to the `node` service directly over
+        # the internal docker network. Without this, ViteController::proxyBuild
+        # (used for any /build/* asset requested via the app's own origin)
+        # tries to connect to the public vite.app.* hostname and fails.
+        proxy_origin: "http://node:5173"

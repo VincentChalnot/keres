@@ -12,7 +12,15 @@ framework:
     trusted_proxies: '%env(TRUSTED_PROXIES)%'
 
     # Note that the session will be started ONLY if you read or write from it.
-    session: true
+    # cookie_domain scopes the session cookie to the parent domain (e.g.
+    # local.playkeres.com / playkeres.com) instead of just the app subdomain.
+    # This is required for Symfony's HttpUtils domain-regexp redirect guard to
+    # allow the logout target (STATIC_SITE_URL) to point at a sibling
+    # subdomain — without it, every cross-subdomain redirect target silently
+    # collapses to "/" (see Symfony\Bundle\SecurityBundle\DependencyInjection\
+    # Compiler\AddSessionDomainConstraintPass).
+    session:
+        cookie_domain: '%env(SESSION_COOKIE_DOMAIN)%'
 
     #esi: true
     #fragments: true

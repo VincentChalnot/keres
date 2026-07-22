@@ -19,7 +19,8 @@ readonly class ContactAction
     public function __construct(
         private MailerInterface $mailer,
         private RateLimiterFactory $contactLimiterFactory,
-    ) {}
+    ) {
+    }
 
     #[Route(
         path: '/api/contact',
@@ -47,6 +48,7 @@ readonly class ContactAction
         }
 
         $limiter = $this->contactLimiterFactory->create($request->getClientIp());
+
         if (false === $limiter->consume(1)->isAccepted()) {
             return new JsonResponse(['error' => 'rate limit exceeded'], Response::HTTP_TOO_MANY_REQUESTS);
         }

@@ -13,7 +13,7 @@ task. Normal platform-only restrictions are relaxed until the task merges.
 
 | Path                      | Access         | Notes                                                                 |
 |---------------------------|----------------|-----------------------------------------------------------------------|
-| `./` (workspace root)     | Read + Write   | `/compose.yaml`, `/.env.dev.example`, `/.env.example`, `/db-backup.sh` |
+| `./` (workspace root)     | Read + Write   | `/compose.yaml`, `/.env.example`, `/db-backup.sh`                     |
 | `platform/`               | Read + Write   | This workspace (always in scope)                                      |
 | `deploy/`                 | Read + Write   | New prod-only deployment artifacts                                    |
 | `website/`                | Read + Write   | Hugo static site                                                      |

@@ -25,5 +25,12 @@ services:
         arguments:
             $environment: '%kernel.environment%'
 
+    # Explicit bind: symfony/rate-limiter's autowiring alias name is
+    # $contactLimiterLimiter (from the "contact_limiter" limiter name), which
+    # doesn't match the more readable constructor argument name below.
+    App\Action\Api\ContactAction:
+        arguments:
+            $contactLimiterFactory: '@limiter.contact_limiter'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

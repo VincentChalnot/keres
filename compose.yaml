@@ -1,37 +1,74 @@
 # Development Compose file for Keres (workspace root).
 #
 # Bring up the full local stack on split domains, with Traefik owning TLS:
-#   - https://local.playkeres.com           → Hugo static site (dev)
-#   - https://app.local.playkeres.com       → Symfony / FrankenPHP app
-#   - https://vite.app.local.playkeres.com  → Vite dev server (HMR over WSS)
-#   - Mailpit UI                            → http://localhost:8025  (host port)
+#   - https://${SERVER_NAME}                → Hugo static site (dev)
+#   - https://app.${SERVER_NAME}            → Symfony / FrankenPHP app
+#   - https://vite.app.${SERVER_NAME}       → Vite dev server (HMR over WSS)
+#   - https://mail.${SERVER_NAME}           → Mailpit UI
+# No ports are published on the host — every service is reached exclusively
+# through the external Traefik reverse proxy.
 #
 # Prerequisites (handled by the operator, not this file):
-#   1. External Traefik must be running on the `proxy` docker network.
-#   2. DNS for *.local.playkeres.com must point at 127.0.0.1.
-#   3. Copy .env.dev.example to .env and fill in any local secrets.
+#   1. External Traefik must be running on the TRAEFIK_NETWORK docker network.
+#   2. DNS for *.${SERVER_NAME} must point at 127.0.0.1.
+#   3. Copy .env.example to .env and fill in any local secrets.
 #
 # Usage:
 #   docker network create proxy 2>/dev/null || true
-#   cp .env.dev.example .env
+#   cp .env.example .env
 #   docker compose up --build -d
+#
+# See .env.example for every variable this file reads, which are required,
+# and which have working defaults baked in below.
 
 name: keres-dev
 
 x-app-env: &app-env
   APP_ENV: dev
-  SERVER_NAME: app.local.playkeres.com
-  DEFAULT_URI: https://app.local.playkeres.com
-  CADDY_SITE_ADDRESS: "http://app.local.playkeres.com"   # plain HTTP, Traefik owns TLS
+  # SERVER_NAME starts as the bare dev domain (from .env) and is immediately
+  # shadowed here with the app's own subdomain — every other URL below is
+  # derived from the *same* bare value, so the domain is defined exactly once.
+  SERVER_NAME: app.${SERVER_NAME:-local.playkeres.com}
+  DEFAULT_URI: https://app.${SERVER_NAME:-local.playkeres.com}
+  STATIC_SITE_URL: https://${SERVER_NAME:-local.playkeres.com}
+  SESSION_COOKIE_DOMAIN: ${SERVER_NAME:-local.playkeres.com}
+  # Symfony no longer loads .env files (symfony/dotenv was removed — every
+  # value the app needs is a real container env var, sourced from this file
+  # and/or the root .env via env_file below). Dev gets safe working defaults;
+  # nothing below needs to be set to bring the stack up.
+  APP_SECRET: ${APP_SECRET:-dev-secret-not-for-production}
   DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-!ChangeMe!}@database:5432/${POSTGRES_DB:-app}?serverVersion=${POSTGRES_VERSION:-16}&charset=utf8
+  # Symfony's own Mercure JWT secret (signs the tokens the app hands out) —
+  # must match the Caddy Mercure hub's publisher/subscriber keys below.
+  MERCURE_JWT_SECRET: ${MERCURE_JWT_SECRET:-!ChangeThisMercureHubJWTSecretKey!}
   MERCURE_PUBLISHER_JWT_KEY: ${MERCURE_JWT_SECRET:-!ChangeThisMercureHubJWTSecretKey!}
   MERCURE_SUBSCRIBER_JWT_KEY: ${MERCURE_JWT_SECRET:-!ChangeThisMercureHubJWTSecretKey!}
-  MERCURE_URL: https://app.local.playkeres.com/.well-known/mercure
-  MERCURE_PUBLIC_URL: https://app.local.playkeres.com/.well-known/mercure
-  MERCURE_JWT_SECRET: ${MERCURE_JWT_SECRET:-!ChangeThisMercureHubJWTSecretKey!}
-  BACKEND_API_URL: http://backend:3000
-  AI_BACKEND_API_URL: http://backend:3000
-  TRUSTED_PROXIES: "${TRUSTED_PROXIES:-172.16.0.0/12,::/0}"
+  # Internal publish target for PHP's Hub client — must be the docker-network
+  # address of the php service (Mercure hub is embedded in its Caddy), NOT
+  # the public Traefik-fronted hostname (unreachable from inside containers).
+  MERCURE_URL: http://php/.well-known/mercure
+  MERCURE_PUBLIC_URL: https://app.${SERVER_NAME:-local.playkeres.com}/.well-known/mercure
+  MESSENGER_TRANSPORT_DSN: ${MESSENGER_TRANSPORT_DSN:-doctrine://default?auto_setup=0}
+  BACKEND_API_URL: ${BACKEND_API_URL:-http://backend:3000}
+  AI_BACKEND_API_URL: ${AI_BACKEND_API_URL:-http://backend:3000}
+  MAILER_DSN: ${MAILER_DSN:-smtp://mailer:1025}
+  CORS_ALLOW_ORIGIN: '${CORS_ALLOW_ORIGIN:-^https://(local\.playkeres\.com|playkeres\.com)$}'
+  # Blank unless filled in .env — OIDC login for that provider simply stays
+  # unavailable until configured. See .env.example for callback URL setup.
+  OIDC_GOOGLE_CLIENT_ID: ${OIDC_GOOGLE_CLIENT_ID:-}
+  OIDC_GOOGLE_CLIENT_SECRET: ${OIDC_GOOGLE_CLIENT_SECRET:-}
+  OIDC_FACEBOOK_CLIENT_ID: ${OIDC_FACEBOOK_CLIENT_ID:-}
+  OIDC_FACEBOOK_CLIENT_SECRET: ${OIDC_FACEBOOK_CLIENT_SECRET:-}
+  OIDC_DISCORD_CLIENT_ID: ${OIDC_DISCORD_CLIENT_ID:-}
+  OIDC_DISCORD_CLIENT_SECRET: ${OIDC_DISCORD_CLIENT_SECRET:-}
+  TRUSTED_PROXIES: "${TRUSTED_PROXIES:-172.16.0.0/12,192.168.0.0/16,10.0.0.0/8,::/0}"
+
+# Labels shared by every Traefik-routed service: same network, same
+# entrypoint/certresolver knobs, only the router/service names and the rule
+# and target port differ per-service.
+x-traefik-labels: &traefik-labels
+  traefik.enable: "true"
+  traefik.docker.network: "${TRAEFIK_NETWORK:-proxy}"
 
 services:
   php:
@@ -39,10 +76,17 @@ services:
       context: ./platform
       target: frankenphp_dev
     restart: unless-stopped
+    env_file: .env
     environment:
       <<: *app-env
       FRANKENPHP_WORKER_CONFIG: watch
       XDEBUG_MODE: "${XDEBUG_MODE:-off}"
+      # Port-only (no hostname): Traefik already gatekeeps by Host externally,
+      # and internal service-to-service calls (e.g. Mercure publish from
+      # php-worker via http://php/.well-known/mercure) arrive with Host: php,
+      # which a hostname-scoped Caddy site block would silently NOP instead
+      # of routing to the app.
+      CADDY_SITE_ADDRESS: ":80"
     security_opt:
       - label=disable
     volumes:
@@ -58,12 +102,11 @@ services:
         condition: service_healthy
     networks: [default, proxy]
     labels:
-      traefik.enable: "true"
-      traefik.docker.network: "proxy"
-      traefik.http.routers.keres-app-http.rule: "Host(`app.local.playkeres.com`)"
-      traefik.http.routers.keres-app-http.entrypoints: "websecure"
+      <<: *traefik-labels
+      traefik.http.routers.keres-app-http.rule: "Host(`app.${SERVER_NAME:-local.playkeres.com}`)"
+      traefik.http.routers.keres-app-http.entrypoints: "${TRAEFIK_ENTRYPOINT:-websecure}"
       traefik.http.routers.keres-app-http.tls: "true"
-      traefik.http.routers.keres-app-http.tls.certresolver: "${CERT_RESOLVER:-letsencrypt}"
+      traefik.http.routers.keres-app-http.tls.certresolver: "${CERT_RESOLVER:-infomaniak}"
       traefik.http.routers.keres-app-http.service: "keres-app-svc"
       traefik.http.services.keres-app-svc.loadbalancer.server.port: "80"
 
@@ -72,6 +115,7 @@ services:
       context: ./platform
       target: frankenphp_worker_dev
     restart: unless-stopped
+    env_file: .env
     environment:
       <<: *app-env
       XDEBUG_MODE: "${XDEBUG_MODE:-off}"
@@ -104,12 +148,11 @@ services:
     command: ["sh", "-c", "npm install && npm run dev -- --host 0.0.0.0"]
     networks: [default, proxy]
     labels:
-      traefik.enable: "true"
-      traefik.docker.network: "proxy"
-      traefik.http.routers.keres-vite.rule: "Host(`vite.app.local.playkeres.com`)"
-      traefik.http.routers.keres-vite.entrypoints: "websecure"
+      <<: *traefik-labels
+      traefik.http.routers.keres-vite.rule: "Host(`vite.app.${SERVER_NAME:-local.playkeres.com}`)"
+      traefik.http.routers.keres-vite.entrypoints: "${TRAEFIK_ENTRYPOINT:-websecure}"
       traefik.http.routers.keres-vite.tls: "true"
-      traefik.http.routers.keres-vite.tls.certresolver: "${CERT_RESOLVER:-letsencrypt}"
+      traefik.http.routers.keres-vite.tls.certresolver: "${CERT_RESOLVER:-infomaniak}"
       traefik.http.routers.keres-vite.service: "keres-vite-svc"
       traefik.http.services.keres-vite-svc.loadbalancer.server.port: "5173"
 
@@ -123,19 +166,18 @@ services:
       - "server"
       - "--bind=0.0.0.0"
       - "--port=80"
-      - "--baseURL=https://local.playkeres.com/"
+      - "--baseURL=https://${SERVER_NAME:-local.playkeres.com}/"
       - "--environment=development"
       - "--buildDrafts"
       - "--disableFastRender"
       - "--liveReloadPort=443"
     networks: [default, proxy]
     labels:
-      traefik.enable: "true"
-      traefik.docker.network: "proxy"
-      traefik.http.routers.keres-web.rule: "Host(`local.playkeres.com`)"
-      traefik.http.routers.keres-web.entrypoints: "websecure"
+      <<: *traefik-labels
+      traefik.http.routers.keres-web.rule: "Host(`${SERVER_NAME:-local.playkeres.com}`)"
+      traefik.http.routers.keres-web.entrypoints: "${TRAEFIK_ENTRYPOINT:-websecure}"
       traefik.http.routers.keres-web.tls: "true"
-      traefik.http.routers.keres-web.tls.certresolver: "${CERT_RESOLVER:-letsencrypt}"
+      traefik.http.routers.keres-web.tls.certresolver: "${CERT_RESOLVER:-infomaniak}"
       traefik.http.routers.keres-web.service: "keres-web-svc"
       traefik.http.services.keres-web-svc.loadbalancer.server.port: "80"
 
@@ -157,11 +199,18 @@ services:
   mailer:
     image: axllent/mailpit
     restart: unless-stopped
-    ports:
-      - "8025:8025"
     environment:
       MP_SMTP_AUTH_ACCEPT_ANY: 1
       MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    networks: [default, proxy]
+    labels:
+      <<: *traefik-labels
+      traefik.http.routers.keres-mail.rule: "Host(`mail.${SERVER_NAME:-local.playkeres.com}`)"
+      traefik.http.routers.keres-mail.entrypoints: "${TRAEFIK_ENTRYPOINT:-websecure}"
+      traefik.http.routers.keres-mail.tls: "true"
+      traefik.http.routers.keres-mail.tls.certresolver: "${CERT_RESOLVER:-infomaniak}"
+      traefik.http.routers.keres-mail.service: "keres-mail-svc"
+      traefik.http.services.keres-mail-svc.loadbalancer.server.port: "8025"
 
 volumes:
   composer_cache:
@@ -171,3 +220,4 @@ networks:
   default:
   proxy:
     external: true
+    name: "${TRAEFIK_NETWORK:-proxy}"

@@ -9,29 +9,30 @@
         "php": ">=8.3",
         "ext-ctype": "*",
         "ext-iconv": "*",
-        "doctrine/doctrine-bundle": "^2.18.2",
+        "doctrine/doctrine-bundle": "^2.18.4",
         "doctrine/doctrine-migrations-bundle": "^3.7",
-        "doctrine/orm": "^3.6.3",
-        "drenso/symfony-oidc-bundle": "^4.3.1",
-        "nelmio/cors-bundle": "^2.5",
+        "doctrine/orm": "^3.6.7",
+        "drenso/symfony-oidc-bundle": "^4.5.0",
+        "nelmio/cors-bundle": "^2.6.1",
         "pentatrion/vite-bundle": "^8.2.4",
         "runtime/frankenphp-symfony": "^0.2.0",
-        "symfony/asset": "7.3.*",
-        "symfony/console": "7.3.*",
-        "symfony/doctrine-messenger": "7.3.*",
-        "symfony/dotenv": "7.3.*",
-        "symfony/flex": "^2.10",
-        "symfony/form": "7.3.*",
-        "symfony/framework-bundle": "7.3.*",
-        "symfony/mailer": "7.3.*",
+        "sidus/template-bundle": ">=1",
+        "symfony/asset": "7.4.*",
+        "symfony/console": "7.4.*",
+        "symfony/doctrine-messenger": "7.4.*",
+        "symfony/flex": "^2.11",
+        "symfony/form": "7.4.*",
+        "symfony/framework-bundle": "7.4.*",
+        "symfony/mailer": "7.4.*",
         "symfony/mercure-bundle": "^0.4.2",
-        "symfony/messenger": "7.3.*",
-        "symfony/runtime": "7.3.*",
-        "symfony/security-bundle": "^7.3.10",
-        "symfony/twig-bundle": "7.3.*",
-        "symfony/uid": "7.3.*",
-        "symfony/validator": "7.3.*",
-        "symfony/yaml": "7.3.*"
+        "symfony/messenger": "7.4.*",
+        "symfony/rate-limiter": "7.4.*",
+        "symfony/runtime": "7.4.*",
+        "symfony/security-bundle": "^7.4.14",
+        "symfony/twig-bundle": "7.4.*",
+        "symfony/uid": "7.4.*",
+        "symfony/validator": "7.4.*",
+        "symfony/yaml": "7.4.*"
     },
     "config": {
         "allow-plugins": {
@@ -82,11 +83,11 @@
     "extra": {
         "symfony": {
             "allow-contrib": false,
-            "require": "7.3.*",
+            "require": "7.4.*",
             "docker": true
         }
     },
     "require-dev": {
-        "friendsofphp/php-cs-fixer": "^3.95"
+        "friendsofphp/php-cs-fixer": "^3.95.15"
     }
 }

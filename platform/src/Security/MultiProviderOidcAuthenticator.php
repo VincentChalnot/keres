@@ -49,7 +49,7 @@ class MultiProviderOidcAuthenticator extends AbstractAuthenticator implements Au
         $this->logger->info('OIDC Authentication started', ['provider' => $provider]);
 
         try {
-            $this->logger->info('Getting OIDC client for provider: ' . $provider);
+            $this->logger->info('Getting OIDC client for provider: '.$provider);
             $client = $this->oidcClientLocator->getClient($provider);
 
             $this->logger->info('Authenticating with OIDC client');

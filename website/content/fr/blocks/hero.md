@@ -4,7 +4,6 @@ image: /images/landing-dark.webp
 alt: "Keres Board"
 tagline: "L'art du jeu abstrait"
 button:
-  url: https://playkeres.com/new_game
   label: "Jouer Gratuitement"
 ---
 

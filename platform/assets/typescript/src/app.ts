@@ -3,11 +3,36 @@ import {GameAPI} from './network/GameAPI';
 import SVGBoardView from './views/SVGBoardView';
 import {GameController} from './controllers/GameController';
 import {IBoardView} from './views/IBoardView';
-import {decodeMoveListFromBase64} from './utils/boardUtils';
+import {decodeMoveListFromBase64, algebraicToPos, posToAlgebraic} from './utils/boardUtils';
 import {computeMaterialDiff, renderMaterialHTML} from './models/materialDiff';
 
 const OPPONENT_TYPE_AI = 0;
 const OPPONENT_TYPE_HOTSEAT = 1;
+
+/**
+ * Automation surface for driving a game without reverse-engineering
+ * SVG tile geometry (used by Playwright/browser-console test agents).
+ */
+interface KeresDebugApi {
+    listMoves(): Array<{
+        from: string;
+        to: string;
+        fromPos: number;
+        toPos: number;
+        unstackable: boolean;
+        forceUnstack: boolean;
+    }>;
+    playMove(from: string | number, to: string | number, unstack?: boolean): Promise<void>;
+    getTurn(): string;
+    isLocked(): boolean;
+    isGameOver(): boolean;
+}
+
+declare global {
+    interface Window {
+        __keresDebug?: KeresDebugApi;
+    }
+}
 
 /**
  * Main application entry point
@@ -109,6 +134,42 @@ class KeresGame {
         this.updateNavigationButtons();
         this.updateToggleThreatsButton();
         this.updateMaterialDiff();
+
+        // Automation hook: exposes just enough of the internal state/
+        // controller for a Playwright agent (or manual console use) to
+        // drive a game without reverse-engineering SVG tile coordinates.
+        this.exposeDebugApi();
+    }
+
+    /**
+     * Exposes a minimal automation surface on `window.__keresDebug` for
+     * driving a game from a Playwright/browser-console agent without
+     * needing to reverse-engineer SVG tile geometry.
+     */
+    private exposeDebugApi(): void {
+        window.__keresDebug = {
+            /** Legal moves for whoever's turn it currently is. */
+            listMoves: () => this.gameState.getPotentialMoves().map((m) => ({
+                from: posToAlgebraic(m.from),
+                to: posToAlgebraic(m.to),
+                fromPos: m.from,
+                toPos: m.to,
+                unstackable: m.unstackable,
+                forceUnstack: m.force_unstack,
+            })),
+            /** Plays a move; `from`/`to` accept algebraic ("E3") or raw position ints. */
+            playMove: async (from: string | number, to: string | number, unstack = false) => {
+                const fromPos = typeof from === 'number' ? from : algebraicToPos(from);
+                const toPos = typeof to === 'number' ? to : algebraicToPos(to);
+                if (fromPos === null || toPos === null) {
+                    throw new Error(`Invalid position: ${from} -> ${to}`);
+                }
+                await this.controller.playMove(fromPos, toPos, unstack);
+            },
+            getTurn: () => this.controller.getCurrentTurn(),
+            isLocked: () => this.controller.isBoardLocked(),
+            isGameOver: () => this.gameState.getBoard()?.isGameOver() ?? true,
+        };
     }
 
     private setupEventListeners(): void {
@@ -340,5 +401,4 @@ class KeresGame {
 }
 
 // Initialize the game when DOM is ready
-const game = new KeresGame();
-game.initialize();
+new KeresGame().initialize();

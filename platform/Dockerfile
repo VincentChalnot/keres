@@ -49,6 +49,33 @@ FROM frankenphp_base AS frankenphp_prod
 
 ENV APP_ENV=prod
 
+# Build-time-only placeholders — nothing here reaches a real service. They
+# exist purely so `composer run-script post-install-cmd` (which runs
+# `cache:clear`/warms the DI container) can compile without a live
+# environment during image build. Docker Compose's `environment:`/`env_file`
+# always override every one of these at container start (see compose.yaml /
+# deploy/compose.yaml) — none of these values are ever used at runtime.
+ENV APP_SECRET=build-time-placeholder \
+    DATABASE_URL="postgresql://app:app@127.0.0.1:5432/app?serverVersion=16&charset=utf8" \
+    SERVER_NAME=app.example.invalid \
+    DEFAULT_URI=https://app.example.invalid \
+    STATIC_SITE_URL=https://example.invalid \
+    SESSION_COOKIE_DOMAIN=example.invalid \
+    MERCURE_URL=https://app.example.invalid/.well-known/mercure \
+    MERCURE_PUBLIC_URL=https://app.example.invalid/.well-known/mercure \
+    MERCURE_JWT_SECRET=build-time-placeholder \
+    MESSENGER_TRANSPORT_DSN="doctrine://default?auto_setup=0" \
+    BACKEND_API_URL=http://backend:3000 \
+    AI_BACKEND_API_URL=http://backend:3000 \
+    MAILER_DSN=null://null \
+    CORS_ALLOW_ORIGIN=^https://example\.invalid$ \
+    OIDC_GOOGLE_CLIENT_ID= \
+    OIDC_GOOGLE_CLIENT_SECRET= \
+    OIDC_FACEBOOK_CLIENT_ID= \
+    OIDC_FACEBOOK_CLIENT_SECRET= \
+    OIDC_DISCORD_CLIENT_ID= \
+    OIDC_DISCORD_CLIENT_SECRET=
+
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
 COPY --link frankenphp/conf.d/20-app.prod.ini $PHP_INI_DIR/app.conf.d/
@@ -70,7 +97,6 @@ COPY --from=node_builder /app/public/build ./public/build
 RUN set -eux; \
 	mkdir -p var/cache var/log var/share; \
 	composer dump-autoload --classmap-authoritative --no-dev; \
-	composer dump-env prod; \
 	composer run-script --no-dev post-install-cmd; \
 	chmod +x bin/console; sync;
 
@@ -90,6 +116,14 @@ WORKDIR /tmp
 ENTRYPOINT []
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
 
+# No HTTP server runs in this image (supervisord replaces frankenphp as PID 1),
+# so the base image's curl :2019/metrics healthcheck is meaningless here.
+# supervisorctl exits non-zero if any managed program (the messenger:consume
+# workers) isn't RUNNING — requires the [unix_http_server]/[supervisorctl]
+# RPC socket declared in supervisord.conf.
+HEALTHCHECK --start-period=10s --interval=30s --timeout=5s --retries=3 \
+	CMD supervisorctl status all
+
 # Worker image (Supervisor + Symfony Messenger)
 FROM frankenphp_prod AS frankenphp_worker_prod
 
@@ -105,3 +139,11 @@ WORKDIR /tmp
 # Override le CMD et l'ENTRYPOINT de frankenphp_prod
 ENTRYPOINT []
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+
+# No HTTP server runs in this image (supervisord replaces frankenphp as PID 1),
+# so the base image's curl :2019/metrics healthcheck is meaningless here.
+# supervisorctl exits non-zero if any managed program (the messenger:consume
+# workers) isn't RUNNING — requires the [unix_http_server]/[supervisorctl]
+# RPC socket declared in supervisord.conf.
+HEALTHCHECK --start-period=10s --interval=30s --timeout=5s --retries=3 \
+	CMD supervisorctl status all
