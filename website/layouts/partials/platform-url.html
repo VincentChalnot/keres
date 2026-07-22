@@ -1,0 +1,9 @@
+{{- /*
+Derives the Symfony app's origin (e.g. https://app.playkeres.com) from the
+static site's own baseURL (e.g. https://playkeres.com/), which is the single
+per-environment source of truth set in website/config/<env>/config.toml.
+Keeps the domain defined exactly once instead of duplicating it again as a
+literal "platformURL" in every environment's params.toml.
+*/ -}}
+{{- $base := strings.TrimSuffix "/" .Site.BaseURL -}}
+{{- return strings.Replace $base "://" "://app." -}}

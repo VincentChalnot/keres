@@ -12,11 +12,11 @@
       </a>
       {{ end }}
 
-      <a href="{{ .Site.Params.platformURL }}/play" class="inline-flex items-center justify-center rounded-full bg-keres-primary text-keres-bg font-bold px-4 py-1 text-sm hover:no-underline hover:opacity-90 transition-opacity" target="_blank" rel="noopener">
+      <a href="{{ partial "platform-url.html" . }}/play" class="inline-flex items-center justify-center rounded-full bg-keres-primary text-keres-bg font-bold px-4 py-1 text-sm hover:no-underline hover:opacity-90 transition-opacity" target="_blank" rel="noopener">
         {{ i18n "nav_play" }}
       </a>
 
-      <a href="{{ .Site.Params.platformURL }}/login" class="flex items-center text-keres-light hover:text-keres-primary transition-colors text-sm px-3 py-1 border border-keres-dark rounded-full hover:no-underline">
+      <a href="{{ partial "platform-url.html" . }}/login" class="flex items-center text-keres-light hover:text-keres-primary transition-colors text-sm px-3 py-1 border border-keres-dark rounded-full hover:no-underline">
         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 15l-4-4m0 0l-6 6m6-6l-6-6"/>
           <path stroke-linecap="round" stroke-linejoin="round" d="M21 12H9"/>

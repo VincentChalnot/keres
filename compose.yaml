@@ -143,6 +143,10 @@ services:
     image: node:24-alpine
     restart: unless-stopped
     working_dir: /app
+    environment:
+      # Bare dev domain — vite.config.js derives its Vite/app origins from
+      # this, the same way every other service does (see SERVER_NAME above).
+      SERVER_NAME: ${SERVER_NAME:-local.playkeres.com}
     volumes:
       - ./platform:/app
     command: ["sh", "-c", "npm install && npm run dev -- --host 0.0.0.0"]

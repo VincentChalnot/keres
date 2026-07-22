@@ -1,4 +1,2 @@
-platformURL = "https://app.local.playkeres.com"
-contactEndpoint = "https://app.local.playkeres.com/api/contact"
 contactEmail = "contact@keres.fr"
 authorName = "Vincent Chalnot"

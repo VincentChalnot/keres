@@ -12,17 +12,20 @@ export default defineConfig({
         port: 5173,
         strictPort: true,                                 // fail fast if 5173 is busy
         // Requests reach this server two ways: directly from the browser
-        // via Traefik (Host: vite.app.local.playkeres.com), and internally
-        // from the php container's own-origin asset proxy (pentatrion/vite
+        // via Traefik (Host: vite.app.$SERVER_NAME), and internally from
+        // the php container's own-origin asset proxy (pentatrion/vite
         // -bundle's ViteController::proxyBuild, Host: node:5173) for any
         // `/build/*` asset requested relative to the app's own origin.
         // Both are already trusted infra (firewalled compose network +
         // Traefik's own Host() routing rule), so skip vite's Host-header
         // allowlist rather than trying to enumerate every internal alias.
         allowedHosts: true,
-        origin: 'https://vite.app.local.playkeres.com',  // absolute URLs emitted for HMR client
+        // SERVER_NAME is the same bare dev domain compose.yaml derives every
+        // other URL from (see .env.example) — keeps the domain defined once
+        // instead of hardcoding it again here.
+        origin: `https://vite.app.${process.env.SERVER_NAME || 'local.playkeres.com'}`,  // absolute URLs emitted for HMR client
         cors: {
-            origin: 'https://app.local.playkeres.com',
+            origin: `https://app.${process.env.SERVER_NAME || 'local.playkeres.com'}`,
             credentials: true,
         },
         hmr: {

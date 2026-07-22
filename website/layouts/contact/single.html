@@ -44,7 +44,7 @@
 
   <script>
   (function () {
-    var endpoint = {{ .Site.Params.contactEndpoint | jsonify }};
+    var endpoint = {{ printf "%s/api/contact" (partial "platform-url.html" $) | jsonify | safeJS }};
     var form = document.getElementById("contact-form");
     var status = document.getElementById("contact-status");
 

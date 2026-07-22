@@ -10,7 +10,7 @@
   <h1>KERES</h1>
   <p class="hero-baseline">{{ .Params.tagline }}</p>
   {{ with .Params.button }}
-    <a href="{{ $.Site.Params.platformURL }}/play" class="inline-flex items-center justify-center rounded-full border border-keres-light text-keres-light font-bold px-6 py-2 text-sm hover:bg-keres-light hover:text-keres-bg transition-colors hover:no-underline shadow-[1px_1px_12px_#000]" target="_blank" rel="noopener">
+    <a href="{{ partial "platform-url.html" $ }}/play" class="inline-flex items-center justify-center rounded-full border border-keres-light text-keres-light font-bold px-6 py-2 text-sm hover:bg-keres-light hover:text-keres-bg transition-colors hover:no-underline shadow-[1px_1px_12px_#000]" target="_blank" rel="noopener">
       {{ .label }}
     </a>
   {{ end }}
