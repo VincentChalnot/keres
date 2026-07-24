@@ -18,7 +18,6 @@ use tower_http::cors::{Any, CorsLayer};
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-
 #[tokio::main]
 async fn main() {
     let cors = CorsLayer::new()
@@ -92,9 +91,7 @@ async fn replay_moves(payload: Bytes) -> Result<Vec<u8>, StatusCode> {
     Ok(final_board.to_vec())
 }
 
-async fn engine_move_board(
-    payload: Bytes,
-) -> Result<Vec<u8>, StatusCode> {
+async fn engine_move_board(payload: Bytes) -> Result<Vec<u8>, StatusCode> {
     let board_bytes = payload;
     if board_bytes.len() != BOARD_SIZE + 2 {
         return Err(StatusCode::BAD_REQUEST);
@@ -119,9 +116,7 @@ async fn engine_move_board(
     Ok(best_move.to_u16().to_le_bytes().to_vec())
 }
 
-async fn engine_move_game(
-    payload: Bytes,
-) -> Result<Vec<u8>, StatusCode> {
+async fn engine_move_game(payload: Bytes) -> Result<Vec<u8>, StatusCode> {
     let move_bytes = payload;
 
     use keres_engine::engine::constants::MAX_DEPTH;

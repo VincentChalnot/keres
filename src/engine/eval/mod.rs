@@ -54,7 +54,7 @@ pub fn evaluate_verbose(game: &Game) -> BoardEval {
     let mut black_total = 0i32;
 
     for (pos, piece) in game.board.pieces() {
-        use crate::engine::eval::material::{stack_base_value};
+        use crate::engine::eval::material::stack_base_value;
         use crate::engine::eval::mobility::mobility_bonus;
         use crate::engine::eval::promotion::promotion_bonus;
         use crate::engine::eval::pst::pst_bonus;
@@ -91,10 +91,9 @@ pub fn evaluate_verbose(game: &Game) -> BoardEval {
     let king_mobility_black = king_safety::king_mobility_for(game, Color::Black);
     let tempo = tempo_score(game.is_white_to_move());
 
-    let final_score = white_total - black_total
-        + pinned_malus_black
-        - pinned_malus_white
-        + (king_mobility_white - king_mobility_black) * crate::engine::constants::KING_MOBILITY_WEIGHT
+    let final_score = white_total - black_total + pinned_malus_black - pinned_malus_white
+        + (king_mobility_white - king_mobility_black)
+            * crate::engine::constants::KING_MOBILITY_WEIGHT
         + tempo;
 
     BoardEval {

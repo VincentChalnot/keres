@@ -11,4 +11,3 @@ pub use board::{Board, Color, Piece, PieceType, Position, BOARD_DIMENSION, BOARD
 pub use game::{Game, UndoInfo};
 pub use moves::{Move, MoveGenerator, PotentialMove};
 pub use tui::run_tui;
-

@@ -1,5 +1,5 @@
-use crate::{cli_rendering::piece_to_char, Color, Game, Piece, Position, BOARD_DIMENSION};
 use crate::moves::Move;
+use crate::{cli_rendering::piece_to_char, Color, Game, Piece, Position, BOARD_DIMENSION};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
     execute,
@@ -82,8 +82,12 @@ impl App {
         let _undo = self.game.make(&game_move);
         if self.game.is_game_over() {
             let winner = if self.game.is_draw() {
-                // For draws, pick the non-moving color as convention 
-                if self.game.is_white_to_move() { Color::Black } else { Color::White }
+                // For draws, pick the non-moving color as convention
+                if self.game.is_white_to_move() {
+                    Color::Black
+                } else {
+                    Color::White
+                }
             } else if self.game.white_wins() {
                 Color::White
             } else {

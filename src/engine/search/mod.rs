@@ -206,8 +206,14 @@ mod tests {
 
     fn minimal_game() -> Game {
         let mut board = Board::empty();
-        board.set_piece(&Position::new(4, 8), Some(Piece::new(Color::White, PieceType::King, None)));
-        board.set_piece(&Position::new(4, 0), Some(Piece::new(Color::Black, PieceType::King, None)));
+        board.set_piece(
+            &Position::new(4, 8),
+            Some(Piece::new(Color::White, PieceType::King, None)),
+        );
+        board.set_piece(
+            &Position::new(4, 0),
+            Some(Piece::new(Color::Black, PieceType::King, None)),
+        );
         Game::from_board(board)
     }
 
@@ -219,7 +225,10 @@ mod tests {
             ..Default::default()
         };
         let result = root_search(&game, &config, &[], None);
-        assert!(result.best_move.is_some(), "Expected a move from root search");
+        assert!(
+            result.best_move.is_some(),
+            "Expected a move from root search"
+        );
     }
 
     #[test]

@@ -1,0 +1,25 @@
+# Standalone Compose file for the Keres game engine.
+#
+# Runs the Rust HTTP server (raw binary API, see docs/PROTOCOL.md) with no
+# external dependencies. Use this to run the engine on its own, or as the
+# `backend` image consumed by keres-platform (which pulls it from
+# ghcr.io/vincentchalnot/keres/backend by default — point its
+# BACKEND_API_URL/AI_BACKEND_API_URL at this container to use a local build
+# instead).
+#
+# Usage:
+#   docker compose up --build
+#   curl http://localhost:3000/new --output board.bin
+
+name: keres
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    environment:
+      RUST_LOG: ${RUST_LOG:-info}

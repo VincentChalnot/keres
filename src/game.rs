@@ -1,8 +1,8 @@
 use crate::board::{Board, Color, Piece, Position, BOARD_SIZE};
 use crate::game_over::{check_game_over, check_promotion};
 use crate::moves::{Move, MoveGenerator, PotentialMove};
-use once_cell::sync::Lazy;
 use ahash::RandomState;
+use once_cell::sync::Lazy;
 
 /// Stores the information needed to undo a move.
 #[derive(Clone, Debug)]
@@ -19,9 +19,7 @@ pub struct UndoInfo {
 impl UndoInfo {
     /// Fast check: returns true if the move captured a king (immediate game over).
     pub fn is_king_captured(&self) -> bool {
-        self.to_piece
-            .map(|p| p.is_king())
-            .unwrap_or(false)
+        self.to_piece.map(|p| p.is_king()).unwrap_or(false)
     }
 }
 
@@ -69,7 +67,11 @@ impl Game {
     }
 
     pub fn color_to_move(&self) -> Color {
-        if self.white_to_move { Color::White } else { Color::Black }
+        if self.white_to_move {
+            Color::White
+        } else {
+            Color::Black
+        }
     }
 
     pub fn is_game_over(&self) -> bool {
@@ -176,9 +178,12 @@ impl Game {
                     self.board.set_piece(&mv.to, Some(final_piece));
                 } else {
                     // Stack: moving piece on top, existing piece on bottom
-                    self.board.stack_piece(&mv.to, source_piece)
+                    self.board
+                        .stack_piece(&mv.to, source_piece)
                         .expect("stack_piece failed during make: invalid stacking");
-                    final_piece = *self.board.get_piece(&mv.to)
+                    final_piece = *self
+                        .board
+                        .get_piece(&mv.to)
                         .expect("piece missing after stack_piece");
                 }
             }
@@ -357,8 +362,10 @@ mod tests {
         let black_king = Piece::new(Color::Black, PieceType::King, None);
         game.board.set_piece(&Position::new(0, 8), Some(white_king));
         game.board.set_piece(&Position::new(0, 0), Some(black_king));
-        game.board.set_piece(&Position::new(4, 4), Some(white_soldier));
-        game.board.set_piece(&Position::new(4, 3), Some(black_soldier));
+        game.board
+            .set_piece(&Position::new(4, 4), Some(white_soldier));
+        game.board
+            .set_piece(&Position::new(4, 3), Some(black_soldier));
         let original_board = game.board;
 
         let mv = Move {
@@ -388,8 +395,10 @@ mod tests {
         let black_king = Piece::new(Color::Black, PieceType::King, None);
         game.board.set_piece(&Position::new(0, 8), Some(white_king));
         game.board.set_piece(&Position::new(0, 0), Some(black_king));
-        game.board.set_piece(&Position::new(3, 4), Some(white_soldier));
-        game.board.set_piece(&Position::new(3, 3), Some(white_guard));
+        game.board
+            .set_piece(&Position::new(3, 4), Some(white_soldier));
+        game.board
+            .set_piece(&Position::new(3, 3), Some(white_guard));
         let original_board = game.board;
 
         let mv = Move {
@@ -1146,18 +1155,28 @@ mod tests {
                 for m in pm.to_moves() {
                     if let Some(piece) = game.board.get_piece(&m.to) {
                         if piece.is_king() && piece.color != game.color_to_move() {
-                            let from_piece = game.board.get_piece(&m.from)
+                            let from_piece = game
+                                .board
+                                .get_piece(&m.from)
                                 .map(|p| format!("{:?}/{:?}", p.bottom, p.top))
                                 .unwrap_or("?".to_string());
-                            king_capture_moves.push(format!("{} from {} to {} (piece: {})",
-                                m.to_string(), m.from.to_string(), m.to.to_string(), from_piece));
+                            king_capture_moves.push(format!(
+                                "{} from {} to {} (piece: {})",
+                                m.to_string(),
+                                m.from.to_string(),
+                                m.to.to_string(),
+                                from_piece
+                            ));
                         }
                     }
                 }
             }
 
             if !king_capture_moves.is_empty() {
-                println!("=== Move {} ({}): KING CAPTURE AVAILABLE ===", move_num, side);
+                println!(
+                    "=== Move {} ({}): KING CAPTURE AVAILABLE ===",
+                    move_num, side
+                );
                 for km in &king_capture_moves {
                     println!("  {}", km);
                 }

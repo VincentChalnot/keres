@@ -30,8 +30,8 @@ pub fn promotion_bonus(piece: &Piece, pos: Position) -> i32 {
 fn soldier_rank_bonus(color: crate::board::Color, y: usize) -> i32 {
     let row = perspective_row(color, y);
     match row {
-        6 => SOLDIER_VALUE / 10,      // +10%
-        7 => SOLDIER_VALUE * 2 / 10,  // +20%
+        6 => SOLDIER_VALUE / 10,     // +10%
+        7 => SOLDIER_VALUE * 2 / 10, // +20%
         _ => 0,
     }
 }

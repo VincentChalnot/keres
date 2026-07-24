@@ -93,8 +93,14 @@ mod tests {
 
     fn minimal_game(white_to_move: bool) -> Game {
         let mut board = Board::empty();
-        board.set_piece(&Position::new(4, 8), Some(Piece::new(Color::White, PieceType::King, None)));
-        board.set_piece(&Position::new(4, 0), Some(Piece::new(Color::Black, PieceType::King, None)));
+        board.set_piece(
+            &Position::new(4, 8),
+            Some(Piece::new(Color::White, PieceType::King, None)),
+        );
+        board.set_piece(
+            &Position::new(4, 0),
+            Some(Piece::new(Color::Black, PieceType::King, None)),
+        );
         let mut game = Game::from_board(board);
         game.set_white_to_move(white_to_move);
         game
@@ -111,10 +117,20 @@ mod tests {
     fn quiescence_captures_free_piece() {
         // White rook can capture a free black soldier.
         let mut game = minimal_game(true);
-        game.board.set_piece(&Position::new(4, 4), Some(Piece::new(Color::White, PieceType::Rook, None)));
-        game.board.set_piece(&Position::new(4, 2), Some(Piece::new(Color::Black, PieceType::Soldier, None)));
+        game.board.set_piece(
+            &Position::new(4, 4),
+            Some(Piece::new(Color::White, PieceType::Rook, None)),
+        );
+        game.board.set_piece(
+            &Position::new(4, 2),
+            Some(Piece::new(Color::Black, PieceType::Soldier, None)),
+        );
         let score = quiescence(&mut game, -10_000, 10_000, None, 0, 0);
         // Score should be positive (White ahead) after capturing the soldier.
-        assert!(score > 0, "expected positive score after free capture, got {}", score);
+        assert!(
+            score > 0,
+            "expected positive score after free capture, got {}",
+            score
+        );
     }
 }

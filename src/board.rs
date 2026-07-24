@@ -84,14 +84,14 @@ impl Position {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PieceType {
-    Soldier = 0b001,   // 1
-    Bishop = 0b010,    // 2
-    Rook = 0b011, // 3
-    Paladin = 0b100,   // 4
-    Guard = 0b101,     // 5
-    Knight = 0b110,    // 6
-    Ballista = 0b111,  // 7
-    King,              // Handled specially, its discriminant (8) is not used in 3-bit piece codes
+    Soldier = 0b001,  // 1
+    Bishop = 0b010,   // 2
+    Rook = 0b011,     // 3
+    Paladin = 0b100,  // 4
+    Guard = 0b101,    // 5
+    Knight = 0b110,   // 6
+    Ballista = 0b111, // 7
+    King,             // Handled specially, its discriminant (8) is not used in 3-bit piece codes
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -396,7 +396,9 @@ impl Board {
     /// Iterate over all occupied squares, yielding (Position, &Piece).
     pub fn pieces(&self) -> impl Iterator<Item = (Position, &Piece)> {
         self.data.iter().enumerate().filter_map(|(i, piece_opt)| {
-            piece_opt.as_ref().map(|piece| (Position::from_u8(i as u8), piece))
+            piece_opt
+                .as_ref()
+                .map(|piece| (Position::from_u8(i as u8), piece))
         })
     }
 }

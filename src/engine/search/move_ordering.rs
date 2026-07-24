@@ -119,16 +119,28 @@ mod tests {
 
     fn empty_game_white_to_move() -> Game {
         let mut board = Board::empty();
-        board.set_piece(&Position::new(4, 8), Some(Piece::new(Color::White, PieceType::King, None)));
-        board.set_piece(&Position::new(4, 0), Some(Piece::new(Color::Black, PieceType::King, None)));
+        board.set_piece(
+            &Position::new(4, 8),
+            Some(Piece::new(Color::White, PieceType::King, None)),
+        );
+        board.set_piece(
+            &Position::new(4, 0),
+            Some(Piece::new(Color::Black, PieceType::King, None)),
+        );
         Game::from_board(board)
     }
 
     #[test]
     fn captures_are_identified_correctly() {
         let mut game = empty_game_white_to_move();
-        game.board.set_piece(&Position::new(3, 5), Some(Piece::new(Color::White, PieceType::Rook, None)));
-        game.board.set_piece(&Position::new(3, 3), Some(Piece::new(Color::Black, PieceType::Soldier, None)));
+        game.board.set_piece(
+            &Position::new(3, 5),
+            Some(Piece::new(Color::White, PieceType::Rook, None)),
+        );
+        game.board.set_piece(
+            &Position::new(3, 3),
+            Some(Piece::new(Color::Black, PieceType::Soldier, None)),
+        );
 
         let mv_capture = Move {
             from: Position::new(3, 5),

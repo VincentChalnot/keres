@@ -4,10 +4,10 @@ use keres_engine::cli_rendering::get_game_hash;
 use keres_engine::engine::search::root_search;
 use keres_engine::engine::tree_recorder::TreeRecorder;
 use keres_engine::engine::types::SearchConfig;
+use keres_engine::moves::Move;
 use keres_engine::{
     cli_rendering::display_stack, run_tui, Game, Position, BOARD_DIMENSION, BOARD_SIZE,
 };
-use keres_engine::moves::Move;
 use std::time::Instant;
 
 // musl's default allocator has severe lock contention under multi-threading
@@ -118,34 +118,28 @@ fn main() {
                 show_all_moves(&game);
             }
         }
-        Some(Commands::EngineMove(_args)) => {
-            match run_engine_move(&game) {
-                Ok(mv) => {
-                    let piece = game.board.get_piece(&mv.from);
-                    let piece_string = if let Some(piece) = piece {
-                        display_stack(piece)
-                    } else {
-                        "?".to_string()
-                    };
-                    let unstack_info = if mv.unstack {
-                        "-"
-                    } else {
-                        ""
-                    };
-                    println!(
-                        "Engine move: {}@{}-{}{}",
-                        piece_string,
-                        mv.from.to_string(),
-                        mv.to.to_string(),
-                        unstack_info,
-                    );
-                }
-                Err(e) => {
-                    eprintln!("Engine error: {}", e);
-                    std::process::exit(1);
-                }
+        Some(Commands::EngineMove(_args)) => match run_engine_move(&game) {
+            Ok(mv) => {
+                let piece = game.board.get_piece(&mv.from);
+                let piece_string = if let Some(piece) = piece {
+                    display_stack(piece)
+                } else {
+                    "?".to_string()
+                };
+                let unstack_info = if mv.unstack { "-" } else { "" };
+                println!(
+                    "Engine move: {}@{}-{}{}",
+                    piece_string,
+                    mv.from.to_string(),
+                    mv.to.to_string(),
+                    unstack_info,
+                );
             }
-        }
+            Err(e) => {
+                eprintln!("Engine error: {}", e);
+                std::process::exit(1);
+            }
+        },
         _ => {
             match run_tui(Some(game)) {
                 Ok(g) => {
@@ -254,7 +248,9 @@ fn main() {
             ..Default::default()
         };
         let result = root_search(game, &config, &[], None);
-        result.best_move.ok_or_else(|| "No moves available".to_string())
+        result
+            .best_move
+            .ok_or_else(|| "No moves available".to_string())
     }
 
     fn run_debug_tree(args: &DebugTreeArgs) {
@@ -285,7 +281,9 @@ fn main() {
             use_alpha_beta: !args.no_ab,
             use_quiescence: !args.no_quiescence,
             use_killers: !args.no_killers,
-            max_depth: args.max_depth.unwrap_or(keres_engine::engine::constants::MAX_DEPTH),
+            max_depth: args
+                .max_depth
+                .unwrap_or(keres_engine::engine::constants::MAX_DEPTH),
         };
 
         // ── Tree recorder (writes JSONL to stdout) ───────────────────────────

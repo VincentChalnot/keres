@@ -79,8 +79,7 @@ fn ray_pin_malus(
                         // Second friendly piece on the ray — no pin possible.
                         break;
                     }
-                    let bv = base_value(piece.bottom)
-                        + piece.top.map(base_value).unwrap_or(0);
+                    let bv = base_value(piece.bottom) + piece.top.map(base_value).unwrap_or(0);
                     pin_candidate = Some((pos, bv));
                     dist += 1;
                     continue;
@@ -141,7 +140,10 @@ mod tests {
         enemy_pos: Position,
     ) -> Board {
         let mut board = Board::empty();
-        board.set_piece(&king_pos, Some(Piece::new(friendly_piece.color, PieceType::King, None)));
+        board.set_piece(
+            &king_pos,
+            Some(Piece::new(friendly_piece.color, PieceType::King, None)),
+        );
         board.set_piece(&friendly_pos, Some(friendly_piece));
         board.set_piece(&enemy_pos, Some(enemy_piece));
         board
@@ -157,7 +159,13 @@ mod tests {
         let friendly_piece = Piece::new(Color::White, PieceType::Guard, None);
         let enemy_piece = Piece::new(Color::Black, PieceType::Rook, None);
 
-        let board = setup_pin(king_pos, friendly_piece, friendly_pos, enemy_piece, enemy_pos);
+        let board = setup_pin(
+            king_pos,
+            friendly_piece,
+            friendly_pos,
+            enemy_piece,
+            enemy_pos,
+        );
         let malus = pinned_malus(&board, Color::White);
         assert!(malus > 0, "Expected pin malus but got 0");
     }
@@ -172,7 +180,13 @@ mod tests {
         let friendly_piece = Piece::new(Color::White, PieceType::Soldier, None);
         let enemy_piece = Piece::new(Color::Black, PieceType::Bishop, None);
 
-        let board = setup_pin(king_pos, friendly_piece, friendly_pos, enemy_piece, enemy_pos);
+        let board = setup_pin(
+            king_pos,
+            friendly_piece,
+            friendly_pos,
+            enemy_piece,
+            enemy_pos,
+        );
         let malus = pinned_malus(&board, Color::White);
         assert!(malus > 0, "Expected diagonal pin malus but got 0");
     }
@@ -182,10 +196,22 @@ mod tests {
         // White King at A1, White Soldier at A2, White Rook at A3, Black Rook at A9
         // The Black Rook is blocked by two friendly pieces — no pin.
         let mut board = Board::empty();
-        board.set_piece(&Position::new(0, 8), Some(Piece::new(Color::White, PieceType::King, None)));
-        board.set_piece(&Position::new(0, 7), Some(Piece::new(Color::White, PieceType::Soldier, None)));
-        board.set_piece(&Position::new(0, 6), Some(Piece::new(Color::White, PieceType::Rook, None)));
-        board.set_piece(&Position::new(0, 0), Some(Piece::new(Color::Black, PieceType::Rook, None)));
+        board.set_piece(
+            &Position::new(0, 8),
+            Some(Piece::new(Color::White, PieceType::King, None)),
+        );
+        board.set_piece(
+            &Position::new(0, 7),
+            Some(Piece::new(Color::White, PieceType::Soldier, None)),
+        );
+        board.set_piece(
+            &Position::new(0, 6),
+            Some(Piece::new(Color::White, PieceType::Rook, None)),
+        );
+        board.set_piece(
+            &Position::new(0, 0),
+            Some(Piece::new(Color::Black, PieceType::Rook, None)),
+        );
         let malus = pinned_malus(&board, Color::White);
         assert_eq!(malus, 0, "No pin should be detected with two blockers");
     }

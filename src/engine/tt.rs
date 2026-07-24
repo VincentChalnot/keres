@@ -75,9 +75,9 @@ impl TranspositionTable {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Game;
     use crate::board::Board;
     use crate::engine::constants::TT_SIZE;
+    use crate::Game;
 
     fn make_hash() -> u64 {
         let game = Game::new();

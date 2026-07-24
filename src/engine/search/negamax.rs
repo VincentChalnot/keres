@@ -226,7 +226,16 @@ mod tests {
         let mut tt = TranspositionTable::new(1024);
         let tt_ptr = Some(&mut tt as *mut TranspositionTable);
         negamax(
-            game, 0, -10_000, 10_000, &config, &mut ld, &mut killers, tt_ptr, None, 0,
+            game,
+            0,
+            -10_000,
+            10_000,
+            &config,
+            &mut ld,
+            &mut killers,
+            tt_ptr,
+            None,
+            0,
         )
     }
 
