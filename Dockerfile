@@ -19,7 +19,7 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Copy the Cargo files
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml Cargo.lock build.rs ./
 
 # Copy source code
 COPY ./src ./src
