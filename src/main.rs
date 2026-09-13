@@ -117,10 +117,7 @@ fn main() {
                 let unstack_info = if mv.unstack { "-" } else { "" };
                 println!(
                     "Engine move: {}@{}-{}{}",
-                    piece_string,
-                    mv.from.to_string(),
-                    mv.to.to_string(),
-                    unstack_info,
+                    piece_string, mv.from, mv.to, unstack_info,
                 );
             }
             Err(e) => {
@@ -147,7 +144,7 @@ fn main() {
         let moves = game.get_moves(position);
         if moves.is_empty() {
             if display_empty_message {
-                println!("No moves available for position {}.", position.to_string());
+                println!("No moves available for position {}.", position);
             }
             return;
         }
@@ -157,13 +154,9 @@ fn main() {
         } else {
             "?".to_string()
         };
-        println!(
-            "Available moves for {}@{}: ",
-            piece_string,
-            position.to_string()
-        );
+        println!("Available moves for {}@{}: ", piece_string, position);
         for m in moves.iter() {
-            print!(" - {}", m.to.to_string());
+            print!(" - {}", m.to);
             if m.unstackable {
                 if m.force_unstack {
                     print!(" (forced unstack)");
@@ -176,16 +169,17 @@ fn main() {
     }
 
     fn parse_position(position: &str) -> Result<Position, String> {
-        if position.len() != 2 {
+        let mut chars = position.chars();
+        let (Some(col), Some(row), None) = (chars.next(), chars.next(), chars.next()) else {
             return Err("Invalid position format. Use e.g. 'B4'.".to_string());
-        }
+        };
         // A1 is (0,8), I9 is (8,0)
-        let x = match position.chars().nth(0).unwrap().to_ascii_uppercase() {
-            'A'..='I' => position.chars().nth(0).unwrap() as usize - 'A' as usize,
+        let x = match col.to_ascii_uppercase() {
+            c @ 'A'..='I' => c as usize - 'A' as usize,
             _ => return Err("Invalid column. Use letters A-I.".to_string()),
         };
-        let y = match position.chars().nth(1).unwrap() {
-            '1'..='9' => 8 - (position.chars().nth(1).unwrap() as usize - '1' as usize),
+        let y = match row {
+            '1'..='9' => 8 - (row as usize - '1' as usize),
             _ => return Err("Invalid row. Use numbers 1-9.".to_string()),
         };
 
@@ -194,8 +188,7 @@ fn main() {
 
     fn create_game(board_str: Option<&str>) -> Result<Game, String> {
         match board_str {
-            None => return Ok(Game::new()),
-            Some("") => return Ok(Game::new()),
+            None | Some("") => Ok(Game::new()),
             Some(s) => {
                 match general_purpose::STANDARD.decode(s) {
                     Ok(bytes) => {
@@ -209,9 +202,7 @@ fn main() {
                         }
 
                         let mut board_data = [0; BOARD_SIZE + 2];
-                        for (i, &byte) in bytes.iter().enumerate() {
-                            board_data[i] = byte;
-                        }
+                        board_data[..bytes.len()].copy_from_slice(&bytes);
 
                         Game::from_binary(board_data)
                     }
@@ -296,7 +287,7 @@ fn main() {
         eprintln!("Best score: {}", result.best_score);
         eprint!("PV: ");
         for mv in &result.pv {
-            eprint!("{} ", mv.to_string());
+            eprint!("{} ", mv);
         }
         eprintln!();
     }

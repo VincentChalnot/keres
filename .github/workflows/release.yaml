@@ -22,13 +22,19 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      - uses: Swatinem/rust-cache@v2
+      # No build cache here on purpose: this workflow publishes the binaries
+      # users download, and a restored cache is writable by any branch that
+      # can run CI (zizmor's cache-poisoning audit). A release build is rare
+      # enough that a few cold minutes are cheaper than that provenance gap.
 
       - name: cargo fmt --check
         run: cargo fmt --check
 
+      - name: cargo clippy
+        run: cargo clippy --locked --workspace --all-targets --features gui -- -D warnings
+
       - name: cargo test
-        run: cargo test --workspace --features gui
+        run: cargo test --locked --workspace --features gui
 
   build-gui:
     name: Build GUI (${{ matrix.os }})
@@ -64,12 +70,10 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: gui-${{ matrix.os }}
+      # No build cache — see the comment in the `test` job above.
 
       - name: Build GUI
-        run: cargo build --profile gui --bin gui --features gui
+        run: cargo build --locked --profile gui --bin gui --features gui
 
       - name: Package
         shell: bash
@@ -104,9 +108,14 @@ jobs:
         working-directory: artifacts
         run: sha256sum *.tar.gz > SHA256SUMS.txt
 
+      # `gh` ships on the runner, so the publishing step — the one with
+      # `contents: write` — runs no third-party code at all.
       - name: Create release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: Keres ${{ github.ref_name }}
-          files: artifacts/*
-          generate_release_notes: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Keres $GITHUB_REF_NAME" \
+            --generate-notes \
+            artifacts/*

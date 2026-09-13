@@ -1,3 +1,4 @@
+pub mod api;
 pub mod board;
 pub mod cli_rendering;
 pub mod engine;

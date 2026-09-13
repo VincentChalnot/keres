@@ -132,7 +132,7 @@ fn mode_from_byte(b: u8) -> Option<Mode> {
 
 /// Days since the Unix epoch to a proleptic-Gregorian (year, month, day),
 /// UTC. Howard Hinnant's `civil_from_days` algorithm — see
-/// http://howardhinnant.github.io/date_algorithms.html#civil_from_days
+/// <http://howardhinnant.github.io/date_algorithms.html#civil_from_days>
 fn civil_from_days(z: i64) -> (i64, u32, u32) {
     let z = z + 719468;
     let era = z.div_euclid(146097);
@@ -234,10 +234,14 @@ pub fn load(path: &Path) -> Option<SaveRecord> {
     let mut moves = Vec::with_capacity(count);
     for i in 0..count {
         let off = HEADER_LEN + i * 2;
-        moves.push(Move::from_u16(u16::from_le_bytes([
+        // Strict decode: a corrupt or hand-edited file can hold a square
+        // index outside 0..=80, which `Move::from_u16` would panic on.
+        // Reject the file instead — `load` already returns `None` for every
+        // other kind of damage.
+        moves.push(Move::try_from_u16(u16::from_le_bytes([
             bytes[off],
             bytes[off + 1],
-        ])));
+        ]))?);
     }
     Some(SaveRecord {
         mode,

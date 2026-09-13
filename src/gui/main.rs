@@ -443,8 +443,8 @@ fn is_upside_down(color: keres_engine::Color, flipped: bool, rotate_opponent_ico
 fn move_notation(mv: &Move, is_capture: bool) -> String {
     format!(
         "{}-{}{}{}",
-        mv.from.to_string(),
-        mv.to.to_string(),
+        mv.from,
+        mv.to,
         if mv.unstack { "-" } else { "" },
         if is_capture { "*" } else { "" },
     )

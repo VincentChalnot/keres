@@ -28,9 +28,10 @@ for the full illustrated rules.
   search, a transposition table, killer-move ordering, and
   loop/repetition-aware search, parallelized with
   [Rayon](https://github.com/rayon-rs/rayon).
-- **HTTP server** (`src/server.rs`, binary target `server`): the binary wire
-  API consumed by keres-platform. See [`docs/PROTOCOL.md`](docs/PROTOCOL.md)
-  for the exact byte layout.
+- **HTTP server** (`src/api.rs` + `src/server.rs`, binary target `server`):
+  the binary wire API consumed by keres-platform. See
+  [`docs/PROTOCOL.md`](docs/PROTOCOL.md) for the exact byte layout and
+  [`SECURITY.md`](SECURITY.md) for what it does and does not defend against.
 - **CLI** (`src/main.rs`, binary target `keres`): inspect legal moves, ask the
   engine for a move, or dump a full search tree for debugging — plain text,
   no UI.
@@ -41,6 +42,10 @@ for the full illustrated rules.
   Release download, or `make gui`'s output) is named `keres` /
   `keres.exe`, or `Keres.app` on macOS — see `make macos-app` and
   `scripts/package_macos_app.sh`.
+- **Tests** (`src/**` unit modules, `tests/`, `scripts/smoke_test_server.sh`):
+  the game rules, the wire format's byte layout, the CLI's behaviour, and a
+  deterministic fuzz suite that asserts no byte string can make the API panic.
+  `make check` runs the lot; see [`docs/TESTING.md`](docs/TESTING.md).
 
 ## The AI
 

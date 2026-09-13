@@ -26,11 +26,9 @@ GUI_BIN    := target/$(GUI_PROFILE)/keres
 
 .DEFAULT_GOAL := all
 
-.PHONY: all help cli server gui test test-core fmt fmt-fix clippy check sizes \
-        run-cli run-server run-gui clean icons base symbols splash app-icon \
-        pixel-assets macos-app
-
-all: cli server gui  ## Build all three binaries
+.PHONY: all help cli server gui test test-core fmt fmt-fix clippy deny smoke \
+        check sizes run-cli run-server run-gui clean icons base symbols splash \
+        app-icon pixel-assets macos-app
 
 ##@ Build
 
@@ -67,8 +65,21 @@ fmt:  ## Check formatting (CI-blocking)
 fmt-fix:  ## Apply rustfmt
 	$(CARGO) fmt
 
-clippy:  ## Lint everything incl. the GUI (informational; a pre-existing backlog means CI runs the strict -D pass with continue-on-error)
-	$(CARGO) clippy --workspace --all-targets --features gui
+clippy:  ## Lint everything incl. the GUI (CI-blocking: the same -D warnings pass runs in CI)
+	$(CARGO) clippy --workspace --all-targets --features gui -- -D warnings
+
+deny:  ## Audit dependencies: RUSTSEC advisories, licenses, sources (see deny.toml)
+	$(CARGO) deny check --hide-inclusion-graph
+
+smoke: server  ## Start the server on a scratch port and run the end-to-end wire-protocol smoke test
+	@PORT=3999 ./$(SERVER_BIN) & \
+	pid=$$!; \
+	trap 'kill $$pid 2>/dev/null' EXIT; \
+	for _ in $$(seq 1 30); do \
+		curl -sSf http://127.0.0.1:3999/health >/dev/null 2>&1 && break; \
+		sleep 0.2; \
+	done; \
+	scripts/smoke_test_server.sh http://127.0.0.1:3999
 
 check: fmt clippy test  ## fmt + clippy + full test suite
 

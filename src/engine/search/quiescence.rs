@@ -3,6 +3,7 @@
 
 use crate::engine::constants::DELTA_MARGIN;
 use crate::engine::constants::KING_VALUE;
+use crate::engine::constants::MAX_QUIESCENCE_PLY;
 use crate::engine::eval::evaluate_absolute;
 use crate::engine::search::move_ordering::order_captures;
 use crate::engine::tree_recorder::TreeRecorder;
@@ -26,6 +27,17 @@ pub fn quiescence(
     } else {
         -evaluate_absolute(game)
     };
+
+    // Hard recursion guard. `order_captures` keeps only captures and
+    // promotions, and both strictly consume a finite resource (pieces on the
+    // board, un-promoted soldiers/ballistas), so the extension terminates on
+    // its own — but it is driven by caller-supplied positions, and a
+    // stack overflow aborts the whole process rather than one request. This
+    // ply cap is unreachable in real play (it exceeds the number of pieces a
+    // side can capture) and costs one comparison per node.
+    if depth >= MAX_QUIESCENCE_PLY {
+        return stand_pat;
+    }
 
     if stand_pat >= beta {
         return stand_pat;

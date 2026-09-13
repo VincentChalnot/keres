@@ -1,0 +1,63 @@
+# cargo-deny configuration — enforced by the `deny` job in
+# .github/workflows/ci.yaml (`cargo deny check`).
+#
+# Run it locally with `make deny` (or `cargo deny check`) before changing a
+# dependency; the CI job is the same command.
+
+[graph]
+# The engine ships as a Linux server container, a Linux/macOS/Windows GUI, and
+# a musl static build. Checking every target keeps a platform-specific
+# transitive dependency (minifb's X11 stack, the Windows resource crates) from
+# slipping past the audit because CI happens to run on Linux.
+targets = [
+    { triple = "x86_64-unknown-linux-gnu" },
+    { triple = "x86_64-unknown-linux-musl" },
+    { triple = "x86_64-pc-windows-msvc" },
+    { triple = "x86_64-apple-darwin" },
+]
+all-features = true
+
+[advisories]
+# RUSTSEC advisories are a hard failure: this crate parses untrusted bytes off
+# the network, so a vulnerable parser or async dependency is not something to
+# triage "later".
+yanked = "deny"
+ignore = []
+
+[licenses]
+# Exactly the licenses currently in the tree, no more: an unmatched entry is
+# reported as a warning, so the list stays honest instead of quietly
+# pre-authorising whatever a future dependency drags in. The engine itself is
+# GPL-3.0-only, which is compatible with linking all of these in. Adding a
+# license here has to be a deliberate, reviewed edit — especially for
+# anything copyleft.
+allow = [
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "GPL-3.0-only",
+    "MIT",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+]
+confidence-threshold = 0.93
+
+[bans]
+# Duplicate major versions of the same crate bloat the binary — which matters
+# here, the GUI has a <1.44 MB size target inherited from micro-keres. Warn
+# rather than deny: a duplicate is usually forced by a transitive dependency
+# and cannot be fixed in this repo.
+multiple-versions = "warn"
+wildcards = "deny"
+# Nothing in this crate needs a C toolchain at runtime, and `unsafe` FFI is
+# where memory-safety bugs would come from.
+deny = []
+
+[sources]
+# crates.io only. A git dependency has no version pinning, no audit coverage,
+# and no reproducible build guarantee.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

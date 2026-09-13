@@ -14,7 +14,47 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
+env:
+  # Fail the build instead of silently updating Cargo.lock: every job below
+  # passes --locked, and a lockfile drift should be a visible diff, not a
+  # different dependency set in CI than on the developer's machine.
+  CARGO_TERM_COLOR: always
+  # CI machines have no interactive user to answer an incremental rebuild's
+  # cache miss; full codegen is both faster and smaller here.
+  CARGO_INCREMENTAL: '0'
+
 jobs:
+  workflows:
+    # Lints the workflows themselves. The configs under .github/linters/ have
+    # been in the repo unused; this is what makes them load-bearing.
+    name: Lint workflows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      # Both linters are pinned: an upstream release that adds a new rule
+      # should arrive as a deliberate bump in this file, not as a red build on
+      # an unrelated PR.
+      - name: actionlint
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+        run: |
+          curl -sSfL -o download-actionlint.bash \
+            "https://raw.githubusercontent.com/rhysd/actionlint/v${ACTIONLINT_VERSION}/scripts/download-actionlint.bash"
+          bash download-actionlint.bash "$ACTIONLINT_VERSION"
+          ./actionlint -color -config-file .github/linters/actionlint.yaml
+
+      - name: zizmor
+        env:
+          # zizmor resolves `uses:` refs against the API; without a token it
+          # falls back to offline heuristics and reports less.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pipx install 'zizmor==1.30.1'
+          zizmor --config .github/linters/zizmor.yaml --format plain .github/workflows
+
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -33,17 +73,44 @@ jobs:
       - name: cargo fmt --check
         run: cargo fmt --check
 
+      - name: cargo clippy
+        # Blocking: the backlog this used to tolerate has been cleared, so any
+        # new warning is a regression introduced by the change under review.
+        # Runs before the tests because it is the faster failure.
+        run: cargo clippy --locked --workspace --all-targets --features gui -- -D warnings
+
       - name: cargo test
         # The `gui` feature pulls in the minifb GUI binary and its unit tests.
         # minifb's X11 backend is dlopen-based, so it builds & tests headless
         # with no extra system packages (a window is only opened at runtime).
-        run: cargo test --workspace --features gui
+        run: cargo test --locked --workspace --features gui
 
-      - name: cargo clippy
-        # Informational only until the existing warning backlog is cleared —
-        # does not block CI. Remove continue-on-error once clean.
-        run: cargo clippy --workspace --all-targets --features gui -- -D warnings
-        continue-on-error: true
+      - name: cargo doc
+        # Broken intra-doc links are the usual way the module documentation
+        # rots after a rename; -D warnings turns that into a build failure.
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --locked --workspace --no-deps --features gui
+
+  deny:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      # Runs the four checks configured in deny.toml:
+      #   advisories — RUSTSEC vulnerabilities and yanked crates
+      #   bans       — duplicate versions of the same crate (warn only)
+      #   licenses   — exactly the allow-list in deny.toml
+      #   sources    — crates.io only, no git dependencies
+      # Feature and target selection live in deny.toml's [graph] section, so
+      # the local `make deny` and this job audit the same crate graph.
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+          arguments: --hide-inclusion-graph
 
   gui:
     # The GUI is the only cross-platform artifact (the release workflow ships
@@ -70,7 +137,31 @@ jobs:
           key: gui-${{ matrix.os }}
 
       - name: Build GUI
-        run: cargo build --profile gui --bin gui --features gui
+        run: cargo build --locked --profile gui --bin gui --features gui
+
+      - name: Render the headless snapshots
+        # The GUI has no runtime test coverage — it draws into a framebuffer.
+        # KERES_SNAPSHOT renders one screen to a PPM and exits without opening
+        # a window (see docs/GUI.md), so this at least proves every screen's
+        # layout code runs to completion on every platform.
+        shell: bash
+        run: |
+          binary=target/gui/gui
+          if [ -f "$binary.exe" ]; then binary="$binary.exe"; fi
+          for screen in splash menu rules load_game playing; do
+            KERES_SCREEN="$screen" KERES_SNAPSHOT="snapshot-$screen.ppm" "$binary"
+            test -s "snapshot-$screen.ppm" || { echo "empty snapshot for $screen" >&2; exit 1; }
+          done
+
+      # Uploaded on failure too: when a screen's layout code panics, the
+      # snapshots that did render are the only evidence of what changed.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gui-snapshots-${{ matrix.os }}
+          path: snapshot-*.ppm
+          if-no-files-found: warn
+          retention-days: 7
 
   build:
     name: Build backend image
@@ -102,6 +193,27 @@ jobs:
           tags: ghcr.io/vincentchalnot/keres/backend:${{ github.sha }}
           cache-from: type=gha,scope=backend
           cache-to: type=gha,scope=backend,mode=max
+
+      - name: Smoke-test the image
+        # The in-process integration tests never exercise the shipped
+        # artifact: the musl static build, the listener, and the /health probe
+        # an orchestrator depends on are only covered here.
+        run: |
+          docker run -d --name keres-smoke -p 3000:3000 \
+            ghcr.io/vincentchalnot/keres/backend:${{ github.sha }}
+          for _ in $(seq 1 30); do
+            curl -sSf http://127.0.0.1:3000/health >/dev/null 2>&1 && break
+            sleep 1
+          done
+          scripts/smoke_test_server.sh http://127.0.0.1:3000
+
+      - name: Container logs
+        if: always()
+        run: docker logs keres-smoke || true
+
+      - name: Stop the container
+        if: always()
+        run: docker rm -f keres-smoke || true
 
   push:
     name: Push backend image

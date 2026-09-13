@@ -271,7 +271,14 @@ impl App {
                 .get_piece(&mv.to)
                 .map(|p| p.color != self.game.color_to_move())
                 .unwrap_or(false);
-            let undo = self.game.make(&mv);
+            // Save files are just bytes on disk: a truncated write, a bad
+            // sector or a hand-edited file can hold a move that is illegal in
+            // the position it replays into, and `make` would panic on it.
+            // Resume the longest valid prefix instead of taking the whole app
+            // down.
+            let Ok(undo) = self.game.try_make(&mv) else {
+                break;
+            };
             self.history.push((mv, is_capture));
             self.undo_stack.push((mv, undo));
             self.last_move = Some(mv);

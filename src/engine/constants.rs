@@ -25,6 +25,16 @@ pub const TEMPO_BONUS: i32 = 15;
 /// Delta-pruning margin in quiescence search.
 pub const DELTA_MARGIN: i32 = 50;
 
+/// Hard ply cap on the quiescence extension, counted from the root (so it
+/// also covers the `MAX_DEPTH` plies of the main search above it).
+///
+/// Quiescence only extends on captures and promotions, which are
+/// self-limiting, so this never binds in real play; it exists so that no
+/// caller-supplied position can drive the recursion deep enough to overflow
+/// the stack — which would abort the whole server process, not just the one
+/// request being served.
+pub const MAX_QUIESCENCE_PLY: usize = 64;
+
 /// Relative selection weight applied to king moves when picking an outright
 /// blunder (`SearchConfig::blunder_chance`). `1.0` would treat every legal
 /// move — king included — as equally likely to be the "random" blunder; this

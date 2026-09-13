@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Vincent Chalnot"]
 description = "A library for the abstract game Keres"
+license = "GPL-3.0-only"
+repository = "https://github.com/vincentchalnot/keres"
 build = "build.rs"
 
 [features]
@@ -18,13 +20,20 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.0", features = ["full"] }
 axum = "0.7"
-tower-http = { version = "0.5", features = ["cors"] }
+tower-http = { version = "0.5", features = ["catch-panic", "cors"] }
 rayon = "1.10"
 ahash = "0.8.12"
 once_cell = "1.21.3"
 mimalloc = "0.1.48"
 minifb = { version = "0.28", default-features = false, features = ["x11"], optional = true }
 dirs-next = { version = "2.0", optional = true }
+
+[dev-dependencies]
+# In-process HTTP testing: drive the `api::router` directly through
+# `ServiceExt::oneshot` (no sockets, no ports, no flakiness) and read the
+# binary response bodies back. See tests/api.rs and docs/TESTING.md.
+http-body-util = "0.1"
+tower = { version = "0.5", features = ["util"] }
 
 [lib]
 name = "keres_engine"
