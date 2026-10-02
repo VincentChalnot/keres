@@ -106,7 +106,7 @@ jobs:
 
       - name: Generate checksums
         working-directory: artifacts
-        run: sha256sum *.tar.gz > SHA256SUMS.txt
+        run: sha256sum ./*.tar.gz > SHA256SUMS.txt
 
       # `gh` ships on the runner, so the publishing step — the one with
       # `contents: write` — runs no third-party code at all.

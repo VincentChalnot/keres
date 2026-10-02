@@ -314,7 +314,7 @@ impl Game {
         }
         let mut game = Game::new();
         let mut history = Vec::with_capacity(move_bytes.len() / 2);
-        for (index, chunk) in move_bytes.chunks_exact(2).enumerate() {
+        for (index, chunk) in move_bytes.as_chunks::<2>().0.iter().enumerate() {
             let move_u16 = u16::from_le_bytes([chunk[0], chunk[1]]);
             let mv = Move::try_from_u16(move_u16)
                 .ok_or_else(|| format!("move {index}: 0x{move_u16:04x} is not a valid move"))?;

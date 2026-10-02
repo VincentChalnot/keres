@@ -110,7 +110,7 @@ jobs:
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check
-          arguments: --hide-inclusion-graph
+          command-arguments: --hide-inclusion-graph
 
   gui:
     # The GUI is the only cross-platform artifact (the release workflow ships

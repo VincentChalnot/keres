@@ -444,7 +444,9 @@ async fn moves_response_pairs_are_little_endian_u16s() {
     // low bit of `to`, byte 1 holds the rest.
     for (index, (pair, &raw)) in captured
         .body
-        .chunks_exact(MOVE_BYTES)
+        .as_chunks::<MOVE_BYTES>()
+        .0
+        .iter()
         .zip(expected.iter())
         .enumerate()
     {
@@ -466,7 +468,9 @@ async fn moves_response_pairs_are_little_endian_u16s() {
     // PotentialMove at all or names a different origin square.
     let pairs: Vec<[u8; 2]> = captured
         .body
-        .chunks_exact(MOVE_BYTES)
+        .as_chunks::<MOVE_BYTES>()
+        .0
+        .iter()
         .map(|c| [c[0], c[1]])
         .collect();
     assert!(
