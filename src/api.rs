@@ -326,7 +326,7 @@ pub fn router(config: ApiConfig) -> Router {
             post(engine_move_game).layer(DefaultBodyLimit::max(history_limit)),
         )
         .route(
-            "/engine-move-game/:level",
+            "/engine-move-game/{level}",
             post(engine_move_game_leveled).layer(DefaultBodyLimit::max(history_limit)),
         )
         .route(
