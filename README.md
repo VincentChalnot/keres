@@ -67,13 +67,16 @@ termination under random play, which breaks vanilla MCTS rollouts, and a
 trained policy/value network is a separate project the current deterministic
 Negamax search already outperforms for this game size.
 
+The ten strength levels (`level` on the API) and how they were tuned with the
+`arena` binary are documented in [`docs/LEVELS.md`](docs/LEVELS.md).
+
 ## Build & run
 
 Requires a stable Rust toolchain (see `Cargo.toml` for the edition).
 
 A `Makefile` builds each binary with the profile and features that suit it:
 
-- `make server` / `make cli` — `--release` (speed; the AI search is latency-critical)
+- `make server` / `make cli` / `make arena` — `--release` (speed; the AI search is latency-critical)
 - `make gui` — the size-optimized `gui` profile (`opt-level="z"`, fat LTO,
   `panic="abort"`, strip) → ~577 KB (the micro-keres <1.44 MB lineage)
 - `make all` / `make test` / `make check` / `make sizes` — run `make help` for all
@@ -94,6 +97,14 @@ cargo run --bin keres -- engine-move [--board <base64>]
 # Dump the search tree (JSONL) for a move sequence — tuning/debugging
 cargo run --bin keres -- debug-tree [--moves <base64>] [--full-tree] \
   [--max-depth N] [--no-tt] [--no-ab] [--no-quiescence] [--no-killers]
+
+# Engine-vs-engine arena for tuning the strength levels (SearchConfig::for_level).
+# A side is a level preset plus optional overrides (depth, temp, blunder, bdepth, slip, qs, killers).
+cargo run --release --bin arena -- match L7 L8:temp=3,blunder=0.01 --games 20 [--random-plies 4] [--record games.jsonl]
+# Every adjacent level pair, logs + JSONL game records under arena-runs/ (long: run it detached)
+scripts/arena_ladder.sh
+# Per-move score loss of one configuration vs. its own noise-free search
+cargo run --release --bin arena -- quality L5 --games 4
 
 # Native desktop GUI (hotseat or vs-AI), size-optimized via the `gui` profile.
 # The `gui` Cargo feature pulls in minifb; it's optional so the server/CLI stay

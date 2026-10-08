@@ -137,8 +137,9 @@ has no history, so it cannot detect repetition draws). Both run
 integer path segment picks an engine strength level (`SearchConfig::for_level`,
 `src/engine/types.rs`) instead of always searching at full power — the same
 1 (weakest) .. 10 (full strength) scale as the native GUI's difficulty
-slider, spanning search depth, quiescence/killer-move heuristics, and
-root-move noise/blunder chance. `:level` outside `1..=10` gets `400`
+slider, spanning search depth, quiescence/killer-move heuristics, a chance
+of playing a shallower search's move, and noise among near-equal moves.
+Level 10 is identical to the unleveled endpoint. `:level` outside `1..=10` gets `400`
 (unlike the GUI slider, the API doesn't silently clamp an out-of-range
 value). There is no leveled variant of `/engine-move-board` — it has no
 game history, so it's only used to estimate a position, not to play a move

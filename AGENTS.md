@@ -14,12 +14,13 @@ contract with them is the binary HTTP API described in
 
 ## Project overview
 
-Three binaries share one library crate (`keres_engine`, `src/lib.rs`):
+Four binaries share one library crate (`keres_engine`, `src/lib.rs`):
 
 | Binary   | Entry point    | Purpose                                                        |
 |----------|-----------------|------------------------------------------------------------------|
 | `server` | `src/server.rs` | Thin `main`: binds a listener to `keres_engine::api::router` (routes live in `src/api.rs`; see `docs/PROTOCOL.md`) |
 | `keres` | `src/main.rs`   | CLI: move listing, engine queries, search-tree debugging (plain text, no UI) |
+| `arena` | `src/arena.rs`  | Engine-vs-engine harness for tuning the strength levels (`SearchConfig::for_level`): `match` (score, Elo estimate, game lengths/endings, king hangs) and `quality` (per-move score loss vs. the noise-free search) |
 | `gui`   | `src/gui/main.rs` | Native minifb desktop GUI for hotseat or vs-AI play (behind the `gui` Cargo feature) |
 
 ## Layout
@@ -40,12 +41,14 @@ Three binaries share one library crate (`keres_engine`, `src/lib.rs`):
 | `src/api.rs`                  | The HTTP API: route table, `ApiConfig`, strict payload decoding, body limits, search concurrency/timeouts, CORS + optional bearer auth. Lives in the library so `tests/api.rs` can drive it in-process |
 | `src/server.rs`               | `main` only: binds a listener to `api::router`, graceful shutdown on SIGTERM/SIGINT |
 | `src/main.rs`                 | `clap` CLI — subcommands: `show-moves`, `engine-move`, `debug-tree` |
+| `src/arena.rs`                | `clap` level-tuning harness — subcommands: `match`, `quality`; sides are `L<level>[:depth=,temp=,blunder=,bdepth=,slip=,qs=,killers=]` so a retune can be measured before it goes into `for_level`; `--record` writes JSONL game records. `scripts/arena_ladder.sh` runs every adjacent level pair |
 | `src/gui/`                    | Native minifb GUI binary (`gui` target, `gui` Cargo feature): app state machine, software rasterizer, autosave — ported from micro-keres |
 | `tests/`                      | Integration tests: `cli.rs`, `api.rs`, `api_robustness.rs` (deterministic fuzzing), `protocol_conformance.rs` (byte-level wire contract) |
 | `scripts/smoke_test_server.sh`| End-to-end check against a *running* server; the only thing covering the shipped artifact's listener and `/health` |
 | `docs/PROTOCOL.md`            | Wire protocol reference — regenerate/re-verify against `api.rs`/`board.rs`/`game.rs`/`moves.rs` if any of those change; do not let it drift |
 | `docs/TESTING.md`             | Which test layer owns what, how to run each, and the CI job matrix (read before adding a test) |
 | `docs/GUI.md`                 | GUI reference: canvas/layout model, pixel-art asset pipeline, and the headless snapshot workflow for checking a visual change (read it before touching `src/gui/`) |
+| `docs/LEVELS.md`              | AI strength levels: what each `for_level` dial does, the arena tuning method, and the measured results behind the current table (update it whenever `LADDER` changes) |
 
 ## Conventions
 
@@ -87,7 +90,7 @@ Three binaries share one library crate (`keres_engine`, `src/lib.rs`):
 ## Dev commands
 
 A `Makefile` encodes the correct profile + Cargo feature per binary — prefer it
-(`make cli`, `make server`, `make gui`, `make all`, `make test`, `make check`,
+(`make cli`, `make server`, `make arena`, `make gui`, `make all`, `make test`, `make check`,
 `make deny`, `make smoke`, `make sizes`; run `make help` for the full list).
 The GUI builds with the size-optimized `gui` profile (`opt-level="z"`, LTO,
 `panic="abort"`, strip); the server/CLI build with `--release` (speed; AI
@@ -101,6 +104,7 @@ cargo deny check                    # RUSTSEC advisories, licenses, sources (CI-
 cargo run --bin server              # HTTP server on :3000 (PORT env var to override)
 cargo run --bin keres -- engine-move  # ask the engine for its best move (plain-text CLI)
 cargo run --bin keres -- debug-tree --moves <base64> --full-tree   # search-tree debugging
+cargo run --release --bin arena -- match L7 L8:temp=3 --games 20 --random-plies 4   # level tuning
 cargo run --profile gui --bin gui --features gui   # native GUI, size-optimized (or: make run-gui)
 make smoke                          # build the server, start it, run the wire-protocol script against it
 ```

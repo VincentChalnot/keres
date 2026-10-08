@@ -35,13 +35,6 @@ pub const DELTA_MARGIN: i32 = 50;
 /// request being served.
 pub const MAX_QUIESCENCE_PLY: usize = 64;
 
-/// Relative selection weight applied to king moves when picking an outright
-/// blunder (`SearchConfig::blunder_chance`). `1.0` would treat every legal
-/// move — king included — as equally likely to be the "random" blunder; this
-/// pulls the king down to a fifth of that so the engine doesn't carelessly
-/// walk its king into danger as readily as it hangs any other piece.
-pub const KING_BLUNDER_WEIGHT: f32 = 0.2;
-
 // ── Piece base values ────────────────────────────────────────────────────────
 
 pub const SOLDIER_VALUE: i32 = 10;

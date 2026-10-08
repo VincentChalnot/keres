@@ -48,6 +48,10 @@ name = "server"
 path = "src/server.rs"
 
 [[bin]]
+name = "arena"
+path = "src/arena.rs"
+
+[[bin]]
 name = "gui"
 path = "src/gui/main.rs"
 required-features = ["gui"]

@@ -5,6 +5,7 @@ use crate::engine::search::alpha_beta::{should_cutoff, update_alpha};
 use crate::engine::search::killer::KillerTable;
 use crate::engine::search::loop_detection::LoopDetector;
 use crate::engine::search::move_ordering::order_moves;
+use crate::engine::search::outcome::move_outcome;
 use crate::engine::search::quiescence::quiescence;
 use crate::engine::tree_recorder::TreeRecorder;
 use crate::engine::tt::TranspositionTable;
@@ -120,13 +121,20 @@ pub fn negamax(
     for mv in &moves {
         let undo = game.make_unchecked(mv);
 
-        if undo.is_king_captured() {
+        if let Some(outcome) = move_outcome(game, &undo, depth) {
             game.unmake(mv, undo);
-            // Prefer shallower king captures: subtract depth so immediate
-            // captures (depth 0) score higher than those found deeper.
-            best_score = KING_VALUE - depth as i32;
-            best_move = Some(*mv);
-            break;
+            // A game-ending move needs no search below it. Wins score
+            // `KING_VALUE - depth`, so the shallowest win is preferred.
+            if outcome > best_score {
+                best_score = outcome;
+                best_move = Some(*mv);
+            }
+            alpha = update_alpha(alpha, outcome);
+            if outcome > 0 || (config.use_alpha_beta && should_cutoff(alpha, beta)) {
+                // Nothing beats the fastest win available at this node.
+                break;
+            }
+            continue;
         }
 
         let node_id = recorder

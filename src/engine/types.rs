@@ -39,17 +39,30 @@ pub struct SearchConfig {
     pub max_depth: usize,
     /// Softmax temperature (in eval-score units) used when picking the root
     /// move. `0.0` always plays the true best move (deterministic argmax).
-    /// Above `0.0`, other root moves get picked with probability that decays
-    /// the further their score is below the best — see
-    /// `search::select_root_move`. Every root move is already searched to
-    /// full depth independently (see `root_search`), so this costs no extra
-    /// search time; it only changes which of the already-computed scores
-    /// gets played.
+    /// Above `0.0`, other root moves get picked with probability
+    /// `exp((score - best) / temperature)`, so near-equal moves share the
+    /// play and clearly worse ones fade out — small inaccuracies that
+    /// compound over a game. Scores are clamped to the "decided" band first
+    /// (see `search::outcome::DECIDED_SCORE`), so noise never picks a move
+    /// that loses the king while a move that doesn't is available. Every root
+    /// move is already searched to full depth independently (see
+    /// `root_search`), so this costs no extra search time.
     pub noise_temperature: f32,
-    /// Probability `[0.0, 1.0]` of ignoring the search result entirely and
-    /// playing a uniformly random legal root move instead — an outright
-    /// blunder, independent of `noise_temperature`.
+    /// Probability `[0.0, 1.0]` of playing the move a shallower,
+    /// `blunder_depth`-ply search picks instead of searching at `max_depth`:
+    /// the engine misses whatever only the deeper search would have seen,
+    /// which is what a human blunder looks like (unlike a random move).
     pub blunder_chance: f32,
+    /// Search depth used for a blunder (see `blunder_chance`); only
+    /// meaningful below `max_depth`.
+    pub blunder_depth: usize,
+    /// Probability `[0.0, 1.0]` of ignoring a decided outcome. When the
+    /// search sees a forced win the engine otherwise always plays the fastest
+    /// one (an available king capture is always taken), and when every move
+    /// loses it plays the longest defence. A slip falls back to the ordinary
+    /// noisy pick instead, where all winning (or all losing) moves look
+    /// alike — so the engine may miss the win or hang its king at once.
+    pub decided_slip_chance: f32,
 }
 
 impl Default for SearchConfig {
@@ -62,6 +75,8 @@ impl Default for SearchConfig {
             max_depth: crate::engine::constants::MAX_DEPTH,
             noise_temperature: 0.0,
             blunder_chance: 0.0,
+            blunder_depth: 1,
+            decided_slip_chance: 0.0,
         }
     }
 }
@@ -75,39 +90,41 @@ impl SearchConfig {
     /// `use_tt` and `use_alpha_beta` stay on regardless of level: both are
     /// transparent optimizations that only affect search speed, not the
     /// move the engine picks, so disabling them would not weaken play —
-    /// only slow it down.
+    /// only slow it down. Quiescence/killers switch on once `max_depth >= 3`:
+    /// below that the search is already so shallow that the extra tactical
+    /// accuracy they buy just makes it feel erratic rather than weak.
     ///
-    /// `noise_temperature` and `blunder_chance` ease off together as level
-    /// increases, ramping linearly from "complete beginner" (level 1: heavy
-    /// noise and blunders) down to zero at `MAX_LEVEL - 1`. `max_depth` ramps
-    /// on its own, separately-spaced schedule: two levels per ply, from depth
-    /// 1 at levels 1-2 up to depth 4 by level 7 — evenly distributing the
-    /// jumps in playing strength that an extra search ply brings across the
-    /// whole 1..=MAX_LEVEL-1 range, rather than bunching them at the top.
-    /// Levels 7-9 all sit at depth 4 and are told apart purely by their
-    /// (still-decreasing) noise and blunder chance, landing on zero at
-    /// `MAX_LEVEL - 1` — "one ply short of full strength". `MAX_LEVEL` itself
-    /// is a step above that ramp (depth 5, still no noise) — the "no mercy"
-    /// top tier — which reproduces the old always-play-the-best-move-at-
-    /// full-depth behavior exactly.
+    /// Strength comes from three dials, in decreasing order of effect: search
+    /// depth, the chance of playing a shallower search's move
+    /// (`blunder_chance`), and softmax noise among near-equal moves
+    /// (`noise_temperature`). From level 4 up the engine never ignores a
+    /// decided outcome (`decided_slip_chance`): it always takes a king
+    /// capture and always defends a lost position for as long as it can.
+    /// `MAX_LEVEL` is the full-strength engine (`MAX_DEPTH`, no noise).
     ///
-    /// Quiescence/killers switch on once `max_depth >= 3`: below that the
-    /// search is already so shallow that the extra tactical accuracy they
-    /// buy just makes it feel erratic rather than weak.
+    /// The values are tuned with the `arena` binary (`src/arena.rs`); the
+    /// method and the measurements are in `docs/LEVELS.md` (keep it in sync).
     pub fn for_level(level: u8) -> Self {
         use crate::engine::constants::{MAX_LEVEL, MIN_LEVEL};
+        // (max_depth, noise_temperature, blunder_chance, blunder_depth,
+        //  decided_slip_chance), indexed by level - 1.
+        const LADDER: [(usize, f32, f32, usize, f32); MAX_LEVEL as usize] = [
+            // Elo over the level below, measured with `arena` (100–150 games,
+            // 4 random opening plies, 95% intervals about ±50; 2026-10-08):
+            (2, 4.0, 0.10, 1, 0.20), // no quiescence: hangs its king ~1% of moves
+            (3, 10.0, 0.15, 1, 0.10), // +458
+            (3, 8.0, 0.12, 1, 0.03), // +156
+            (3, 7.0, 0.09, 2, 0.0),  // +100
+            (3, 5.0, 0.07, 2, 0.0),  // +92
+            (3, 3.0, 0.05, 2, 0.0),  // +111
+            (3, 1.5, 0.03, 2, 0.0),  // +139
+            (4, 4.0, 0.04, 3, 0.0),  // +115
+            (4, 2.5, 0.015, 3, 0.0), // +120
+            (4, 0.0, 0.0, 3, 0.0),   // +144
+        ];
         let level = level.clamp(MIN_LEVEL, MAX_LEVEL);
-
-        let (max_depth, noise_temperature, blunder_chance) = if level == MAX_LEVEL {
-            (5, 0.0, 0.0)
-        } else {
-            // 0.0 at level 1, 1.0 at level `MAX_LEVEL - 1`.
-            let t = (level - 1) as f32 / (MAX_LEVEL - 2) as f32;
-            // Two levels per ply: 1-2 -> depth 1, 3-4 -> depth 2, ...,
-            // capped at depth 4 (reached at level 7 and held through 9).
-            let max_depth = 1 + (((level - 1) / 2) as usize).min(3);
-            (max_depth, 35.0 * (1.0 - t), 0.20 * (1.0 - t))
-        };
+        let (max_depth, noise_temperature, blunder_chance, blunder_depth, decided_slip_chance) =
+            LADDER[(level - 1) as usize];
         let use_quiescence_and_killers = max_depth >= 3;
 
         SearchConfig {
@@ -118,6 +135,8 @@ impl SearchConfig {
             max_depth,
             noise_temperature,
             blunder_chance,
+            blunder_depth,
+            decided_slip_chance,
         }
     }
 }
@@ -173,62 +192,51 @@ mod tests {
     }
 
     #[test]
-    fn for_level_matches_the_documented_anchor_points() {
-        // Level 1: complete beginner.
-        let l1 = SearchConfig::for_level(1);
-        assert_eq!(l1.max_depth, 1);
-        assert_eq!(l1.noise_temperature, 35.0);
-        assert_eq!(l1.blunder_chance, 0.20);
-
-        // Level 9: one ply short of full strength, noise/blunder already at 0.
-        let l9 = SearchConfig::for_level(9);
-        assert_eq!(l9.max_depth, 4);
-        assert_eq!(l9.noise_temperature, 0.0);
-        assert_eq!(l9.blunder_chance, 0.0);
-
-        // Level 10 (MAX_LEVEL): full strength, one ply deeper than level 9.
-        let l10 = SearchConfig::for_level(10);
-        assert_eq!(l10.max_depth, 5);
-        assert_eq!(l10.noise_temperature, 0.0);
-        assert_eq!(l10.blunder_chance, 0.0);
+    fn for_level_clamps_out_of_range_values() {
+        assert_eq!(
+            SearchConfig::for_level(0).noise_temperature,
+            SearchConfig::for_level(1).noise_temperature
+        );
+        assert_eq!(SearchConfig::for_level(11).noise_temperature, 0.0);
     }
 
     #[test]
-    fn for_level_spreads_depth_increases_two_levels_per_ply() {
-        // Levels 1-9 map onto depth 1..=4 two levels at a time (level 9
-        // shares depth 4 with 7-8, told apart only by noise/blunder), rather
-        // than bunching most levels at low depth and jumping late.
-        let expected_depths = [1, 1, 2, 2, 3, 3, 4, 4, 4];
-        for (i, &expected) in expected_depths.iter().enumerate() {
-            let level = (i + 1) as u8;
+    fn max_level_is_the_full_strength_deterministic_engine() {
+        let top = SearchConfig::for_level(crate::engine::constants::MAX_LEVEL);
+        assert_eq!(top.max_depth, crate::engine::constants::MAX_DEPTH);
+        assert_eq!(top.noise_temperature, 0.0);
+        assert_eq!(top.blunder_chance, 0.0);
+        assert_eq!(top.decided_slip_chance, 0.0);
+    }
+
+    #[test]
+    fn from_level_4_up_a_decided_outcome_is_never_ignored() {
+        for level in 4..=crate::engine::constants::MAX_LEVEL {
             assert_eq!(
-                SearchConfig::for_level(level).max_depth,
-                expected,
+                SearchConfig::for_level(level).decided_slip_chance,
+                0.0,
                 "level {level}"
             );
         }
     }
 
     #[test]
-    fn for_level_clamps_out_of_range_values() {
-        assert_eq!(SearchConfig::for_level(0).max_depth, 1);
-        assert_eq!(SearchConfig::for_level(11).max_depth, 5);
-    }
-
-    #[test]
-    fn for_level_depth_noise_and_blunder_chance_are_monotonic_across_the_full_scale() {
-        let mut prev_depth = 0;
-        let mut prev_temp = f32::MAX;
-        let mut prev_blunder = f32::MAX;
-        for level in 1..=10u8 {
+    fn every_level_has_usable_dials() {
+        for level in 1..=crate::engine::constants::MAX_LEVEL {
             let cfg = SearchConfig::for_level(level);
-            assert!(cfg.max_depth >= prev_depth);
-            assert!(cfg.noise_temperature <= prev_temp);
-            assert!(cfg.blunder_chance <= prev_blunder);
-            assert!((0.0..=1.0).contains(&cfg.blunder_chance));
-            prev_depth = cfg.max_depth;
-            prev_temp = cfg.noise_temperature;
-            prev_blunder = cfg.blunder_chance;
+            assert!(cfg.max_depth >= 1 && cfg.max_depth <= crate::engine::constants::MAX_DEPTH);
+            assert!(cfg.noise_temperature >= 0.0, "level {level}");
+            assert!((0.0..=1.0).contains(&cfg.blunder_chance), "level {level}");
+            assert!(
+                (0.0..=1.0).contains(&cfg.decided_slip_chance),
+                "level {level}"
+            );
+            // A blunder must actually search less deep, or it is not a blunder.
+            assert!(
+                cfg.blunder_chance == 0.0
+                    || (cfg.blunder_depth >= 1 && cfg.blunder_depth < cfg.max_depth),
+                "level {level}"
+            );
         }
     }
 

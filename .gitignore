@@ -28,3 +28,6 @@ __pycache__/
 
 # make macos-app output (Keres.app)
 /dist/
+
+# scripts/arena_ladder.sh output (logs + game records)
+/arena-runs/

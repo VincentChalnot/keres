@@ -1,4 +1,4 @@
-use crate::board::{Board, Color, Piece, PieceType, Position, BOARD_DIMENSION};
+use crate::board::{Board, Color, Piece, PieceType, Position};
 
 pub struct GameOverResult {
     pub game_over: bool,
@@ -47,61 +47,47 @@ pub fn check_promotion(piece: &Piece, position: &Position) -> Option<Piece> {
     Some(Piece::new(piece.color, promoted_bottom, promoted_top))
 }
 
+/// Decide whether `board` (with `moves_without_capture` quiet moves played
+/// since the last capture) is a finished game.
+///
+/// One pass over the board, no allocation: the search calls this on every
+/// capture it explores (see `engine::search::outcome`), not just `Game::make`.
 pub fn check_game_over(board: &Board, moves_without_capture: u8) -> GameOverResult {
-    let mut white_king_exists = false;
-    let mut black_king_exists = false;
-    let mut white_pieces = Vec::new();
-    let mut black_pieces = Vec::new();
-
-    for y in 0..BOARD_DIMENSION {
-        for x in 0..BOARD_DIMENSION {
-            let pos = Position::new(x, y);
-            if let Some(piece) = board.get_piece(&pos) {
-                if piece.is_king() {
-                    if piece.color == Color::White {
-                        white_king_exists = true;
-                    } else {
-                        black_king_exists = true;
-                    }
-                }
-                if piece.color == Color::White {
-                    white_pieces.push((*piece, pos));
-                } else {
-                    black_pieces.push((*piece, pos));
-                }
-            }
+    let mut white = SideMaterial::default();
+    let mut black = SideMaterial::default();
+    for (pos, piece) in board.pieces() {
+        match piece.color {
+            Color::White => white.add(piece, pos),
+            Color::Black => black.add(piece, pos),
         }
     }
 
-    if !white_king_exists {
+    if !white.has_king {
         return GameOverResult {
             game_over: true,
             white_wins: false,
             draw: false,
         };
     }
-    if !black_king_exists {
+    if !black.has_king {
         return GameOverResult {
             game_over: true,
             white_wins: true,
             draw: false,
         };
     }
-
-    let white_non_king_count = white_pieces.iter().filter(|(p, _)| !p.is_king()).count();
-    let black_non_king_count = black_pieces.iter().filter(|(p, _)| !p.is_king()).count();
 
     // Capturing every one of the opponent's pieces except their king wins
     // the game outright, even if the winning side's own material would
     // otherwise be judged insufficient to checkmate.
-    if black_non_king_count == 0 && white_non_king_count > 0 {
+    if black.non_king == 0 && white.non_king > 0 {
         return GameOverResult {
             game_over: true,
             white_wins: true,
             draw: false,
         };
     }
-    if white_non_king_count == 0 && black_non_king_count > 0 {
+    if white.non_king == 0 && black.non_king > 0 {
         return GameOverResult {
             game_over: true,
             white_wins: false,
@@ -117,10 +103,7 @@ pub fn check_game_over(board: &Board, moves_without_capture: u8) -> GameOverResu
         };
     }
 
-    let white_draw = check_draw_condition_for_side(&white_pieces);
-    let black_draw = check_draw_condition_for_side(&black_pieces);
-
-    if white_draw && black_draw {
+    if white.is_insufficient() && black.is_insufficient() {
         return GameOverResult {
             game_over: true,
             white_wins: false,
@@ -131,63 +114,66 @@ pub fn check_game_over(board: &Board, moves_without_capture: u8) -> GameOverResu
     GameOverResult::ongoing()
 }
 
-fn check_draw_condition_for_side(pieces: &[(Piece, Position)]) -> bool {
-    let mut non_king_pieces = Vec::new();
-    for (piece, pos) in pieces {
-        if !piece.is_king() {
-            non_king_pieces.push((*piece, *pos));
+/// What one side has on the board, as far as the game-over rules care.
+struct SideMaterial {
+    has_king: bool,
+    /// Number of non-king squares (a stack counts once).
+    non_king: u32,
+    /// The first non-king piece was an unstacked knight (only meaningful
+    /// while `non_king == 1`).
+    lone_knight: bool,
+    /// Every non-king piece seen so far is colour-bound (bishops/guards,
+    /// stacks thereof) and they all stand on the same square colour.
+    colour_bound: bool,
+    square_colour: Option<bool>,
+}
+
+impl Default for SideMaterial {
+    fn default() -> Self {
+        SideMaterial {
+            has_king: false,
+            non_king: 0,
+            lone_knight: false,
+            colour_bound: true,
+            square_colour: None,
         }
     }
+}
 
-    if non_king_pieces.is_empty() {
-        return true;
-    }
-
-    if non_king_pieces.len() == 1 {
-        let (piece, _) = &non_king_pieces[0];
-        if piece.bottom == PieceType::Knight && piece.top.is_none() {
-            return true;
+impl SideMaterial {
+    fn add(&mut self, piece: &Piece, pos: Position) {
+        if piece.is_king() {
+            self.has_king = true;
+            return;
         }
-    }
-
-    let mut all_bishops_or_guards = true;
-    let mut first_square_color: Option<bool> = None;
-
-    for (piece, pos) in &non_king_pieces {
+        self.non_king += 1;
+        self.lone_knight =
+            self.non_king == 1 && piece.bottom == PieceType::Knight && piece.top.is_none();
         // Both halves of a stack have to be colour-bound for the stack to be.
         // A soldier riding a bishop can unstack, advance and promote, so it
         // is not insufficient material.
         let is_colour_bound = |t: PieceType| t == PieceType::Bishop || t == PieceType::Guard;
-        let is_bishop_or_guard =
+        let piece_colour_bound =
             is_colour_bound(piece.bottom) && piece.top.map(is_colour_bound).unwrap_or(true);
-
-        if !is_bishop_or_guard {
-            all_bishops_or_guards = false;
-            break;
-        }
-
-        let square_is_white = (pos.x + pos.y) % 2 == 0;
-        match first_square_color {
-            None => first_square_color = Some(square_is_white),
-            Some(color) => {
-                if color != square_is_white {
-                    all_bishops_or_guards = false;
-                    break;
-                }
-            }
+        // A square is "white" when (x + y) is even.
+        let square_is_white = (pos.x + pos.y).is_multiple_of(2);
+        let first = *self.square_colour.get_or_insert(square_is_white);
+        if !piece_colour_bound || first != square_is_white {
+            self.colour_bound = false;
         }
     }
 
-    if all_bishops_or_guards && first_square_color.is_some() {
-        return true;
+    /// Bare king, king + lone knight, or king + colour-bound pieces all on
+    /// one square colour.
+    fn is_insufficient(&self) -> bool {
+        self.non_king == 0 || (self.non_king == 1 && self.lone_knight) || self.colour_bound
     }
-
-    false
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::board::BOARD_DIMENSION;
 
     const ALL_TYPES: [PieceType; 8] = [
         PieceType::Soldier,
@@ -608,7 +594,7 @@ mod tests {
 
     #[test]
     fn bishops_and_guards_confined_to_one_square_color_are_an_insufficient_material_draw() {
-        // `check_draw_condition_for_side` calls a square "white" when
+        // `SideMaterial::add` calls a square "white" when
         // (x + y) % 2 == 0. White's two pieces sit on (x + y) even squares and
         // black's on (x + y) odd ones, so both parities of the same-color
         // branch are exercised here.

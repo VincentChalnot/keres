@@ -1,10 +1,11 @@
-# Keres — build orchestration for the three binaries that share the
+# Keres — build orchestration for the binaries that share the
 # `keres_engine` library crate.
 #
 # Each binary is built with the profile + Cargo features that suit its purpose:
 #
 #   keres  (CLI)      [profile.release]   speed — AI inspection / debugging tool
 #   server (HTTP API) [profile.release]   speed — production AI latency
+#   arena  (tuning)   [profile.release]   speed — engine-vs-engine level tuning
 #   gui    (minifb)   [profile.gui]       size  — micro-keres <1.44 MB lineage
 #
 # The `gui` feature pulls in minifb; it is OPTIONAL so the server/CLI (and the
@@ -21,13 +22,14 @@ GUI_PROFILE := gui
 # produced by copying that output — see the `gui` target below.
 CLI_BIN    := target/release/keres
 SERVER_BIN := target/release/server
+ARENA_BIN  := target/release/arena
 GUI_CARGO_BIN := target/$(GUI_PROFILE)/gui
 GUI_BIN    := target/$(GUI_PROFILE)/keres
 
 .DEFAULT_GOAL := all
 
-.PHONY: all help cli server gui test test-core fmt fmt-fix clippy deny smoke \
-        check sizes run-cli run-server run-gui clean icons base symbols splash \
+.PHONY: all help cli server arena gui test test-core fmt fmt-fix clippy deny smoke \
+        check sizes run-cli run-server run-arena run-gui clean icons base symbols splash \
         app-icon pixel-assets macos-app
 
 ##@ Build
@@ -37,6 +39,9 @@ cli:  ## Plain-text CLI (keres): show-moves / engine-move / debug-tree
 
 server:  ## HTTP server (the binary wire API; see docs/PROTOCOL.md)
 	$(CARGO) build --release --bin server
+
+arena:  ## Engine-vs-engine arena (arena): `match` / `quality` for tuning the AI levels
+	$(CARGO) build --release --bin arena
 
 gui: src/gui/icons.rs src/gui/base.rs src/gui/symbols.rs src/gui/window_icon.rs src/gui/splash.rs assets/generated/keres.ico  ## Native minifb desktop GUI (size-optimized; enables the `gui` feature); ships as GUI_BIN (keres)
 	$(CARGO) build --profile $(GUI_PROFILE) --bin gui --features gui
@@ -102,6 +107,9 @@ run-cli: cli  ## Run the CLI, e.g. `make run-cli ARGS='engine-move'`
 
 run-server: server  ## Run the HTTP server (PORT env var selects the listen port)
 	./$(SERVER_BIN)
+
+run-arena: arena  ## Run the arena, e.g. `make run-arena ARGS='match L7 L8 --games 20'`
+	./$(ARENA_BIN) $(ARGS)
 
 run-gui: gui  ## Run the native GUI
 	./$(GUI_BIN)
