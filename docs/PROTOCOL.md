@@ -121,6 +121,7 @@ expected is rejected rather than silently truncated.
 | POST   | `/engine-move-board` | 83 bytes: `Game`                                          | 2 bytes: the engine's chosen `Move`                | 83 B |
 | POST   | `/engine-move-game`  | `N × 2` bytes: full `Move` history from the initial position | 2 bytes: the engine's chosen `Move`           | (cap+1)×2 B |
 | POST   | `/engine-move-game/:level` | `N × 2` bytes: full `Move` history from the initial position | 2 bytes: the engine's chosen `Move`     | (cap+1)×2 B |
+| POST   | `/evaluate-game`     | `N × 2` bytes: full `Move` history from the initial position | 4 bytes: `i32` LE score, White's point of view | (cap+1)×2 B |
 
 `cap` is `KERES_MAX_HISTORY_MOVES` (default 4096). A history one move over the
 cap gets a `400` naming the cap; a body larger than the per-route limit is
@@ -144,6 +145,16 @@ Level 10 is identical to the unleveled endpoint. `:level` outside `1..=10` gets 
 value). There is no leveled variant of `/engine-move-board` — it has no
 game history, so it's only used to estimate a position, not to play a move
 on a difficulty-limited opponent's behalf.
+
+`/evaluate-game` replays the history like `/engine-move-game`, then runs the
+full-strength search (level 10) and returns the resulting score as a
+little-endian `i32` **from White's point of view** (positive = White better),
+in the engine's internal units (a pawn-ish soldier is worth about 100; a
+forced win is `±(1000 - ply)`). A finished game is answered without
+searching: `+1000` White won, `-1000` Black won, `0` draw. An illegal or
+malformed history is a `400`. The score depends on the history (repetition
+detection, the 40-move counter), so callers must cache it per move *in a
+game line*, never per board.
 
 ## Status codes
 

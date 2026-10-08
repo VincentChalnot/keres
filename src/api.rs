@@ -37,8 +37,9 @@ use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::cors::{Any, CorsLayer};
 
 use crate::board::BOARD_SIZE;
+use crate::engine::constants::KING_VALUE;
 use crate::engine::constants::{MAX_DEPTH, MAX_LEVEL, MIN_LEVEL};
-use crate::engine::search::root_search;
+use crate::engine::search::{root_search, RootSearchResult};
 use crate::engine::types::SearchConfig;
 use crate::game::Game;
 use crate::moves::Move;
@@ -328,6 +329,10 @@ pub fn router(config: ApiConfig) -> Router {
             "/engine-move-game/:level",
             post(engine_move_game_leveled).layer(DefaultBodyLimit::max(history_limit)),
         )
+        .route(
+            "/evaluate-game",
+            post(evaluate_game).layer(DefaultBodyLimit::max(history_limit)),
+        )
         .route_layer(middleware::from_fn_with_state(token, require_token));
 
     public
@@ -470,6 +475,51 @@ async fn engine_move_game_leveled(
     run_search(&state, game, SearchConfig::for_level(level), history).await
 }
 
+/// Wire size of an `/evaluate-game` response: one little-endian `i32`.
+pub const EVAL_BYTES: usize = 4;
+
+/// Evaluate the position reached by a move history, at full strength
+/// (`MAX_LEVEL`, the same search as `/engine-move-game/10`).
+///
+/// The history is replayed from the initial position rather than taking a
+/// bare board, so the search sees the repetition history and the
+/// `moves_without_capture` counter of the actual game. The answer is a
+/// little-endian `i32` in engine score units, always from **White's**
+/// point of view (positive = White is better). A finished game answers
+/// `+KING_VALUE` / `-KING_VALUE` for a win and `0` for a draw without
+/// searching.
+async fn evaluate_game(State(state): State<Arc<AppState>>, payload: Bytes) -> ApiResult {
+    let (game, history) = decode_history(&state.config, &payload)?;
+    let white_to_move = game.is_white_to_move();
+
+    let score = if game.is_game_over() {
+        if game.is_draw() {
+            0
+        } else if game.white_wins() {
+            KING_VALUE
+        } else {
+            -KING_VALUE
+        }
+    } else {
+        let config = SearchConfig::for_level(MAX_LEVEL);
+        let result = run_blocking_search(&state, game, config, history).await?;
+        if result.best_move.is_none() {
+            // The side to move has no legal move: it has lost.
+            if white_to_move {
+                -KING_VALUE
+            } else {
+                KING_VALUE
+            }
+        } else if white_to_move {
+            result.best_score
+        } else {
+            -result.best_score
+        }
+    };
+
+    Ok(Binary(score.to_le_bytes().to_vec()))
+}
+
 /// Strictly decode an 83-byte game payload.
 fn decode_game(bytes: &[u8]) -> Result<Game, ApiError> {
     if bytes.len() != GAME_BYTES {
@@ -517,6 +567,25 @@ async fn run_search(
     config: SearchConfig,
     history: Vec<u64>,
 ) -> ApiResult {
+    let best_move = run_blocking_search(state, game, config, history)
+        .await?
+        .best_move;
+
+    // No legal move means the game is over — that is a statement about the
+    // position the caller sent, so it is a 409, not a 500.
+    let best_move =
+        best_move.ok_or_else(|| ApiError::conflict("no legal move: the game is over\n"))?;
+    Ok(Binary(best_move.to_u16().to_le_bytes().to_vec()))
+}
+
+/// The shared part of every search route: wait for a slot, run `root_search`
+/// on the blocking pool, enforce the wall-clock budget.
+async fn run_blocking_search(
+    state: &Arc<AppState>,
+    game: Game,
+    config: SearchConfig,
+    history: Vec<u64>,
+) -> Result<RootSearchResult, ApiError> {
     let _permit = tokio::time::timeout(
         state.config.search_queue_timeout,
         state.search_slots.acquire(),
@@ -525,19 +594,12 @@ async fn run_search(
     .map_err(|_| ApiError::unavailable("engine is busy, retry later\n"))?
     .map_err(|_| ApiError::internal("engine shutting down\n"))?;
 
-    let search =
-        tokio::task::spawn_blocking(move || root_search(&game, &config, &history, None).best_move);
+    let search = tokio::task::spawn_blocking(move || root_search(&game, &config, &history, None));
 
-    let best_move = tokio::time::timeout(state.config.search_timeout, search)
+    tokio::time::timeout(state.config.search_timeout, search)
         .await
         .map_err(|_| ApiError::unavailable("search exceeded its time budget\n"))?
-        .map_err(|_| ApiError::internal("search task failed\n"))?;
-
-    // No legal move means the game is over — that is a statement about the
-    // position the caller sent, so it is a 409, not a 500.
-    let best_move =
-        best_move.ok_or_else(|| ApiError::conflict("no legal move: the game is over\n"))?;
-    Ok(Binary(best_move.to_u16().to_le_bytes().to_vec()))
+        .map_err(|_| ApiError::internal("search task failed\n"))
 }
 
 #[cfg(test)]

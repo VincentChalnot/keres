@@ -490,6 +490,39 @@ async fn engine_move_game_rejects_a_non_numeric_level() {
 }
 
 #[tokio::test]
+async fn evaluate_game_returns_a_white_relative_score_for_a_history() {
+    let response = post("/evaluate-game", Vec::new()).await;
+
+    assert_eq!(response.status, StatusCode::OK, "{}", response.text());
+    assert_eq!(response.body.len(), api::EVAL_BYTES);
+    let score = i32::from_le_bytes(response.body.clone().try_into().unwrap());
+    assert!(
+        score.abs() < 500,
+        "the opening should not be decided: {score}"
+    );
+}
+
+#[tokio::test]
+async fn evaluate_game_rejects_an_illegal_history() {
+    // 0xFFFF is not a decodable move.
+    let response = post("/evaluate-game", vec![0xFF, 0xFF]).await;
+    assert_eq!(
+        response.status,
+        StatusCode::BAD_REQUEST,
+        "{}",
+        response.text()
+    );
+
+    let response = post("/evaluate-game", vec![0x00]).await;
+    assert_eq!(
+        response.status,
+        StatusCode::BAD_REQUEST,
+        "{}",
+        response.text()
+    );
+}
+
+#[tokio::test]
 async fn engine_move_board_reports_a_position_with_no_legal_move_as_a_conflict() {
     // Only the black king is left, and it is white's turn: white has nothing
     // to move. That is a statement about the caller's position, not a server
