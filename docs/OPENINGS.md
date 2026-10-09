@@ -1,0 +1,96 @@
+## Best openings
+According to engine at max-depth 7+quiescence:
+
+These opening moves are equivalent:
+- C2-D3
+- B1-C3
+- H1-G3
+- D3-C4
+
+```
+C2-D3 +6
+  B9-C7 +4
+    B1-C3 +6
+    H1-G3 +6
+    A3-B4 +5
+    I3-H4 +5
+  H9-G7 +4
+    B1-C3 +6
+    H1-G3 +6
+    A3-B4 +5
+    I3-H4 +4
+  G8-F7 +4
+    B1-C3 +6
+    H1-I3 +6
+    H1-G3 +6
+    A3-B4 +5
+  F7-G6 +6
+    A3-B4 +6
+    I3-H4 +6
+    B1-C3 +6
+    H1-G3 +6
+B1-C3 +6
+  B9-C7 +4
+    D3-C4 +6
+    C2-D3 +6
+    H1-G3 +6
+    A3-B4 +5
+  H9-G7 +4
+    D3-C4 +6
+    C2-D3 +6
+    H1-G3 +6
+    D1-F3 +5
+  G8-F7 +4
+    D3-C4 +6
+    C2-D3 +6
+    D1-F3 +6
+    H1-I3 +6
+  F7-G6 +6
+    A3-B4 +6
+    D3-C4 +6
+    I3-H4 +6
+    C2-D3 +6
+H1-G3 +6D3-C4
+  H9-G7 +3
+    D3-C4 +6
+    C2-D3 +6
+    B1-C3 +6
+    A3-B4 +5
+  G8-F7 +3
+    D3-C4 +6
+    C2-D3 +6
+    B1-C3 +6
+    A3-B4 +5
+  B9-C7 +4
+    D3-C4 +6
+    C2-D3 +6
+    B1-C3 +6
+    A3-B4 +5
+  F7-G6 +6
+    A3-B4 +6
+    D3-C4 +6
+    I3-H4 +6
+    C2-D3 +6
+D3-C4 +5
+  B9-C7 +2
+    B1-C3 +6
+    H1-G3 +6
+    D1-F3 +5
+    A3-B4 +3
+  H9-G7 +2
+    B1-C3 +6
+    H1-G3 +6
+    C2-E4 +5
+    D1-F3 +5
+  G8-F7 +2
+    C2-E4 +6
+    C2-B1 +6
+    B1-C3 +6
+    D1-F3 +6
+  F9-D7 +5
+    C2-E4 +6
+    B1-C3 +6
+    D1-F3 +6
+    H1-G3 +6
+21 searches in 717.98s
+```
