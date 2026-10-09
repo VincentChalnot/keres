@@ -88,6 +88,22 @@ Four binaries share one library crate (`keres_engine`, `src/lib.rs`):
   smoke, workflow) each own different behaviour, and duplicating a rule check
   across them makes every future rule change cost three edits.
 
+## Commit messages
+
+- **Subject**: Conventional Commits, `type(scope): summary` — types `feat`,
+  `fix`, `chore`, `docs`, `test`, `refactor`; scope is the area touched
+  (`engine`, `api`, `gui`, `ci`, `cli`, `deps`, …), comma-separated when
+  there are several. Lowercase, imperative, no trailing period, aim for
+  ≤ 72 characters.
+- **Body** (blank line after the subject, wrapped at ~76 columns): explain
+  *why* — the symptom, the cause, the measurement — not a restatement of the
+  diff. Use `- ` bullets for discrete changes, and short labelled sections
+  (`Engine:`, `Tooling:`, `Docs:`) when a commit spans areas. Trivial
+  changes may be subject-only.
+- **One logical change per commit.** Mention behaviour changes visible to
+  consumers (wire format, API levels, CLI flags) explicitly.
+- Commits are GPG-signed. Keep any `Co-Authored-By:` trailers at the end.
+
 ## Dev commands
 
 A `Makefile` encodes the correct profile + Cargo feature per binary — prefer it
