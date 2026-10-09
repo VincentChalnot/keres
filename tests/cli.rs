@@ -670,42 +670,100 @@ fn debug_tree_full_tree_emits_one_json_node_per_line() {
         run.stderr
     );
 
-    let mut previous_id = 0u64;
+    // Nodes stream out as their subtrees finish (children before parents,
+    // root searches interleaved), so the structure is checked over the
+    // whole set rather than line by line.
+    let mut nodes = std::collections::HashMap::new();
     for (index, line) in lines.iter().enumerate() {
         let node: serde_json::Value = serde_json::from_str(line)
             .unwrap_or_else(|e| panic!("stdout line {index} is not JSON ({e}): {line}"));
         let object = node
             .as_object()
             .unwrap_or_else(|| panic!("stdout line {index} is not a JSON object: {line}"));
-        for field in ["id", "parent_id", "depth", "move", "score"] {
+        for field in ["id", "parent_id", "depth", "move", "unstack", "score"] {
             assert!(
                 object.contains_key(field),
                 "recorded node {index} is missing `{field}`: {line}"
             );
         }
         let id = object["id"].as_u64().expect("`id` is a number");
-        assert!(
-            id > previous_id,
-            "node ids should be emitted in increasing order, {id} followed {previous_id}"
-        );
-        previous_id = id;
-        object["parent_id"]
+        let parent_id = object["parent_id"]
             .as_u64()
             .expect("`parent_id` is a number");
-        object["depth"].as_u64().expect("`depth` is a number");
+        let depth = object["depth"].as_u64().expect("`depth` is a number");
         object["score"].as_i64().expect("`score` is a number");
         let mv = object["move"].as_str().expect("`move` is a string");
         assert!(
             mv.contains('-') && mv.len() >= 5,
             "recorded node {index} has an implausible move {mv:?}"
         );
+        let unstack = object["unstack"].as_bool().expect("`unstack` is a bool");
+        assert_eq!(unstack, mv.ends_with('-'), "node {index}: {line}");
+        let previous = nodes.insert(id, (parent_id, depth, mv.to_owned()));
+        assert!(previous.is_none(), "node id {id} recorded twice");
     }
+
+    // The tree hangs off the root position (id 0): each root move is
+    // recorded once at depth 0, every other node one ply below its parent.
+    let mut root_moves = std::collections::HashSet::new();
+    for (id, (parent_id, depth, mv)) in &nodes {
+        if *parent_id == 0 {
+            assert_eq!(*depth, 0, "only root moves attach to the root: node {id}");
+            assert!(root_moves.insert(mv), "root move {mv} recorded twice");
+        } else {
+            let (_, parent_depth, _) = nodes
+                .get(parent_id)
+                .unwrap_or_else(|| panic!("node {id} has an unknown parent {parent_id}"));
+            assert_eq!(*depth, parent_depth + 1, "node {id}");
+        }
+    }
+    assert!(!root_moves.is_empty(), "no root move was recorded");
 
     assert!(
         run.stderr.contains("Best move:"),
         "--full-tree should still print the stats on stderr, got:\n{}",
         run.stderr
     );
+}
+
+// ── 10b. openings ───────────────────────────────────────────────────────────
+
+#[test]
+fn openings_expands_close_moves_up_to_the_ply_limit() {
+    let run = keres_ok(&[
+        "openings",
+        "--max-depth",
+        "1",
+        "--plies",
+        "2",
+        "--margin",
+        "1000000",
+        "--max-branch",
+        "2",
+    ]);
+    let lines = run.stdout_lines();
+    // An unbounded margin keeps exactly `max_branch` moves everywhere:
+    // 2 first moves, each followed by 2 replies, and no third ply.
+    let indents: Vec<usize> = lines
+        .iter()
+        .map(|l| l.len() - l.trim_start().len())
+        .collect();
+    assert_eq!(indents, [0, 2, 2, 0, 2, 2], "stdout:\n{}", run.stdout);
+
+    let first_moves: Vec<String> = legal_moves(&Game::new());
+    for (line, indent) in lines.iter().zip(&indents) {
+        let (mv, score) = line
+            .trim()
+            .split_once(' ')
+            .unwrap_or_else(|| panic!("`<move> <score>` expected: {line}"));
+        score
+            .parse::<i32>()
+            .unwrap_or_else(|_| panic!("score is not a number: {line}"));
+        if *indent == 0 {
+            assert!(first_moves.contains(&mv.to_string()), "illegal: {line}");
+        }
+    }
+    assert!(run.stderr.contains("3 searches"), "{}", run.stderr);
 }
 
 // ── 11. debug-tree --moves ──────────────────────────────────────────────────

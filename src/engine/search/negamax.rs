@@ -137,9 +137,7 @@ pub fn negamax(
             continue;
         }
 
-        let node_id = recorder
-            .map(|r| r.record_node(parent_id, depth as u8, mv, 0))
-            .unwrap_or(0);
+        let node_id = recorder.map(TreeRecorder::next_id).unwrap_or(0);
 
         let score = negamax(
             game,
@@ -157,7 +155,7 @@ pub fn negamax(
         game.unmake(mv, undo);
 
         if let Some(r) = recorder {
-            r.update_score(node_id, -score);
+            r.record(node_id, parent_id, depth as u8, mv, -score);
         }
 
         let negamax_score = -score;

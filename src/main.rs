@@ -1,7 +1,7 @@
 use base64::{engine::general_purpose, Engine as _};
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use keres_engine::engine::search::root_search;
-use keres_engine::engine::tree_recorder::TreeRecorder;
+use keres_engine::engine::tree_recorder::{TreeFormat, TreeRecorder};
 use keres_engine::engine::types::SearchConfig;
 use keres_engine::moves::Move;
 use keres_engine::{cli_rendering::display_stack, Game, Position, BOARD_DIMENSION, BOARD_SIZE};
@@ -27,6 +27,10 @@ enum Commands {
     EngineMove(EngineMoveArgs),
     /// Run the search engine on a board loaded from a move list, output results as JSON
     DebugTree(DebugTreeArgs),
+    /// Explore the engine's best openings: search a position, keep every move
+    /// scoring close to the best one, search again after each of those, and
+    /// repeat for a number of plies. Prints the resulting tree on stdout.
+    Openings(OpeningsArgs),
 }
 
 #[derive(Args)]
@@ -50,9 +54,13 @@ struct DebugTreeArgs {
     /// Base64 encoded binary moves to replay before running the engine
     #[arg(long)]
     moves: Option<String>,
-    /// Record and output the complete search tree as JSONL (default: PV-only)
+    /// Record and output the complete search tree on stdout (default: PV-only)
     #[arg(long, default_value = "false")]
     full_tree: bool,
+    /// Encoding of the --full-tree output: JSONL, or packed 13-byte binary
+    /// records (see `engine::tree_recorder`)
+    #[arg(long, value_enum, default_value_t = TreeFormatArg::Jsonl)]
+    tree_format: TreeFormatArg,
     /// Override maximum search depth (default: 4)
     #[arg(long)]
     max_depth: Option<usize>,
@@ -70,20 +78,49 @@ struct DebugTreeArgs {
     no_killers: bool,
 }
 
+#[derive(Clone, Copy, ValueEnum)]
+enum TreeFormatArg {
+    Jsonl,
+    Binary,
+}
+
+#[derive(Args)]
+struct OpeningsArgs {
+    /// Base64 encoded binary moves to replay before exploring (default: the
+    /// initial position)
+    #[arg(long)]
+    moves: Option<String>,
+    /// Search depth used for every explored position (default: 4)
+    #[arg(long)]
+    max_depth: Option<usize>,
+    /// Number of plies to expand: 1 lists the candidates of the start
+    /// position, each extra ply searches again after every candidate
+    #[arg(long, default_value_t = 2)]
+    plies: usize,
+    /// Keep moves scoring within this many engine units of the best move
+    #[arg(long, default_value_t = 10)]
+    margin: i32,
+    /// Keep at most this many moves per position (the best ones)
+    #[arg(long, default_value_t = 4)]
+    max_branch: usize,
+}
+
 fn main() {
     let cli = Cli::parse();
 
     let board_data = match &cli.command {
         Some(Commands::ShowMoves(args)) => args.board.as_deref(),
         Some(Commands::EngineMove(args)) => args.board.as_deref(),
-        Some(Commands::DebugTree(_)) => None, // DebugTree builds its own game from moves
+        Some(Commands::DebugTree(_) | Commands::Openings(_)) => None, // built from moves
         None => None,
     };
 
-    // DebugTree has its own flow — handle it before building the default game
-    if let Some(Commands::DebugTree(args)) = &cli.command {
-        run_debug_tree(args);
-        return;
+    // DebugTree and Openings have their own flow — handle them before
+    // building the default game
+    match &cli.command {
+        Some(Commands::DebugTree(args)) => return run_debug_tree(args),
+        Some(Commands::Openings(args)) => return run_openings(args),
+        _ => {}
     }
 
     let game = match create_game(board_data) {
@@ -127,7 +164,9 @@ fn main() {
         },
         _ => {
             eprintln!("No command given.");
-            eprintln!("Available: show-moves, engine-move, debug-tree (run `keres --help`)");
+            eprintln!(
+                "Available: show-moves, engine-move, debug-tree, openings (run `keres --help`)"
+            );
         }
     }
 
@@ -225,27 +264,76 @@ fn main() {
             .ok_or_else(|| "No moves available".to_string())
     }
 
+    /// Replay an optional base64 move list from the initial position,
+    /// returning the game and its position history. Exits on bad input.
+    fn replay_moves_arg(moves: Option<&str>) -> (Game, Vec<u64>) {
+        let Some(b64) = moves else {
+            return (Game::new(), Vec::new());
+        };
+        let move_bytes = general_purpose::STANDARD.decode(b64).unwrap_or_else(|e| {
+            eprintln!("Failed to decode base64 move sequence: {}", e);
+            std::process::exit(1);
+        });
+        Game::replay_moves(&move_bytes).unwrap_or_else(|e| {
+            eprintln!("Failed to replay moves: {}", e);
+            std::process::exit(1);
+        })
+    }
+
+    fn run_openings(args: &OpeningsArgs) {
+        let (game, mut history) = replay_moves_arg(args.moves.as_deref());
+        let config = SearchConfig {
+            max_depth: args
+                .max_depth
+                .unwrap_or(keres_engine::engine::constants::MAX_DEPTH),
+            ..Default::default()
+        };
+        let start = Instant::now();
+        let searches = expand_openings(&game, &mut history, &config, args, 0);
+        eprintln!("{searches} searches in {:.2?}", start.elapsed());
+    }
+
+    /// Search `game`, print its candidate moves (indented by `ply`, scores
+    /// from White's point of view), and recurse into each one until
+    /// `args.plies` is reached. Returns the number of searches run.
+    fn expand_openings(
+        game: &Game,
+        history: &mut Vec<u64>,
+        config: &SearchConfig,
+        args: &OpeningsArgs,
+        ply: usize,
+    ) -> usize {
+        let result = root_search(game, config, history, None);
+        let mut searches = 1;
+        let Some(&(_, best)) = result.root_scores.first() else {
+            return searches;
+        };
+        let sign = if game.is_white_to_move() { 1 } else { -1 };
+        let candidates = result
+            .root_scores
+            .iter()
+            .take_while(|&&(_, score)| best - score <= args.margin)
+            .take(args.max_branch);
+        for &(mv, score) in candidates {
+            println!("{:indent$}{mv} {:+}", "", sign * score, indent = ply * 2);
+            if ply + 1 >= args.plies {
+                continue;
+            }
+            let mut child = game.clone();
+            child.make(&mv);
+            if child.is_game_over() {
+                continue;
+            }
+            history.push(game.board_hash());
+            searches += expand_openings(&child, history, config, args, ply + 1);
+            history.pop();
+        }
+        searches
+    }
+
     fn run_debug_tree(args: &DebugTreeArgs) {
         // ── Decode moves and reconstruct game ────────────────────────────────
-        let game = match &args.moves {
-            Some(b64) => {
-                let move_bytes = match general_purpose::STANDARD.decode(b64) {
-                    Ok(b) => b,
-                    Err(e) => {
-                        eprintln!("Failed to decode base64 move sequence: {}", e);
-                        std::process::exit(1);
-                    }
-                };
-                match Game::from_moves(&move_bytes) {
-                    Ok(g) => g,
-                    Err(e) => {
-                        eprintln!("Failed to replay moves: {}", e);
-                        std::process::exit(1);
-                    }
-                }
-            }
-            None => Game::new(),
-        };
+        let (game, _) = replay_moves_arg(args.moves.as_deref());
 
         // ── Build search config ──────────────────────────────────────────────
         let config = SearchConfig {
@@ -259,9 +347,12 @@ fn main() {
             ..Default::default()
         };
 
-        // ── Tree recorder (writes JSONL to stdout) ───────────────────────────
+        // ── Tree recorder (streams to stdout) ────────────────────────────────
         let recorder: Option<TreeRecorder> = if args.full_tree {
-            Some(TreeRecorder::stdout())
+            Some(TreeRecorder::stdout(match args.tree_format {
+                TreeFormatArg::Jsonl => TreeFormat::Jsonl,
+                TreeFormatArg::Binary => TreeFormat::Binary,
+            }))
         } else {
             None
         };
@@ -290,5 +381,9 @@ fn main() {
             eprint!("{} ", mv);
         }
         eprintln!();
+        eprintln!("Root moves (best first):");
+        for (mv, score) in &result.root_scores {
+            eprintln!("  {mv} {score:+}");
+        }
     }
 }

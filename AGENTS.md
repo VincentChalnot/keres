@@ -37,10 +37,10 @@ Four binaries share one library crate (`keres_engine`, `src/lib.rs`):
 | `src/engine/eval/`               | Position evaluation: material, mobility, king safety, pins, promotion, piece-square tables, tempo |
 | `src/engine/tt.rs`               | Transposition table                                                    |
 | `src/engine/constants.rs`         | Tunables: `MAX_DEPTH` (4), eval weights                                |
-| `src/engine/tree_recorder.rs`      | Optional full search-tree recording for `debug-tree`                    |
+| `src/engine/tree_recorder.rs`      | Optional full search-tree recording for `debug-tree`: streamed JSONL or packed binary (format in `docs/SEARCH_TREE.md`) |
 | `src/api.rs`                  | The HTTP API: route table, `ApiConfig`, strict payload decoding, body limits, search concurrency/timeouts, CORS + optional bearer auth. Lives in the library so `tests/api.rs` can drive it in-process |
 | `src/server.rs`               | `main` only: binds a listener to `api::router`, graceful shutdown on SIGTERM/SIGINT |
-| `src/main.rs`                 | `clap` CLI — subcommands: `show-moves`, `engine-move`, `debug-tree` |
+| `src/main.rs`                 | `clap` CLI — subcommands: `show-moves`, `engine-move`, `debug-tree`, `openings` |
 | `src/arena.rs`                | `clap` level-tuning harness — subcommands: `match`, `quality`; sides are `L<level>[:depth=,temp=,blunder=,bdepth=,slip=,qs=,killers=]` so a retune can be measured before it goes into `for_level`; `--record` writes JSONL game records. `scripts/arena_ladder.sh` runs every adjacent level pair |
 | `src/gui/`                    | Native minifb GUI binary (`gui` target, `gui` Cargo feature): app state machine, software rasterizer, autosave — ported from micro-keres |
 | `tests/`                      | Integration tests: `cli.rs`, `api.rs`, `api_robustness.rs` (deterministic fuzzing), `protocol_conformance.rs` (byte-level wire contract) |
@@ -49,6 +49,7 @@ Four binaries share one library crate (`keres_engine`, `src/lib.rs`):
 | `docs/TESTING.md`             | Which test layer owns what, how to run each, and the CI job matrix (read before adding a test) |
 | `docs/GUI.md`                 | GUI reference: canvas/layout model, pixel-art asset pipeline, and the headless snapshot workflow for checking a visual change (read it before touching `src/gui/`) |
 | `docs/LEVELS.md`              | AI strength levels: what each `for_level` dial does, the arena tuning method, and the measured results behind the current table (update it whenever `LADDER` changes) |
+| `docs/SEARCH_TREE.md`         | `debug-tree --full-tree` export: tree structure, score semantics, JSONL and binary record layouts (update it whenever `tree_recorder.rs` output changes) |
 
 ## Conventions
 

@@ -1,106 +1,116 @@
-//! Tree recorder: optional per-node recording for JSONL output.
+//! Tree recorder: optional per-node recording of the search tree.
 //!
 //! When disabled (None passed to search), no overhead is incurred.
-//! When enabled, every visited node is stored in memory, then flushed as
-//! proper JSONL (one complete JSON object per line) when `flush()` is called.
+//! When enabled, each node is written the moment its subtree is searched
+//! and its score known, so memory stays flat no matter how large the tree
+//! grows.
+//!
+//! Output order is therefore post-order (a node follows all its children)
+//! and interleaved across the parallel root searches: `id`s are unique but
+//! not sorted. Rebuild the tree from `parent_id`; the root position itself
+//! is the implicit node `0`, root moves have `depth` 0.
+//!
+//! Two formats ([`TreeFormat`]):
+//! - **JSONL**: one `{"id","parent_id","depth","move","unstack","score"}`
+//!   object per line, `move` in `A1-B2[-]` notation.
+//! - **Binary**: fixed [`BINARY_RECORD_BYTES`]-byte records, little-endian
+//!   like the wire protocol, no header or separator:
+//!
+//!   | offset | type  | field                                             |
+//!   |--------|-------|---------------------------------------------------|
+//!   | 0      | `u32` | `id`                                              |
+//!   | 4      | `u32` | `parent_id`                                       |
+//!   | 8      | `u8`  | `depth`                                           |
+//!   | 9      | `u16` | move, `Move::to_u16` layout (bit 14 = unstack)    |
+//!   | 11     | `i16` | `score`, saturated to the `i16` range             |
 
 use crate::moves::Move;
 use std::io::{BufWriter, Write};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
-/// A single recorded node in the search tree.
-#[derive(Debug, serde::Serialize)]
-pub struct NodeRecord {
-    pub id: u64,
-    pub parent_id: u64,
-    pub depth: u8,
-    #[serde(rename = "move")]
-    pub mv: String,
-    pub score: i32,
+/// Write buffer size: large enough that the lock-and-write per node rarely
+/// turns into a syscall.
+const WRITE_BUFFER_BYTES: usize = 1 << 20;
+
+/// Size of one [`TreeFormat::Binary`] record.
+pub const BINARY_RECORD_BYTES: usize = 13;
+
+/// Output encoding of a [`TreeRecorder`]; see the module docs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TreeFormat {
+    Jsonl,
+    Binary,
 }
 
-/// Thread-safe tree recorder.
-///
-/// Nodes are buffered in memory with initial `score=0`, then updated when the
-/// score is known.  Call `flush()` once the search is complete to write all
-/// records as JSONL to the underlying sink.
+/// Thread-safe streaming tree recorder.
 pub struct TreeRecorder {
     counter: AtomicU64,
-    records: Mutex<std::collections::HashMap<u64, NodeRecord>>,
+    format: TreeFormat,
     writer: Mutex<BufWriter<Box<dyn Write + Send>>>,
 }
 
 impl TreeRecorder {
-    /// Create a new TreeRecorder writing to the given `Write` sink.
-    pub fn new(sink: Box<dyn Write + Send>) -> Self {
+    /// Create a new TreeRecorder writing `format` to the given sink.
+    pub fn new(sink: Box<dyn Write + Send>, format: TreeFormat) -> Self {
         TreeRecorder {
             counter: AtomicU64::new(1),
-            records: Mutex::new(std::collections::HashMap::new()),
-            writer: Mutex::new(BufWriter::new(sink)),
+            format,
+            writer: Mutex::new(BufWriter::with_capacity(WRITE_BUFFER_BYTES, sink)),
         }
     }
 
-    /// Create a recorder that writes to stdout.
-    pub fn stdout() -> Self {
-        Self::new(Box::new(std::io::stdout()))
+    /// Create a recorder that writes `format` to stdout.
+    pub fn stdout(format: TreeFormat) -> Self {
+        Self::new(Box::new(std::io::stdout()), format)
     }
 
-    /// Record a search node.  Returns the node's unique ID (used as `parent_id`
-    /// for child nodes).  The score is initially stored as 0; call `update_score`
-    /// with the final value after the subtree is searched.
-    pub fn record_node(&self, parent_id: u64, depth: u8, mv: &Move, _score: i32) -> u64 {
+    /// Reserve the ID of a node about to be searched, so its children can
+    /// name it as their `parent_id` before the node itself is written.
+    ///
+    /// # Panics
+    /// In [`TreeFormat::Binary`], once IDs no longer fit the `u32` field:
+    /// stopping beats emitting a tree whose IDs silently wrap.
+    pub fn next_id(&self) -> u64 {
         let id = self.counter.fetch_add(1, Ordering::Relaxed);
-        let record = NodeRecord {
-            id,
-            parent_id,
-            depth,
-            mv: mv.to_string(),
-            score: 0,
-        };
-        if let Ok(mut map) = self.records.lock() {
-            map.insert(id, record);
-        }
+        assert!(
+            self.format != TreeFormat::Binary || id <= u64::from(u32::MAX),
+            "search tree exceeds {} nodes, the binary format's u32 id limit",
+            u32::MAX
+        );
         id
     }
 
-    /// Update the score of a previously recorded node.
-    pub fn update_score(&self, id: u64, score: i32) {
-        if let Ok(mut map) = self.records.lock() {
-            if let Some(record) = map.get_mut(&id) {
-                record.score = score;
-            }
-        }
-    }
-
-    /// Flush all buffered records to the sink as JSONL.  Each line contains
-    /// exactly the fields: `id, parent_id, depth, move, score`.
-    pub fn flush(&self) {
-        let records: Vec<NodeRecord> = {
-            let map = match self.records.lock() {
-                Ok(m) => m,
-                Err(_) => return,
-            };
-            let mut v: Vec<NodeRecord> = map
-                .values()
-                .map(|r| NodeRecord {
-                    id: r.id,
-                    parent_id: r.parent_id,
-                    depth: r.depth,
-                    mv: r.mv.clone(),
-                    score: r.score,
-                })
-                .collect();
-            v.sort_unstable_by_key(|r| r.id);
-            v
+    /// Write a searched node. `score` is from the point of view of the side
+    /// that played `mv`.
+    pub fn record(&self, id: u64, parent_id: u64, depth: u8, mv: &Move, score: i32) {
+        let Ok(mut w) = self.writer.lock() else {
+            return;
         };
-
-        if let Ok(mut w) = self.writer.lock() {
-            for record in &records {
-                if let Ok(json) = serde_json::to_string(record) {
-                    let _ = writeln!(w, "{}", json);
-                }
+        let _ = match self.format {
+            // Every field is a number, a bool, or a move in `A1-B2[-]`
+            // notation, so nothing needs JSON escaping.
+            TreeFormat::Jsonl => writeln!(
+                w,
+                r#"{{"id":{id},"parent_id":{parent_id},"depth":{depth},"move":"{mv}","unstack":{},"score":{score}}}"#,
+                mv.unstack,
+            ),
+            TreeFormat::Binary => {
+                // `next_id` guarantees both ids fit.
+                let score = score.clamp(i16::MIN.into(), i16::MAX.into()) as i16;
+                let mut buf = [0u8; BINARY_RECORD_BYTES];
+                buf[0..4].copy_from_slice(&(id as u32).to_le_bytes());
+                buf[4..8].copy_from_slice(&(parent_id as u32).to_le_bytes());
+                buf[8] = depth;
+                buf[9..11].copy_from_slice(&mv.to_u16().to_le_bytes());
+                buf[11..13].copy_from_slice(&score.to_le_bytes());
+                w.write_all(&buf)
             }
+        };
+    }
+    /// Flush buffered lines to the sink. Call once the search is complete.
+    pub fn flush(&self) {
+        if let Ok(mut w) = self.writer.lock() {
             let _ = w.flush();
         }
     }
@@ -111,13 +121,6 @@ mod tests {
     use super::*;
     use crate::board::Position;
     use std::sync::Arc;
-
-    fn cursor_recorder() -> (TreeRecorder, Arc<Mutex<Vec<u8>>>) {
-        let buf: Arc<Mutex<Vec<u8>>> = Arc::new(Mutex::new(Vec::new()));
-        let buf_clone = buf.clone();
-        let sink: Box<dyn Write + Send> = Box::new(SharedVec(buf_clone));
-        (TreeRecorder::new(sink), buf)
-    }
 
     struct SharedVec(Arc<Mutex<Vec<u8>>>);
     impl Write for SharedVec {
@@ -130,60 +133,71 @@ mod tests {
         }
     }
 
-    #[test]
-    fn record_node_and_flush_produces_valid_jsonl() {
-        let (recorder, buf) = cursor_recorder();
+    fn recorded(format: TreeFormat) -> Vec<u8> {
+        let buf: Arc<Mutex<Vec<u8>>> = Arc::new(Mutex::new(Vec::new()));
+        let recorder = TreeRecorder::new(Box::new(SharedVec(buf.clone())), format);
         let mv = Move {
-            from: Position::new(0, 0),
-            to: Position::new(1, 1),
-            unstack: false,
+            from: Position::new(0, 8),
+            to: Position::new(1, 7),
+            unstack: true,
         };
-        let id = recorder.record_node(0, 1, &mv, 0);
-        recorder.update_score(id, 42);
+        let parent = recorder.next_id();
+        let child = recorder.next_id();
+        recorder.record(child, parent, 1, &mv, -42);
+        recorder.record(parent, 0, 0, &mv, 100_000);
         recorder.flush();
-        let data = buf.lock().unwrap().clone();
-        let text = String::from_utf8(data).unwrap();
-        for line in text.lines() {
-            let obj: serde_json::Value = serde_json::from_str(line).expect("valid JSON");
-            assert!(obj.get("id").is_some());
-            assert!(obj.get("parent_id").is_some());
-            assert!(obj.get("depth").is_some());
-            assert!(obj.get("move").is_some());
-            assert!(obj.get("score").is_some());
-        }
-        assert_eq!(id, 1);
+        let out = buf.lock().unwrap().clone();
+        out
     }
 
     #[test]
-    fn update_score_is_reflected_in_flush() {
-        let (recorder, buf) = cursor_recorder();
-        let mv = Move {
-            from: Position::new(0, 0),
-            to: Position::new(1, 1),
-            unstack: false,
-        };
-        let id = recorder.record_node(0, 0, &mv, 0);
-        recorder.update_score(id, 99);
-        recorder.flush();
-        let data = buf.lock().unwrap().clone();
-        let text = String::from_utf8(data).unwrap();
-        assert!(
-            text.contains("99"),
-            "expected score 99 in output, got: {}",
-            text
+    fn jsonl_writes_one_object_per_node() {
+        let text = String::from_utf8(recorded(TreeFormat::Jsonl)).unwrap();
+        let nodes: Vec<serde_json::Value> = text
+            .lines()
+            .map(|l| serde_json::from_str(l).expect("valid JSON"))
+            .collect();
+        assert_eq!(
+            nodes,
+            vec![
+                serde_json::json!({"id": 2, "parent_id": 1, "depth": 1,
+                    "move": "A1-B2-", "unstack": true, "score": -42}),
+                serde_json::json!({"id": 1, "parent_id": 0, "depth": 0,
+                    "move": "A1-B2-", "unstack": true, "score": 100_000}),
+            ]
         );
     }
 
     #[test]
-    fn ids_are_monotonically_increasing() {
-        let (recorder, _) = cursor_recorder();
+    fn binary_writes_fixed_little_endian_records_with_saturated_score() {
         let mv = Move {
-            from: Position::new(0, 0),
-            to: Position::new(1, 1),
-            unstack: false,
+            from: Position::new(0, 8),
+            to: Position::new(1, 7),
+            unstack: true,
         };
-        let id1 = recorder.record_node(0, 0, &mv, 0);
-        let id2 = recorder.record_node(0, 0, &mv, 0);
-        assert!(id2 > id1);
+        let mv_bits = mv.to_u16().to_le_bytes();
+        assert_ne!(
+            mv.to_u16() & 0x4000,
+            0,
+            "the unstack bit travels in the move"
+        );
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&[2, 0, 0, 0, 1, 0, 0, 0, 1]);
+        expected.extend_from_slice(&mv_bits);
+        expected.extend_from_slice(&(-42i16).to_le_bytes());
+        expected.extend_from_slice(&[1, 0, 0, 0, 0, 0, 0, 0, 0]);
+        expected.extend_from_slice(&mv_bits);
+        expected.extend_from_slice(&i16::MAX.to_le_bytes());
+        assert_eq!(recorded(TreeFormat::Binary), expected);
+    }
+
+    #[test]
+    #[should_panic(expected = "u32 id limit")]
+    fn binary_refuses_ids_beyond_u32() {
+        let recorder = TreeRecorder::new(Box::new(std::io::sink()), TreeFormat::Binary);
+        recorder
+            .counter
+            .store(u64::from(u32::MAX) + 1, Ordering::Relaxed);
+        recorder.next_id();
     }
 }

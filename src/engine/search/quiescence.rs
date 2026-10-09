@@ -74,15 +74,13 @@ pub fn quiescence(
             continue;
         }
 
-        let node_id = recorder
-            .map(|r| r.record_node(parent_id, depth as u8, &mv, 0))
-            .unwrap_or(0);
+        let node_id = recorder.map(TreeRecorder::next_id).unwrap_or(0);
 
         let score = -quiescence(game, -beta, -alpha, recorder, depth + 1, node_id);
         game.unmake(&mv, undo);
 
         if let Some(r) = recorder {
-            r.update_score(node_id, score);
+            r.record(node_id, parent_id, depth as u8, &mv, score);
         }
 
         if score >= beta {

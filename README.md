@@ -94,9 +94,15 @@ cargo run --bin keres -- show-moves [--board <base64>] [coordinates]
 # Ask the engine for its move on a board
 cargo run --bin keres -- engine-move [--board <base64>]
 
-# Dump the search tree (JSONL) for a move sequence — tuning/debugging
-cargo run --bin keres -- debug-tree [--moves <base64>] [--full-tree] \
+# Dump the search tree for a move sequence — tuning/debugging. Streams JSONL,
+# or packed 13-byte binary records with --tree-format binary (see docs/SEARCH_TREE.md)
+cargo run --bin keres -- debug-tree [--moves <base64>] [--full-tree] [--tree-format jsonl|binary] \
   [--max-depth N] [--no-tt] [--no-ab] [--no-quiescence] [--no-killers]
+
+# Explore the engine's best openings: search, keep the moves within --margin of
+# the best (at most --max-branch), search again after each, for --plies plies
+cargo run --release --bin keres -- openings [--moves <base64>] [--max-depth N] \
+  [--plies N] [--margin N] [--max-branch N]
 
 # Engine-vs-engine arena for tuning the strength levels (SearchConfig::for_level).
 # A side is a level preset plus optional overrides (depth, temp, blunder, bdepth, slip, qs, killers).

@@ -40,6 +40,10 @@ pub struct RootSearchResult {
     pub best_score: i32,
     /// Principal variation (list of moves from root to leaf).
     pub pv: Vec<Move>,
+    /// Every legal root move with its score (NegaMax-relative, exact: each
+    /// root move is searched with a full window), best first. Game-ending
+    /// root moves are included with their outcome score.
+    pub root_scores: Vec<(Move, i32)>,
     /// Search statistics.
     pub stats: SearchStats,
 }
@@ -91,6 +95,7 @@ pub fn root_search(
             best_move: None,
             best_score: -crate::engine::constants::KING_VALUE,
             pv: vec![],
+            root_scores: vec![],
             stats: SearchStats {
                 nodes_visited: 0,
                 elapsed: start.elapsed(),
@@ -99,7 +104,7 @@ pub fn root_search(
     }
 
     // Evaluate each root move in parallel.
-    let results: Vec<(Move, i32)> = root_moves
+    let mut results: Vec<(Move, i32)> = root_moves
         .par_iter()
         .map(|&mv| {
             let mut game_clone = game.clone();
@@ -122,6 +127,10 @@ pub fn root_search(
 
             let mut killers = KillerTable::new(MAX_KILLER_DEPTH);
 
+            // The root move is a node of its own: its replies hang under it,
+            // not directly under the (unrecorded) root position `0`.
+            let node_id = recorder.map(TreeRecorder::next_id).unwrap_or(0);
+
             let score = -negamax(
                 &mut game_clone,
                 1,
@@ -132,8 +141,12 @@ pub fn root_search(
                 &mut killers,
                 tt_ptr,
                 recorder,
-                0,
+                node_id,
             );
+
+            if let Some(r) = recorder {
+                r.record(node_id, 0, 0, &mv, score);
+            }
 
             game_clone.unmake(&mv, undo);
             (mv, score)
@@ -154,11 +167,14 @@ pub fn root_search(
     } else {
         vec![]
     };
+    // Stable sort: equal scores keep move-generation order.
+    results.sort_by_key(|&(_, score)| std::cmp::Reverse(score));
 
     RootSearchResult {
         best_move,
         best_score,
         pv,
+        root_scores: results,
         stats: SearchStats {
             nodes_visited: 0, // simplified; full counting omitted for brevity
             elapsed: start.elapsed(),
