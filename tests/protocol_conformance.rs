@@ -525,3 +525,35 @@ async fn play_returns_exactly_what_try_make_produces_in_library() {
         "the HTTP result must be byte-identical to the in-library encoding of {mv}"
     );
 }
+
+// ── /game-over-reason ───────────────────────────────────────────────────────
+
+#[test]
+fn game_over_reason_codes_are_the_documented_bytes() {
+    use keres_engine::game_over::GameOverReason;
+
+    // 0 is reserved for "not over".
+    assert_eq!(GameOverReason::KingCaptured.code(), 1);
+    assert_eq!(GameOverReason::FortyMoveRule.code(), 2);
+    assert_eq!(GameOverReason::InsufficientMaterial.code(), 3);
+}
+
+#[tokio::test]
+async fn game_over_reason_answers_one_byte_next_to_the_unchanged_game_flags() {
+    // B3-C4 E9-E8 C2-A4 D7-E6 A4-E8: White takes the black king.
+    let history = [0xb7, 0x17, 0x84, 0x06, 0xc1, 0x16, 0x95, 0x0f, 0xad, 0x06];
+
+    let reason = post("/game-over-reason", history.to_vec()).await;
+    assert_eq!(reason.status, 200);
+    assert_eq!(reason.body, vec![1u8], "king captured is one byte, 0x01");
+
+    let replayed = post("/replay-moves", history.to_vec()).await;
+    assert_eq!(replayed.status, 200);
+    assert_eq!(
+        replayed.body[BOARD_SIZE], 0x60,
+        "flags byte: game-over 0x40 + white-wins 0x20, black to move"
+    );
+
+    let in_progress = post("/game-over-reason", Vec::new()).await;
+    assert_eq!(in_progress.body, vec![0u8], "an untouched game is 0x00");
+}

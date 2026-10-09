@@ -42,6 +42,7 @@ use crate::engine::constants::{MAX_DEPTH, MAX_LEVEL, MIN_LEVEL};
 use crate::engine::search::{root_search, RootSearchResult};
 use crate::engine::types::SearchConfig;
 use crate::game::Game;
+use crate::game_over::GameOverReason;
 use crate::moves::Move;
 
 /// Wire size of a serialised [`Game`]: 81 board bytes + flags + counter.
@@ -333,6 +334,10 @@ pub fn router(config: ApiConfig) -> Router {
             "/evaluate-game",
             post(evaluate_game).layer(DefaultBodyLimit::max(history_limit)),
         )
+        .route(
+            "/game-over-reason",
+            post(game_over_reason).layer(DefaultBodyLimit::max(history_limit)),
+        )
         .route_layer(middleware::from_fn_with_state(token, require_token));
 
     public
@@ -518,6 +523,23 @@ async fn evaluate_game(State(state): State<Arc<AppState>>, payload: Bytes) -> Ap
     };
 
     Ok(Binary(score.to_le_bytes().to_vec()))
+}
+
+/// Wire size of a `/game-over-reason` response: one reason code.
+pub const REASON_BYTES: usize = 1;
+
+/// Report why the game described by a move history is over.
+///
+/// The history is replayed from the initial position like `/replay-moves`;
+/// the answer is one byte, `0` while the game is still in progress and
+/// otherwise a [`GameOverReason`] code (see `docs/PROTOCOL.md`). Replay
+/// already refuses a move played after the game ended, so a history that is
+/// accepted ends exactly at the position the reason describes. It is a pure
+/// rules lookup: no search, so it takes no search slot.
+async fn game_over_reason(State(state): State<Arc<AppState>>, payload: Bytes) -> ApiResult {
+    let game = decode_history(&state.config, &payload)?.0;
+    let code = game.game_over_reason().map_or(0, GameOverReason::code);
+    Ok(Binary(vec![code]))
 }
 
 /// Strictly decode an 83-byte game payload.

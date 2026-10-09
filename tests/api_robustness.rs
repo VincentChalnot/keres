@@ -420,6 +420,42 @@ async fn fuzzed_move_histories_are_rejected_or_answered_with_a_valid_game() {
     tally.assert_reached("/replay-moves", "400", tally.bad_request, 200);
 }
 
+#[tokio::test]
+async fn fuzzed_move_histories_get_a_known_game_over_reason_or_a_rejection() {
+    let router = default_router();
+    let mut rng = Rng::new(0x51C3_7A0D_92E4_6B18);
+    let allowed = [StatusCode::OK, StatusCode::BAD_REQUEST];
+
+    let mut tally = Tally::default();
+    for case in 0..REPLAY_FUZZ_CASES {
+        let body = history_body(&mut rng, case);
+        let response = send(
+            router.clone(),
+            post_request("/game-over-reason", body.clone()),
+        )
+        .await;
+        assert_status("/game-over-reason", &body, &response, &allowed);
+        if response.status == StatusCode::OK {
+            assert_eq!(
+                response.body.len(),
+                api::REASON_BYTES,
+                "/game-over-reason: wrong body length\n  payload: {}",
+                hex(&body)
+            );
+            assert!(
+                response.body[0] <= 3,
+                "/game-over-reason: unknown reason code {}\n  payload: {}",
+                response.body[0],
+                hex(&body)
+            );
+        }
+        tally.record(response.status);
+    }
+
+    tally.assert_reached("/game-over-reason", "200", tally.ok, 200);
+    tally.assert_reached("/game-over-reason", "400", tally.bad_request, 200);
+}
+
 /// One history-fuzz body: random bytes of a whole number of moves, random
 /// bytes of an arbitrary length (so odd lengths hit the multiple-of-2
 /// check), a legal history, or a legal history with one byte corrupted —

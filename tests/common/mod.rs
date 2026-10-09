@@ -140,3 +140,46 @@ pub fn preflight(path: &str, origin: &str) -> Request<Body> {
         .body(Body::empty())
         .expect("valid request")
 }
+
+/// A deterministic game played to its end by a seeded, capture-hungry
+/// policy: take a non-king piece when one can be taken, otherwise play a
+/// quiet move (a king is only ever captured when nothing else is left), the
+/// pick among equals coming from an LCG. Returns the move history in the
+/// `/replay-moves` wire format together with the finished [`Game`].
+///
+/// Seed 0 ends on the 40-move rule, seed 4 on insufficient material (both
+/// asserted by the tests that use them, so a rules change that moves the
+/// ending fails loudly rather than silently weakening the coverage).
+pub fn scripted_game(seed: u64) -> (Vec<u8>, keres_engine::game::Game) {
+    use keres_engine::game::Game;
+    use keres_engine::moves::Move;
+
+    let mut state = seed;
+    let mut game = Game::new();
+    let mut history = Vec::new();
+    while !game.is_game_over() {
+        let moves: Vec<Move> = game
+            .get_all_moves()
+            .into_iter()
+            .flat_map(|potential| potential.to_moves())
+            .collect();
+        assert!(!moves.is_empty(), "seed {seed}: ran out of moves");
+        let takes_non_king = |mv: &&Move| {
+            game.is_capture(mv) && !game.board.get_piece(&mv.to).is_some_and(|p| p.is_king())
+        };
+        let mut pool: Vec<&Move> = moves.iter().filter(takes_non_king).collect();
+        if pool.is_empty() {
+            pool = moves.iter().filter(|mv| !game.is_capture(mv)).collect();
+        }
+        if pool.is_empty() {
+            pool = moves.iter().collect();
+        }
+        state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        let mv = *pool[(state >> 33) as usize % pool.len()];
+        game.try_make(&mv).expect("a generated move is legal");
+        history.extend_from_slice(&mv.to_u16().to_le_bytes());
+    }
+    (history, game)
+}

@@ -1,5 +1,5 @@
 use crate::board::{Board, Color, Piece, Position, BOARD_SIZE};
-use crate::game_over::{check_game_over, check_promotion};
+use crate::game_over::{check_game_over, check_promotion, GameOverReason};
 use crate::moves::{Move, MoveGenerator, PotentialMove};
 use ahash::RandomState;
 use once_cell::sync::Lazy;
@@ -84,6 +84,20 @@ impl Game {
 
     pub fn is_draw(&self) -> bool {
         self.draw
+    }
+
+    /// Why the game is over, or `None` while it is still in progress.
+    ///
+    /// Not stored: a finished game is frozen (`check_legal` refuses further
+    /// moves), so re-running the rules on the final position yields the rule
+    /// that ended it. A game ended from outside the rules — the GUI's
+    /// resignation goes through [`Game::set_game_over`] — has no rule to
+    /// report and also answers `None`.
+    pub fn game_over_reason(&self) -> Option<GameOverReason> {
+        if !self.game_over {
+            return None;
+        }
+        check_game_over(&self.board, self.moves_without_capture).reason
     }
 
     pub fn moves_without_capture(&self) -> u8 {
@@ -930,6 +944,32 @@ mod tests {
         let _undo = game.make(&mv);
 
         assert!(!game.is_game_over());
+        assert_eq!(game.game_over_reason(), None);
+    }
+
+    #[test]
+    fn test_game_over_reason_after_king_capture() {
+        let mut game = empty_game();
+
+        game.board.set_piece(
+            &Position::new(4, 4),
+            Some(Piece::new(Color::White, PieceType::King, None)),
+        );
+        game.board.set_piece(
+            &Position::new(4, 3),
+            Some(Piece::new(Color::Black, PieceType::King, None)),
+        );
+
+        let mv = Move {
+            from: Position::new(4, 4),
+            to: Position::new(4, 3),
+            unstack: false,
+        };
+        let _undo = game.make(&mv);
+
+        assert!(game.is_game_over());
+        assert!(game.white_wins());
+        assert_eq!(game.game_over_reason(), Some(GameOverReason::KingCaptured));
     }
 
     #[test]

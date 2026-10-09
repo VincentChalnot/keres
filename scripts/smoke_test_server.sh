@@ -97,6 +97,19 @@ cmp -s "$tmp/after.bin" "$tmp/replayed.bin" ||
     fail "/replay-moves disagrees with /play for the same move"
 ok "/replay-moves matches /play"
 
+# --- /game-over-reason: in progress (0) and a 5-ply king capture (1) ------
+status="$(http_post /game-over-reason "$tmp/move.bin" "$tmp/reason.bin")"
+[ "$status" = "200" ] || fail "/game-over-reason returned $status"
+[ "$(od -An -tu1 "$tmp/reason.bin" | tr -d ' \n')" = "0" ] ||
+    fail "/game-over-reason: a game in progress must answer the single byte 0"
+# B3-C4 E9-E8 C2-A4 D7-E6 A4-E8: White captures the black king.
+printf '\267\027\204\006\301\026\225\017\255\006' >"$tmp/king_capture.bin"
+status="$(http_post /game-over-reason "$tmp/king_capture.bin" "$tmp/reason.bin")"
+[ "$status" = "200" ] || fail "/game-over-reason (king capture) returned $status"
+[ "$(od -An -tu1 "$tmp/reason.bin" | tr -d ' \n')" = "1" ] ||
+    fail "/game-over-reason: a king capture must answer the single byte 1"
+ok "/game-over-reason -> 0 in progress, 1 king captured"
+
 # --- engine: a real search must return one legal move ---------------------
 status="$(http_post /engine-move-game/1 "$tmp/move.bin" "$tmp/engine.bin")"
 [ "$status" = "200" ] || fail "/engine-move-game/1 returned $status"

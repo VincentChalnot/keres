@@ -41,6 +41,7 @@ use keres_engine::engine::constants::{
 use keres_engine::engine::search::outcome::DECIDED_SCORE;
 use keres_engine::engine::search::rng::Rng;
 use keres_engine::engine::{root_search, SearchConfig};
+use keres_engine::game_over::GameOverReason;
 use keres_engine::{Game, Move};
 use serde_json::json;
 use std::collections::{BTreeMap, HashSet};
@@ -336,14 +337,13 @@ struct GameRecord {
 }
 
 fn ending_of(game: &Game) -> Ending {
-    if game.is_draw() {
-        if game.moves_without_capture() >= 40 {
-            Ending::FortyMoves
-        } else {
-            Ending::InsufficientMaterial
-        }
-    } else {
-        Ending::KingCaptured
+    match game
+        .game_over_reason()
+        .expect("a finished arena game always ended on a rule")
+    {
+        GameOverReason::KingCaptured => Ending::KingCaptured,
+        GameOverReason::FortyMoveRule => Ending::FortyMoves,
+        GameOverReason::InsufficientMaterial => Ending::InsufficientMaterial,
     }
 }
 

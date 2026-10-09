@@ -1,9 +1,33 @@
 use crate::board::{Board, Color, Piece, PieceType, Position};
 
+/// Why a game ended, as reported by `POST /game-over-reason`
+/// (`docs/PROTOCOL.md`). The discriminant is the wire code; `0` is reserved
+/// for "the game is not over".
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum GameOverReason {
+    /// One side's king was captured; the other side wins.
+    KingCaptured = 1,
+    /// 40 moves without a capture: a draw.
+    FortyMoveRule = 2,
+    /// Neither side can ever give mate (see `SideMaterial::is_insufficient`):
+    /// a draw.
+    InsufficientMaterial = 3,
+}
+
+impl GameOverReason {
+    /// The one-byte wire code.
+    pub const fn code(self) -> u8 {
+        self as u8
+    }
+}
+
 pub struct GameOverResult {
     pub game_over: bool,
     pub white_wins: bool,
     pub draw: bool,
+    /// `None` exactly while the game is not over.
+    pub reason: Option<GameOverReason>,
 }
 
 impl GameOverResult {
@@ -12,6 +36,26 @@ impl GameOverResult {
             game_over: false,
             white_wins: false,
             draw: false,
+            reason: None,
+        }
+    }
+
+    /// A king was captured: `white_wins` says who won.
+    fn win(white_wins: bool) -> Self {
+        GameOverResult {
+            game_over: true,
+            white_wins,
+            draw: false,
+            reason: Some(GameOverReason::KingCaptured),
+        }
+    }
+
+    fn draw(reason: GameOverReason) -> Self {
+        GameOverResult {
+            game_over: true,
+            white_wins: false,
+            draw: true,
+            reason: Some(reason),
         }
     }
 }
@@ -63,34 +107,18 @@ pub fn check_game_over(board: &Board, moves_without_capture: u8) -> GameOverResu
     }
 
     if !white.has_king {
-        return GameOverResult {
-            game_over: true,
-            white_wins: false,
-            draw: false,
-        };
+        return GameOverResult::win(false);
     }
     if !black.has_king {
-        return GameOverResult {
-            game_over: true,
-            white_wins: true,
-            draw: false,
-        };
+        return GameOverResult::win(true);
     }
 
     if moves_without_capture >= 40 {
-        return GameOverResult {
-            game_over: true,
-            white_wins: false,
-            draw: true,
-        };
+        return GameOverResult::draw(GameOverReason::FortyMoveRule);
     }
 
     if white.is_insufficient() && black.is_insufficient() {
-        return GameOverResult {
-            game_over: true,
-            white_wins: false,
-            draw: true,
-        };
+        return GameOverResult::draw(GameOverReason::InsufficientMaterial);
     }
 
     GameOverResult::ongoing()
@@ -537,6 +565,52 @@ mod tests {
             true,
             "black king captured on the 40th quiet move",
         );
+    }
+
+    // ── check_game_over: the reported reason ─────────────────────────────────
+
+    #[test]
+    fn every_ending_reports_its_reason() {
+        let no_white_king = board_of(&[
+            (king(Color::Black), at(4, 0)),
+            (single(Color::White, PieceType::Rook), at(8, 8)),
+        ]);
+        let no_black_king = board_of(&[
+            (king(Color::White), at(4, 8)),
+            (single(Color::Black, PieceType::Rook), at(8, 0)),
+        ]);
+        let bare_kings = board_of(&[
+            (king(Color::White), at(4, 8)),
+            (king(Color::Black), at(4, 0)),
+        ]);
+        let reason = |board: &Board, counter: u8| check_game_over(board, counter).reason;
+
+        assert_eq!(reason(&Board::new(), 0), None);
+        assert_eq!(
+            reason(&no_white_king, 0),
+            Some(GameOverReason::KingCaptured)
+        );
+        assert_eq!(
+            reason(&no_black_king, 0),
+            Some(GameOverReason::KingCaptured)
+        );
+        assert_eq!(
+            reason(&Board::new(), 40),
+            Some(GameOverReason::FortyMoveRule)
+        );
+        assert_eq!(
+            reason(&bare_kings, 0),
+            Some(GameOverReason::InsufficientMaterial)
+        );
+        // Both draw rules apply: the move counter is reported first.
+        assert_eq!(reason(&bare_kings, 40), Some(GameOverReason::FortyMoveRule));
+    }
+
+    #[test]
+    fn wire_codes_are_stable() {
+        assert_eq!(GameOverReason::KingCaptured.code(), 1);
+        assert_eq!(GameOverReason::FortyMoveRule.code(), 2);
+        assert_eq!(GameOverReason::InsufficientMaterial.code(), 3);
     }
 
     // ── check_game_over: insufficient material ───────────────────────────────

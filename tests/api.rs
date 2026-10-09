@@ -522,6 +522,85 @@ async fn evaluate_game_rejects_an_illegal_history() {
     );
 }
 
+// ── /game-over-reason ────────────────────────────────────────────────────────
+
+/// White wins in five plies by capturing the black king:
+/// B3-C4 E9-E8 C2-A4 D7-E6 A4-E8.
+const KING_CAPTURE_HISTORY: [u8; 10] = [0xb7, 0x17, 0x84, 0x06, 0xc1, 0x16, 0x95, 0x0f, 0xad, 0x06];
+
+async fn reason_of(history: &[u8]) -> u8 {
+    let response = post("/game-over-reason", history.to_vec()).await;
+    assert_eq!(response.status, StatusCode::OK, "{}", response.text());
+    assert_eq!(response.body.len(), api::REASON_BYTES);
+    assert_eq!(
+        response.content_type.as_deref(),
+        Some("application/octet-stream")
+    );
+    response.body[0]
+}
+
+#[tokio::test]
+async fn game_over_reason_is_zero_for_a_game_in_progress() {
+    assert_eq!(reason_of(&[]).await, 0, "the initial position");
+
+    let first = first_plain_move(&moves_for(&new_game_bytes().await).await);
+    assert_eq!(reason_of(&move_bytes(first)).await, 0, "after one move");
+
+    // One ply short of the king capture.
+    assert_eq!(
+        reason_of(&KING_CAPTURE_HISTORY[..KING_CAPTURE_HISTORY.len() - 2]).await,
+        0
+    );
+}
+
+#[tokio::test]
+async fn game_over_reason_reports_a_king_capture() {
+    assert_eq!(reason_of(&KING_CAPTURE_HISTORY).await, 1);
+    let (game, _) = Game::replay_moves(&KING_CAPTURE_HISTORY).expect("the history is legal");
+    assert!(game.is_game_over() && game.white_wins());
+}
+
+#[tokio::test]
+async fn game_over_reason_reports_the_forty_move_rule() {
+    let (history, game) = scripted_game(0);
+    assert!(game.is_draw() && game.moves_without_capture() >= 40);
+    assert_eq!(reason_of(&history).await, 2);
+}
+
+#[tokio::test]
+async fn game_over_reason_reports_insufficient_material() {
+    let (history, game) = scripted_game(4);
+    assert!(game.is_draw() && game.moves_without_capture() < 40);
+    assert_eq!(reason_of(&history).await, 3);
+}
+
+#[tokio::test]
+async fn game_over_reason_rejects_a_move_played_after_the_game_ended() {
+    let mut history = KING_CAPTURE_HISTORY.to_vec();
+    // Any decodable move: the replay must refuse it because the game is over.
+    history.extend_from_slice(&move_bytes(MOVE_FROM_EMPTY_SQUARE));
+    let response = post("/game-over-reason", history).await;
+    assert_eq!(
+        response.status,
+        StatusCode::BAD_REQUEST,
+        "{}",
+        response.text()
+    );
+}
+
+#[tokio::test]
+async fn game_over_reason_rejects_a_malformed_history() {
+    for body in [vec![0x00], vec![0xFF, 0xFF], vec![0u8; 6]] {
+        let response = post("/game-over-reason", body.clone()).await;
+        assert_eq!(
+            response.status,
+            StatusCode::BAD_REQUEST,
+            "{body:?}: {}",
+            response.text()
+        );
+    }
+}
+
 #[tokio::test]
 async fn engine_move_board_reports_a_position_with_no_legal_move_as_a_conflict() {
     // Only the black king is left, and it is white's turn: white has nothing

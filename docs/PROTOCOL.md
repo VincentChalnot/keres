@@ -122,6 +122,7 @@ expected is rejected rather than silently truncated.
 | POST   | `/engine-move-game`  | `N × 2` bytes: full `Move` history from the initial position | 2 bytes: the engine's chosen `Move`           | (cap+1)×2 B |
 | POST   | `/engine-move-game/:level` | `N × 2` bytes: full `Move` history from the initial position | 2 bytes: the engine's chosen `Move`     | (cap+1)×2 B |
 | POST   | `/evaluate-game`     | `N × 2` bytes: full `Move` history from the initial position | 4 bytes: `i32` LE score, White's point of view | (cap+1)×2 B |
+| POST   | `/game-over-reason`  | `N × 2` bytes: full `Move` history from the initial position | 1 byte: why the game is over (`0` = in progress) | (cap+1)×2 B |
 
 `cap` is `KERES_MAX_HISTORY_MOVES` (default 4096). A history one move over the
 cap gets a `400` naming the cap; a body larger than the per-route limit is
@@ -156,12 +157,33 @@ malformed history is a `400`. The score depends on the history (repetition
 detection, the 40-move counter), so callers must cache it per move *in a
 game line*, never per board.
 
+`/game-over-reason` replays the history exactly like `/replay-moves` and
+answers a single byte: `0` while the game is still in progress, otherwise the
+rule that ended it. The winner is not repeated here — it is the
+`white-wins`/`draw` flags of the 83-byte game from `/replay-moves`. It runs no
+search and needs no search slot. Moves after the end of the game make the
+history illegal, so such a history is a `400` (as for `/replay-moves`).
+
+| Code | Meaning | Result |
+|------|---------|--------|
+| `0` | game not over | — |
+| `1` | king captured | the side that captured it wins |
+| `2` | 40 moves without a capture (`moves_without_capture >= 40`) | draw |
+| `3` | insufficient material on **both** sides (a side is insufficient with a bare king, king + one unstacked knight, or king + only bishops/guards that all stand on one square colour) | draw |
+
+These are the only ways a game ends in the engine. Capturing every enemy
+piece but the king does **not** end the game (there is no such rule), and
+repetition is only a search heuristic, not a game-ending rule: neither has a
+code. Codes above `3` are reserved; clients should treat an unknown code as
+"over, reason unknown". If both draw rules apply at once the counter wins
+(`2`).
+
 ## Status codes
 
 | Status | When |
 |--------|------|
 | `200` | success |
-| `400` | wrong body length, undecodable board/game/move, a history that is not a whole number of moves or is over the cap, `:level` outside `1..=10` |
+| `400` | wrong body length, undecodable board/game/move, a history that is not a whole number of moves, is over the cap or plays on after the game ended, `:level` outside `1..=10` |
 | `401` | `KERES_API_TOKEN` is set and the `Authorization: Bearer` header is missing or wrong |
 | `404` / `405` | unknown path / wrong method |
 | `409` | the request was well-formed but the position refuses it: an illegal move, a game that is already over, no legal move to search |
