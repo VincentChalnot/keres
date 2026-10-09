@@ -19,8 +19,11 @@ pub const KING_MOBILITY_WEIGHT: i32 = 3;
 /// Fraction of a piece's base value applied as a malus when it is pinned.
 pub const PINNED_PENALTY_FACTOR: f32 = 0.20;
 
-/// Small bonus for the side to move.
-pub const TEMPO_BONUS: i32 = 15;
+/// Small bonus for the side to move. Offsets the odd/even search effect:
+/// without it, odd-depth searches from the opening score ~13 higher than
+/// even-depth ones (the side that moved last keeps a free quiet move), so
+/// half of that brings both parities together.
+pub const TEMPO_BONUS: i32 = 6;
 
 /// Delta-pruning margin in quiescence search.
 pub const DELTA_MARGIN: i32 = 50;
