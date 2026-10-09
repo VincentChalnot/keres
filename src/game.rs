@@ -900,7 +900,7 @@ mod tests {
     }
 
     #[test]
-    fn test_capture_all_non_king_pieces_wins() {
+    fn test_capturing_all_non_king_pieces_does_not_end_the_game() {
         let mut game = empty_game();
 
         game.board.set_piece(
@@ -913,16 +913,15 @@ mod tests {
         );
         game.board.set_piece(
             &Position::new(3, 1),
-            Some(Piece::new(Color::White, PieceType::Soldier, None)),
+            Some(Piece::new(Color::White, PieceType::Rook, None)),
         );
         game.board.set_piece(
             &Position::new(3, 0),
             Some(Piece::new(Color::Black, PieceType::Soldier, None)),
         );
 
-        // White soldier captures black's last non-king piece; black is left
-        // with only its king, so white wins immediately even though white
-        // still has other material on the board.
+        // White captures black's last non-king piece: black is left with a
+        // bare king, which is not a loss — only capturing the king wins.
         let mv = Move {
             from: Position::new(3, 1),
             to: Position::new(3, 0),
@@ -930,63 +929,13 @@ mod tests {
         };
         let _undo = game.make(&mv);
 
-        assert!(game.is_game_over());
-        assert!(game.white_wins());
-        assert!(!game.is_draw());
-    }
-
-    #[test]
-    fn test_draw_only_kings_remaining() {
-        let mut game = empty_game();
-
-        game.board.set_piece(
-            &Position::new(4, 4),
-            Some(Piece::new(Color::White, PieceType::King, None)),
-        );
-        game.board.set_piece(
-            &Position::new(4, 5),
-            Some(Piece::new(Color::Black, PieceType::King, None)),
-        );
-        game.board.set_piece(
-            &Position::new(3, 3),
-            Some(Piece::new(Color::Black, PieceType::Soldier, None)),
-        );
-        game.board.set_piece(
-            &Position::new(0, 0),
-            Some(Piece::new(Color::White, PieceType::Soldier, None)),
-        );
-
-        // Neither side has captured the other's last non-king piece yet, so
-        // the game continues.
-        let mv = Move {
-            from: Position::new(0, 0),
-            to: Position::new(1, 0),
-            unstack: false,
-        };
-        let _undo = game.make(&mv);
         assert!(!game.is_game_over());
-
-        // Black king captures white's last non-king piece. This would trip
-        // the "capture all non-king pieces wins" rule for black, except
-        // black still has its own soldier at (3, 3) — so only kings remain
-        // on *white's* side, not black's. Black wins outright.
-        let mv2 = Move {
-            from: Position::new(4, 5),
-            to: Position::new(1, 0),
-            unstack: false,
-        };
-        let _undo2 = game.make(&mv2);
-        assert!(game.is_game_over());
-        assert!(!game.white_wins());
-        assert!(!game.is_draw());
     }
 
     #[test]
     fn test_draw_only_kings_remaining_on_the_board() {
         // Two bare kings and nothing else is a draw by insufficient
-        // material, not a win for either side, even though the "capture all
-        // non-king pieces" rule cares about *relative* material (one side
-        // reduced to a bare king while the other still has pieces).
+        // material, not a win for either side.
         let mut game = empty_game();
 
         game.board.set_piece(

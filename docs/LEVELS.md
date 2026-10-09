@@ -32,8 +32,8 @@ current values.
 | Slip | `decided_slip_chance` | In a decided position (`|best| >= DECIDED_SCORE`) the best move is played unless this roll hits, in which case the normal noisy choice is used. 0 from L4 up. |
 
 The search also knows every game-ending rule (`src/engine/search/outcome.rs`):
-king capture and annihilation are wins, the 40-move rule and insufficient
-material are draws. Wins are scored as `KING_VALUE - ply`, so the fastest win
+king capture is the only win, the 40-move rule and insufficient material
+are draws. Wins are scored as `KING_VALUE - ply`, so the fastest win
 and the longest defence fall out of a plain argmax.
 
 ## Method

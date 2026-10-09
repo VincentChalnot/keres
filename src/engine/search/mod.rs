@@ -454,7 +454,7 @@ mod tests {
     }
 
     #[test]
-    fn root_search_sees_the_win_by_capturing_every_non_king_piece() {
+    fn capturing_every_non_king_piece_is_not_a_win() {
         let mut game = minimal_game();
         game.board.set_piece(
             &Position::new(0, 4),
@@ -469,9 +469,10 @@ mod tests {
             ..Default::default()
         };
         let result = root_search(&game, &config, &[], None);
-        assert_eq!(
-            result.best_score, KV,
-            "capturing the last guard wins at once"
+        assert!(
+            (1..KV / 2).contains(&result.best_score),
+            "winning the last guard is only a material gain, got {}",
+            result.best_score
         );
         assert_eq!(result.best_move.unwrap().to, Position::new(0, 1));
     }

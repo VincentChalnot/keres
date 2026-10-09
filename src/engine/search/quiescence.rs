@@ -64,7 +64,7 @@ pub fn quiescence(
         if let Some(outcome) = move_outcome(game, &undo, depth) {
             game.unmake(&mv, undo);
             if outcome > 0 {
-                // A win (king capture or annihilation); shallower is better.
+                // A win (king capture); shallower is better.
                 return outcome;
             }
             if outcome >= beta {

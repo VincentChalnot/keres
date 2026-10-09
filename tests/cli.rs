@@ -188,8 +188,7 @@ fn square(name: &str) -> Position {
 }
 
 /// A hand-built position where White has exactly one good move: the rook on
-/// `E1` takes the free black soldier on `E5`, which also happens to be Black's
-/// last non-king piece.
+/// `E1` takes the free black soldier on `E5`.
 fn free_capture_game() -> Game {
     let mut board = Board::empty();
     board.set_piece(

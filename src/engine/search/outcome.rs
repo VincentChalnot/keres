@@ -5,8 +5,8 @@ use crate::game::{Game, UndoInfo};
 use crate::game_over::check_game_over;
 
 /// Lowest absolute score that means "the game is decided": a forced king
-/// capture or annihilation (`KING_VALUE - ply`). Positional scores never get
-/// near it — the whole material of one side is far below `KING_VALUE / 2`.
+/// capture (`KING_VALUE - ply`). Positional scores never get near it — the
+/// whole material of one side is far below `KING_VALUE / 2`.
 pub const DECIDED_SCORE: i32 = KING_VALUE / 2;
 
 /// If the move just made (`undo` being its undo record, `game` the position

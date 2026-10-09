@@ -77,9 +77,8 @@ pub const PIECES: [PieceRule; 8] = [
 ];
 
 /// General, non-piece-specific rules for the top of the fullscreen modal.
-pub const GENERAL: [&str; 6] = [
+pub const GENERAL: [&str; 5] = [
     "9X9 BOARD - CAPTURE THE ENEMY KING TO WIN",
-    "CAPTURING ALL ENEMY PIECES BUT THE KING ALSO WINS",
     "STACK ONTO YOUR OWN PIECE TO COMBINE ITS MOVES WITH YOURS",
     "MOVE THE WHOLE STACK, OR JUST THE TOP PIECE, WHEN LEGAL",
     "CAPTURING A STACK REMOVES IT ENTIRELY",
@@ -99,9 +98,8 @@ pub fn find(letter: char) -> &'static PieceRule {
 /// The subset of rules that doesn't overlap with chess, for a player who
 /// already knows chess and just wants to start playing (see the first-launch
 /// `show_help` modal).
-pub const QUICK_TIPS: [&str; 4] = [
+pub const QUICK_TIPS: [&str; 3] = [
     "EVERY PIECE MOVES AND CAPTURES THE SAME WAY",
     "SOLDIERS PROMOTE TO PALADINS, BALLISTAS TO ROOKS",
     "CAPTURE THE ENEMY KING TO WIN",
-    "OR CAPTURE ALL ENEMY PIECES BUT THE KING",
 ];

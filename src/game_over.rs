@@ -77,24 +77,6 @@ pub fn check_game_over(board: &Board, moves_without_capture: u8) -> GameOverResu
         };
     }
 
-    // Capturing every one of the opponent's pieces except their king wins
-    // the game outright, even if the winning side's own material would
-    // otherwise be judged insufficient to checkmate.
-    if black.non_king == 0 && white.non_king > 0 {
-        return GameOverResult {
-            game_over: true,
-            white_wins: true,
-            draw: false,
-        };
-    }
-    if white.non_king == 0 && black.non_king > 0 {
-        return GameOverResult {
-            game_over: true,
-            white_wins: false,
-            draw: false,
-        };
-    }
-
     if moves_without_capture >= 40 {
         return GameOverResult {
             game_over: true,
@@ -489,31 +471,29 @@ mod tests {
         assert_win(&check_game_over(&board, 0), false, "both kings missing");
     }
 
-    // ── check_game_over: capturing every non-king enemy piece ────────────────
+    // ── check_game_over: a bare king is not a loss ───────────────────────────
 
     #[test]
-    fn white_wins_by_capturing_every_black_piece_but_the_king_even_with_thin_material() {
-        // White is left with a lone knight, which on its own counts as
-        // insufficient material — the outright win takes precedence (see the
-        // comment in `check_game_over`).
-        let board = board_of(&[
+    fn a_side_reduced_to_a_bare_king_has_not_lost() {
+        // Capturing every enemy piece but the king used to win outright; now
+        // only capturing the king does.
+        let white_has_a_rook = board_of(&[
             (king(Color::White), at(4, 8)),
-            (single(Color::White, PieceType::Knight), at(0, 8)),
+            (single(Color::White, PieceType::Rook), at(0, 8)),
             (king(Color::Black), at(4, 0)),
         ]);
-        assert_win(&check_game_over(&board, 0), true, "black reduced to a king");
-    }
+        assert_ongoing(
+            &check_game_over(&white_has_a_rook, 0),
+            "black reduced to a king",
+        );
 
-    #[test]
-    fn black_wins_by_capturing_every_white_piece_but_the_king_even_with_thin_material() {
-        let board = board_of(&[
+        let black_has_a_rook = board_of(&[
             (king(Color::Black), at(4, 0)),
-            (single(Color::Black, PieceType::Knight), at(0, 0)),
+            (single(Color::Black, PieceType::Rook), at(0, 0)),
             (king(Color::White), at(4, 8)),
         ]);
-        assert_win(
-            &check_game_over(&board, 0),
-            false,
+        assert_ongoing(
+            &check_game_over(&black_has_a_rook, 0),
             "white reduced to a king",
         );
     }
@@ -556,17 +536,6 @@ mod tests {
             &check_game_over(&no_black_king, 40),
             true,
             "black king captured on the 40th quiet move",
-        );
-
-        let black_stripped = board_of(&[
-            (king(Color::White), at(4, 8)),
-            (single(Color::White, PieceType::Knight), at(0, 8)),
-            (king(Color::Black), at(4, 0)),
-        ]);
-        assert_win(
-            &check_game_over(&black_stripped, 40),
-            true,
-            "black stripped to a king on the 40th quiet move",
         );
     }
 

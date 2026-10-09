@@ -24,7 +24,7 @@
 //! `record_game`): a corpus for later analysis, kept apart from human games.
 //!
 //! Rules mirror the platform as far as the engine can see them: the game
-//! ends on `Game::is_game_over` (king capture, annihilation, 40-move rule,
+//! ends on `Game::is_game_over` (king capture, 40-move rule,
 //! insufficient material) or on the first recurrence of a position (the
 //! same repetition rule the engine's `LoopDetector` assumes).
 //!
@@ -41,7 +41,7 @@ use keres_engine::engine::constants::{
 use keres_engine::engine::search::outcome::DECIDED_SCORE;
 use keres_engine::engine::search::rng::Rng;
 use keres_engine::engine::{root_search, SearchConfig};
-use keres_engine::{Color, Game, Move};
+use keres_engine::{Game, Move};
 use serde_json::json;
 use std::collections::{BTreeMap, HashSet};
 use std::fmt;
@@ -302,7 +302,6 @@ impl SideStats {
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Ending {
     KingCaptured,
-    Annihilation,
     FortyMoves,
     InsufficientMaterial,
     Repetition,
@@ -314,7 +313,6 @@ impl fmt::Display for Ending {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(match self {
             Ending::KingCaptured => "king captured",
-            Ending::Annihilation => "annihilation",
             Ending::FortyMoves => "40-move rule",
             Ending::InsufficientMaterial => "insufficient material",
             Ending::Repetition => "repetition",
@@ -339,23 +337,11 @@ struct GameRecord {
 
 fn ending_of(game: &Game) -> Ending {
     if game.is_draw() {
-        return if game.moves_without_capture() >= 40 {
+        if game.moves_without_capture() >= 40 {
             Ending::FortyMoves
         } else {
             Ending::InsufficientMaterial
-        };
-    }
-    let loser = if game.white_wins() {
-        Color::Black
-    } else {
-        Color::White
-    };
-    let loser_has_king = game
-        .board
-        .pieces()
-        .any(|(_, p)| p.color == loser && p.is_king());
-    if loser_has_king {
-        Ending::Annihilation
+        }
     } else {
         Ending::KingCaptured
     }
@@ -405,7 +391,7 @@ fn play_game(
         let could_take_king = king_capturable(&pos.game);
         let before = pos.game.clone();
         let repeated = pos.play(&mv);
-        // Any immediate win (king capture or annihilation) is equally fast.
+        // Any immediate win (a king capture) is equally fast.
         let won_now = pos.game.is_game_over()
             && !pos.game.is_draw()
             && pos.game.white_wins() == white_to_move;
