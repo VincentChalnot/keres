@@ -169,7 +169,7 @@ history illegal, so such a history is a `400` (as for `/replay-moves`).
 | `0` | game not over | — |
 | `1` | king captured | the side that captured it wins |
 | `2` | 40 moves without a capture (`moves_without_capture >= 40`) | draw |
-| `3` | insufficient material on **both** sides (a side is insufficient with a bare king, king + one unstacked knight, or king + only bishops/guards that all stand on one square colour) | draw |
+| `3` | insufficient material on **both** sides (a side is insufficient with a bare king, king + one unstacked knight, or king + only bishops/guards that all stand on one square colour), **and** neither king is attacked by a pseudo-legal move of the other side — an attacked king is captured next turn, so a doomed side cannot force a draw by exposing it | draw |
 
 These are the only ways a game ends in the engine. Capturing every enemy
 piece but the king does **not** end the game (there is no such rule), and

@@ -983,7 +983,7 @@ mod tests {
             Some(Piece::new(Color::White, PieceType::King, None)),
         );
         game.board.set_piece(
-            &Position::new(4, 5),
+            &Position::new(4, 7),
             Some(Piece::new(Color::Black, PieceType::King, None)),
         );
 
@@ -1130,7 +1130,7 @@ mod tests {
             Some(Piece::new(Color::White, PieceType::King, None)),
         );
         game.board.set_piece(
-            &Position::new(4, 5),
+            &Position::new(4, 8),
             Some(Piece::new(Color::Black, PieceType::King, None)),
         );
 

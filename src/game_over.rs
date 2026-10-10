@@ -1,4 +1,5 @@
 use crate::board::{Board, Color, Piece, PieceType, Position};
+use crate::moves::MoveGenerator;
 
 /// Why a game ended, as reported by `POST /game-over-reason`
 /// (`docs/PROTOCOL.md`). The discriminant is the wire code; `0` is reserved
@@ -117,11 +118,31 @@ pub fn check_game_over(board: &Board, moves_without_capture: u8) -> GameOverResu
         return GameOverResult::draw(GameOverReason::FortyMoveRule);
     }
 
-    if white.is_insufficient() && black.is_insufficient() {
+    // A king under attack is not a drawn position: the attacker captures it
+    // next turn. Without this, a doomed side could capture into a bare-bones
+    // material count on purpose and escape with a draw.
+    if white.is_insufficient() && black.is_insufficient() && !any_king_attacked(board) {
         return GameOverResult::draw(GameOverReason::InsufficientMaterial);
     }
 
     GameOverResult::ongoing()
+}
+
+/// True if either king can be captured by a pseudo-legal move of the other
+/// side. Only reached once material is already insufficient, so it is rare
+/// and its allocation stays off the search's hot path.
+fn any_king_attacked(board: &Board) -> bool {
+    [Color::White, Color::Black].into_iter().any(|attacker| {
+        let targets: Vec<Position> = board
+            .pieces()
+            .filter(|(_, p)| p.color != attacker && p.bottom == PieceType::King)
+            .map(|(pos, _)| pos)
+            .collect();
+        MoveGenerator::new(board, attacker == Color::White)
+            .get_all_moves()
+            .iter()
+            .any(|m| targets.contains(&m.to))
+    })
 }
 
 /// What one side has on the board, as far as the game-over rules care.
@@ -622,6 +643,17 @@ mod tests {
             (king(Color::Black), at(4, 0)),
         ]);
         assert_draw(&check_game_over(&board, 0), "bare kings");
+    }
+
+    #[test]
+    fn insufficient_material_is_not_a_draw_while_a_king_is_attacked() {
+        // Adjacent bare kings attack each other: whoever moves next captures
+        // the king, so a doomed side cannot steer into a draw by exposing it.
+        let board = board_of(&[
+            (king(Color::White), at(4, 1)),
+            (king(Color::Black), at(4, 0)),
+        ]);
+        assert_ongoing(&check_game_over(&board, 0), "adjacent kings");
     }
 
     #[test]
