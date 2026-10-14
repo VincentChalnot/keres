@@ -524,26 +524,40 @@ async fn evaluate_game_rejects_an_illegal_history() {
 
 // ── /evaluate-moves ──────────────────────────────────────────────────────────
 
-#[tokio::test]
-async fn evaluate_moves_scores_every_legal_move_best_first() {
-    let response = post("/evaluate-moves", Vec::new()).await;
+/// `POST` through a router whose search budget is generous: these tests run a
+/// full level-10 search in a debug build, in parallel with the rest of the
+/// suite, which can exceed the default 60 s on a small CI runner and turn a
+/// correct answer into a `503`.
+async fn post_slow(path: &str, body: Vec<u8>) -> Captured {
+    let router = api::router(ApiConfig {
+        search_timeout: std::time::Duration::from_secs(900),
+        ..Default::default()
+    });
+    send(router, post_request(path, body)).await
+}
 
-    assert_eq!(response.status, StatusCode::OK, "{}", response.text());
-    assert_eq!(response.body.len() % api::MOVE_EVAL_BYTES, 0);
-    let records: Vec<(u16, i32)> = response
-        .body
-        .chunks(api::MOVE_EVAL_BYTES)
+/// Decode `/evaluate-moves` records into `(move, score)` pairs.
+fn move_evals(body: &[u8]) -> Vec<(u16, i32)> {
+    assert_eq!(body.len() % api::MOVE_EVAL_BYTES, 0);
+    body.chunks(api::MOVE_EVAL_BYTES)
         .map(|r| {
             (
                 u16::from_le_bytes([r[0], r[1]]),
                 i32::from_le_bytes([r[2], r[3], r[4], r[5]]),
             )
         })
-        .collect();
+        .collect()
+}
+
+#[tokio::test]
+async fn evaluate_moves_scores_every_legal_move_best_first() {
+    let response = post_slow("/evaluate-moves", Vec::new()).await;
+
+    assert_eq!(response.status, StatusCode::OK, "{}", response.text());
+    let records = move_evals(&response.body);
 
     // One record per legal move (stacked/unstacked variants count apart).
-    let game = keres_engine::game::Game::new();
-    let expected: usize = game
+    let expected: usize = Game::new()
         .get_all_moves()
         .iter()
         .map(|m| m.to_moves().len())
@@ -551,30 +565,25 @@ async fn evaluate_moves_scores_every_legal_move_best_first() {
     assert_eq!(records.len(), expected);
     // White to move: best (highest White-relative) first, so non-increasing.
     assert!(records.windows(2).all(|w| w[0].1 >= w[1].1));
-    // Agrees with /evaluate-game on the best score.
-    let eval = post("/evaluate-game", Vec::new()).await;
-    let best = i32::from_le_bytes(eval.body.clone().try_into().unwrap());
-    assert_eq!(records[0].1, best);
 }
 
 #[tokio::test]
-async fn evaluate_moves_is_white_relative_when_black_is_to_move() {
+async fn evaluate_moves_is_white_relative_and_matches_evaluate_game() {
     // One white move played: Black is to move, so its best move (the first
     // record) carries the *lowest* White-relative score.
     let first = Game::new().get_all_moves()[0].to_moves()[0];
-    let response = post("/evaluate-moves", first.to_u16().to_le_bytes().to_vec()).await;
+    let history = first.to_u16().to_le_bytes().to_vec();
+    let response = post_slow("/evaluate-moves", history.clone()).await;
 
     assert_eq!(response.status, StatusCode::OK, "{}", response.text());
-    let scores: Vec<i32> = response
-        .body
-        .chunks(api::MOVE_EVAL_BYTES)
-        .map(|r| i32::from_le_bytes([r[2], r[3], r[4], r[5]]))
-        .collect();
-    assert!(!scores.is_empty());
-    assert!(scores.windows(2).all(|w| w[0] <= w[1]));
-    let eval = post("/evaluate-game", first.to_u16().to_le_bytes().to_vec()).await;
+    let records = move_evals(&response.body);
+    assert!(!records.is_empty());
+    assert!(records.windows(2).all(|w| w[0].1 <= w[1].1));
+
+    // The best record is the position's score, as /evaluate-game reports it.
+    let eval = post_slow("/evaluate-game", history).await;
     let best = i32::from_le_bytes(eval.body.clone().try_into().unwrap());
-    assert_eq!(scores[0], best);
+    assert_eq!(records[0].1, best);
 }
 
 #[tokio::test]
