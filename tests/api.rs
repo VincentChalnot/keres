@@ -522,6 +522,79 @@ async fn evaluate_game_rejects_an_illegal_history() {
     );
 }
 
+// ── /evaluate-moves ──────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn evaluate_moves_scores_every_legal_move_best_first() {
+    let response = post("/evaluate-moves", Vec::new()).await;
+
+    assert_eq!(response.status, StatusCode::OK, "{}", response.text());
+    assert_eq!(response.body.len() % api::MOVE_EVAL_BYTES, 0);
+    let records: Vec<(u16, i32)> = response
+        .body
+        .chunks(api::MOVE_EVAL_BYTES)
+        .map(|r| {
+            (
+                u16::from_le_bytes([r[0], r[1]]),
+                i32::from_le_bytes([r[2], r[3], r[4], r[5]]),
+            )
+        })
+        .collect();
+
+    // One record per legal move (stacked/unstacked variants count apart).
+    let game = keres_engine::game::Game::new();
+    let expected: usize = game
+        .get_all_moves()
+        .iter()
+        .map(|m| m.to_moves().len())
+        .sum();
+    assert_eq!(records.len(), expected);
+    // White to move: best (highest White-relative) first, so non-increasing.
+    assert!(records.windows(2).all(|w| w[0].1 >= w[1].1));
+    // Agrees with /evaluate-game on the best score.
+    let eval = post("/evaluate-game", Vec::new()).await;
+    let best = i32::from_le_bytes(eval.body.clone().try_into().unwrap());
+    assert_eq!(records[0].1, best);
+}
+
+#[tokio::test]
+async fn evaluate_moves_is_white_relative_when_black_is_to_move() {
+    // One white move played: Black is to move, so its best move (the first
+    // record) carries the *lowest* White-relative score.
+    let first = Game::new().get_all_moves()[0].to_moves()[0];
+    let response = post("/evaluate-moves", first.to_u16().to_le_bytes().to_vec()).await;
+
+    assert_eq!(response.status, StatusCode::OK, "{}", response.text());
+    let scores: Vec<i32> = response
+        .body
+        .chunks(api::MOVE_EVAL_BYTES)
+        .map(|r| i32::from_le_bytes([r[2], r[3], r[4], r[5]]))
+        .collect();
+    assert!(!scores.is_empty());
+    assert!(scores.windows(2).all(|w| w[0] <= w[1]));
+    let eval = post("/evaluate-game", first.to_u16().to_le_bytes().to_vec()).await;
+    let best = i32::from_le_bytes(eval.body.clone().try_into().unwrap());
+    assert_eq!(scores[0], best);
+}
+
+#[tokio::test]
+async fn evaluate_moves_rejects_an_illegal_history() {
+    let response = post("/evaluate-moves", vec![0xFF, 0xFF]).await;
+    assert_eq!(
+        response.status,
+        StatusCode::BAD_REQUEST,
+        "{}",
+        response.text()
+    );
+}
+
+#[tokio::test]
+async fn evaluate_moves_answers_nothing_for_a_finished_game() {
+    let response = post("/evaluate-moves", KING_CAPTURE_HISTORY.to_vec()).await;
+    assert_eq!(response.status, StatusCode::OK, "{}", response.text());
+    assert!(response.body.is_empty());
+}
+
 // ── /game-over-reason ────────────────────────────────────────────────────────
 
 /// White wins in five plies by capturing the black king:

@@ -335,6 +335,10 @@ pub fn router(config: ApiConfig) -> Router {
             post(evaluate_game).layer(DefaultBodyLimit::max(history_limit)),
         )
         .route(
+            "/evaluate-moves",
+            post(evaluate_moves).layer(DefaultBodyLimit::max(history_limit)),
+        )
+        .route(
             "/game-over-reason",
             post(game_over_reason).layer(DefaultBodyLimit::max(history_limit)),
         )
@@ -523,6 +527,37 @@ async fn evaluate_game(State(state): State<Arc<AppState>>, payload: Bytes) -> Ap
     };
 
     Ok(Binary(score.to_le_bytes().to_vec()))
+}
+
+/// Wire size of one `/evaluate-moves` record: a `Move` (`u16` LE) followed
+/// by its score (`i32` LE).
+pub const MOVE_EVAL_BYTES: usize = MOVE_BYTES + EVAL_BYTES;
+
+/// Score every legal move of the position reached by a move history.
+///
+/// Same search as `/evaluate-game` (level `MAX_LEVEL`), but instead of only
+/// the best score it answers one `MOVE_EVAL_BYTES` record per legal move,
+/// best first. Each root move is searched with a full alpha-beta window (see
+/// `root_search`), so a non-best move's score is its exact value at the
+/// search depth, not a bound. Scores are from **White's** point of view, like
+/// `/evaluate-game`. A finished game, or a position without legal moves,
+/// answers an empty body.
+async fn evaluate_moves(State(state): State<Arc<AppState>>, payload: Bytes) -> ApiResult {
+    let (game, history) = decode_history(&state.config, &payload)?;
+    if game.is_game_over() {
+        return Ok(Binary(Vec::new()));
+    }
+    let white_to_move = game.is_white_to_move();
+    let config = SearchConfig::for_level(MAX_LEVEL);
+    let result = run_blocking_search(&state, game, config, history).await?;
+
+    let mut response = Vec::with_capacity(result.root_scores.len() * MOVE_EVAL_BYTES);
+    for (mv, score) in result.root_scores {
+        let score = if white_to_move { score } else { -score };
+        response.extend_from_slice(&mv.to_u16().to_le_bytes());
+        response.extend_from_slice(&score.to_le_bytes());
+    }
+    Ok(Binary(response))
 }
 
 /// Wire size of a `/game-over-reason` response: one reason code.

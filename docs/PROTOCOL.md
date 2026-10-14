@@ -122,6 +122,7 @@ expected is rejected rather than silently truncated.
 | POST   | `/engine-move-game`  | `N × 2` bytes: full `Move` history from the initial position | 2 bytes: the engine's chosen `Move`           | (cap+1)×2 B |
 | POST   | `/engine-move-game/:level` | `N × 2` bytes: full `Move` history from the initial position | 2 bytes: the engine's chosen `Move`     | (cap+1)×2 B |
 | POST   | `/evaluate-game`     | `N × 2` bytes: full `Move` history from the initial position | 4 bytes: `i32` LE score, White's point of view | (cap+1)×2 B |
+| POST   | `/evaluate-moves`    | `N × 2` bytes: full `Move` history from the initial position | `M × 6` bytes: per legal move, a `Move` (LE `u16`) + `i32` LE score, best first | (cap+1)×2 B |
 | POST   | `/game-over-reason`  | `N × 2` bytes: full `Move` history from the initial position | 1 byte: why the game is over (`0` = in progress) | (cap+1)×2 B |
 
 `cap` is `KERES_MAX_HISTORY_MOVES` (default 4096). A history one move over the
@@ -156,6 +157,21 @@ searching: `+1000` White won, `-1000` Black won, `0` draw. An illegal or
 malformed history is a `400`. The score depends on the history (repetition
 detection, the 40-move counter), so callers must cache it per move *in a
 game line*, never per board.
+
+`/evaluate-moves` runs the same level-10 search as `/evaluate-game` but
+answers every legal move instead of only the best score: a concatenation of
+6-byte records, `Move` (2 bytes, client layout, so stacked and unstacked
+variants of an `unstackable` move are separate records) then the score (`i32`
+LE, **White's point of view**, same units as `/evaluate-game`). Records are
+sorted best move first for the side to move (highest score for White, lowest
+for Black); ties keep move-generation order. Every root move is searched with a
+full alpha-beta window, so each score is the move's *exact* value at the search
+depth, not a bound — the first record's score equals `/evaluate-game`. A forced
+win/loss is `±(1000 - ply)`; a drawing move scores `0`. A finished game, or a
+position with no legal move, answers an empty `200` body. Scores depend on
+the history (repetition, 40-move counter) and on the engine version/depth, so
+cache them per game line and tag them with the version. It costs the same as
+`/evaluate-game` and takes one search slot.
 
 `/game-over-reason` replays the history exactly like `/replay-moves` and
 answers a single byte: `0` while the game is still in progress, otherwise the
