@@ -3,6 +3,7 @@
 pub mod constants;
 pub mod eval;
 pub mod search;
+pub mod tactics;
 pub mod tree_recorder;
 pub mod tt;
 pub mod types;

@@ -1,7 +1,8 @@
 //! Game state machine: menu / playing / game-over, click handling and the
 //! background AI-search thread.
 
-use keres_engine::{Color, Game, Move, MoveGenerator, Piece, Position, PotentialMove};
+use keres_engine::engine::tactics::reachable_squares;
+use keres_engine::{Color, Game, Move, Piece, Position, PotentialMove};
 use std::sync::mpsc::{self, Receiver};
 use std::thread;
 use std::time::Instant;
@@ -600,14 +601,7 @@ impl App {
         if piece.color != only_color {
             return Vec::new();
         }
-        let gen = MoveGenerator::new(&self.game.board, piece.color == Color::White);
-        let mut out: Vec<Position> = Vec::new();
-        for pm in gen.get_moves(&pos) {
-            if !out.contains(&pm.to) {
-                out.push(pm.to);
-            }
-        }
-        out
+        reachable_squares(&self.game.board, pos)
     }
 
     /// Squares highlighted by hovering a friendly piece when nothing is
