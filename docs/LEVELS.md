@@ -31,10 +31,13 @@ current values.
 | Blunder | `blunder_chance`, `blunder_depth` | Probability of answering from a shallower search (`blunder_depth` plies) instead of the full one: a plausible-looking oversight, not a random move. |
 | Slip | `decided_slip_chance` | In a decided position (`|best| >= DECIDED_SCORE`) the best move is played unless this roll hits, in which case the normal noisy choice is used. 0 from L4 up. |
 
-The search also knows every game-ending rule (`src/engine/search/outcome.rs`):
-king capture is the only win, the 40-move rule and insufficient material
-are draws. Wins are scored as `KING_VALUE - ply`, so the fastest win
-and the longest defence fall out of a plain argmax.
+The search also knows every game-ending rule (`src/engine/search/outcome.rs`
+and `loop_detection.rs`): king capture is the only win; the 40-move rule,
+insufficient material and threefold repetition are draws. A line reaching a
+position that already occurred inside the search tree, or already twice in the
+real game, scores 0 (see `PROTOCOL.md`, *Search and repetition*). Wins are
+scored as `KING_VALUE - ply`, so the fastest win and the longest defence fall
+out of a plain argmax.
 
 ## Method
 
@@ -83,6 +86,10 @@ ratings against humans.
 
 Measured 2026-10-08 on evangelion (Ryzen 9 5900X); each step is the level's
 Elo over the level directly below it, against the final settings of both.
+These runs predate the enforcement of threefold repetition: the arena then
+ended a game on the first recurrence of a position and the search scored any
+recurrence as a draw. The arena now plays the real rule (a game ends on the
+third occurrence); the table has not been re-measured.
 
 | Level | Depth | Noise | Blunder (depth) | Slip | Step | Games | Score | 95% interval | ms/move |
 |---|---|---|---|---|---|---|---|---|---|

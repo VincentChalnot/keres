@@ -66,10 +66,16 @@ discriminant — it only ever appears via the special byte above).
 |-------|------------------------------------------------------------------------------------------|
 | 0–80  | 81 board squares, one byte each (see piece encoding above)                               |
 | 81    | Flags byte: `0x80` white-to-move, `0x40` game-over, `0x20` white-wins, `0x10` draw       |
-| 82    | `moves_without_capture` counter (`u8`); the game is a draw at `>= 40`                     |
+| 82    | `moves_without_capture` counter (`u8`, in **plies**); the game is a draw at `>= 40` — see [Game-ending rules](#game-ending-rules) |
 
 This is the `BOARD_SIZE + 2` = 83-byte format sent/received by `/new`,
 `/moves`, `/play`, `/replay-moves`, `/engine-move-board`.
+
+It carries **no position history**, so the history-dependent rule —
+threefold repetition — can only be applied where the engine replays the move
+list itself (see [Game-ending rules](#game-ending-rules)). `/play` and
+`/engine-move-board` work on a bare 83-byte game: every position is a first
+occurrence to them.
 
 Decoding is strict in both directions of the format's slack: a square byte
 with bit 7 set, or with `LLL == 000` outside the king's dedicated `C 111 000`
@@ -130,11 +136,13 @@ cap gets a `400` naming the cap; a body larger than the per-route limit is
 refused by the transport layer with `413` before any handler runs.
 
 `/engine-move-game` replays the given move list from a fresh `Game`,
-reconstructing the position-hash history so the search's loop/repetition
-detection sees the same game the caller has been playing (`/engine-move-board`
-has no history, so it cannot detect repetition draws). Both run
+keeping the position history, so the search's repetition detection sees the
+same game the caller has been playing (`/engine-move-board` has no history:
+the search there knows only the position it is given). Both run
 `root_search` at `MAX_DEPTH` (`src/engine/constants.rs`) and respond
-`409` if no legal move exists (i.e. the game is already over).
+`409` if the game is already over (whatever rule ended it, or the `game-over`
+flag of the posted board) or no legal move exists. `/engine-move-game/:level`
+answers `409` the same way.
 
 `/engine-move-game/:level` is identical to `/engine-move-game` except the
 integer path segment picks an engine strength level (`SearchConfig::for_level`,
@@ -184,15 +192,64 @@ history illegal, so such a history is a `400` (as for `/replay-moves`).
 |------|---------|--------|
 | `0` | game not over | — |
 | `1` | king captured | the side that captured it wins |
-| `2` | 40 moves without a capture (`moves_without_capture >= 40`) | draw |
+| `2` | 40 plies without a capture (`moves_without_capture >= 40`) | draw |
 | `3` | insufficient material on **both** sides (a side is insufficient with a bare king, king + one unstacked knight, or king + only bishops/guards that all stand on one square colour), **and** neither king is attacked by a pseudo-legal move of the other side — an attacked king is captured next turn, so a doomed side cannot force a draw by exposing it | draw |
+| `4` | threefold repetition: the same position occurs for the third time | draw |
 
 These are the only ways a game ends in the engine. Capturing every enemy
-piece but the king does **not** end the game (there is no such rule), and
-repetition is only a search heuristic, not a game-ending rule: neither has a
-code. Codes above `3` are reserved; clients should treat an unknown code as
-"over, reason unknown". If both draw rules apply at once the counter wins
-(`2`).
+piece but the king does **not** end the game (there is no such rule).
+
+Codes above `4` are reserved; clients should treat an unknown code as
+"over, reason unknown".
+
+## Game-ending rules
+
+The game state after every move is checked against these rules; the game
+then carries the `game-over` flag (and `white-wins` or `draw`) in the 83-byte
+board, and no further move is legal: a history that plays on is a `400` on
+every route that replays a history (`/replay-moves`, `/engine-move-game`,
+`/engine-move-game/:level`, `/evaluate-game`, `/evaluate-moves`,
+`/game-over-reason`), and a finished game answers like any finished game
+elsewhere — an empty `/evaluate-moves`, `0`/`±1000` from `/evaluate-game`,
+`409` from the engine-move routes.
+
+**Precedence.** When several rules hit on the same move, the lowest code
+wins: king capture (1), then the no-capture counter (2), then insufficient
+material (3), then threefold repetition (4). The outcome follows the winning
+rule — a king capture is a win, the others draws — and so does the code
+`/game-over-reason` reports.
+
+**The no-capture counter** (`moves_without_capture`, byte 82, rule 2) counts
+**plies** — one per move of either side, so `40` is 20 moves each. It starts
+at `0`; every move adds `1` (saturating at `255`) except a capture, which
+resets it to `0`. A capture is a move whose destination square holds an
+*enemy* piece — a lone piece, a whole stack or a king, whether the mover is
+a full stack or an unstacked top piece. Stacking onto a friendly piece,
+unstacking, and promotion are not captures and do not reset it. The game is
+a draw as soon as the counter reaches `40` after a move (`>= 40`), unless
+rule 1 applies to the same move.
+
+**Threefold repetition** (rule 4). The game is a draw the moment the same
+position occurs for the third time. A position is the 81 squares (pieces and
+stacks) **and** the side to move; the no-capture counter is not part of it
+(it differs on every occurrence) and neither are the flags. The initial
+position counts as the first occurrence of itself, so shuffling pieces back
+and forth ends the game on the 8th ply at the latest. The count is over the
+whole game, not only consecutive repeats. Only the history-replaying routes
+can apply this rule — see the note under [Game](#game-board--turn-state--83-bytes).
+
+## Search and repetition
+
+The search (`src/engine/search/loop_detection.rs`) scores a line as a draw
+(`0`) when it reaches a position that either already occurred **inside the
+search tree** after the root (a cycle), or already occurred **twice** in the
+game up to and including the root — the latter is a real third occurrence, so
+the game would be over. A position that occurred only once before is not
+treated as a draw: the game continues after a second occurrence, and the
+engine does not flee from it. Search and rule count positions with the same
+key (`Game::board_hash`) and the same threshold
+(`REPETITION_DRAW_OCCURRENCES`), so they cannot disagree about a real third
+occurrence.
 
 ## Status codes
 

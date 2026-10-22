@@ -23,10 +23,11 @@ for the full illustrated rules.
 
 - **Game logic** (`src/board.rs`, `src/game.rs`, `src/moves.rs`,
   `src/game_over.rs`): board representation, legal move generation, stacking
-  rules, promotion, draw/win detection.
+  rules, promotion, draw/win detection (king capture, 40 plies without a
+  capture, insufficient material, threefold repetition).
 - **AI engine** (`src/engine/`): Negamax with alpha-beta pruning, quiescence
   search, a transposition table, killer-move ordering, and
-  loop/repetition-aware search, parallelized with
+  repetition-aware search (threefold repetition is a draw), parallelized with
   [Rayon](https://github.com/rayon-rs/rayon).
 - **HTTP server** (`src/api.rs` + `src/server.rs`, binary target `server`):
   the binary wire API consumed by keres-platform. See
