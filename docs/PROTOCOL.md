@@ -159,8 +159,8 @@ on a difficulty-limited opponent's behalf.
 `/evaluate-game` replays the history like `/engine-move-game`, then runs the
 full-strength search (level 10) and returns the resulting score as a
 little-endian `i32` **from White's point of view** (positive = White better),
-in the engine's internal units (a pawn-ish soldier is worth about 100; a
-forced win is `±(1000 - ply)`). A finished game is answered without
+in the engine's internal units (a soldier is worth 10, a rook 60, the king
+1000 - `src/engine/constants.rs`; a forced win is `±(1000 - ply)`). A finished game is answered without
 searching: `+1000` White won, `-1000` Black won, `0` draw. An illegal or
 malformed history is a `400`. The score depends on the history (repetition
 detection, the 40-move counter), so callers must cache it per move *in a
