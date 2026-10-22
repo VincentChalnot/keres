@@ -604,6 +604,152 @@ async fn evaluate_moves_answers_nothing_for_a_finished_game() {
     assert!(response.body.is_empty());
 }
 
+// ── /analyze-puzzle ──────────────────────────────────────────────────────────
+
+/// A3-B4 A9-A8 B4-C5 B9-A7: Black's last move leaves the stack on A7 to a
+/// White ballista that the A8 ballista guards insufficiently.
+fn blunder_history() -> Vec<u8> {
+    let sq = |x: usize, y: usize| Position::new(x, y);
+    [
+        (sq(0, 6), sq(1, 5)),
+        (sq(0, 0), sq(0, 1)),
+        (sq(1, 5), sq(2, 4)),
+        (sq(1, 0), sq(0, 2)),
+    ]
+    .into_iter()
+    .flat_map(|(from, to)| {
+        Move {
+            from,
+            to,
+            unstack: false,
+        }
+        .to_u16()
+        .to_le_bytes()
+    })
+    .collect()
+}
+
+/// The first White move of the game, as a one-move history.
+fn one_move_history() -> Vec<u8> {
+    let first = Game::new().get_all_moves()[0].to_moves()[0];
+    first.to_u16().to_le_bytes().to_vec()
+}
+
+/// `(flags, steps)` of an `/analyze-puzzle` body, each step as its 19 bytes;
+/// asserts the header and the total length agree.
+fn analysis_steps(body: &[u8]) -> (u8, Vec<&[u8]>) {
+    assert!(body.len() >= 5, "header is 5 bytes, got {}", body.len());
+    assert_eq!(body[0], 1, "format version");
+    let steps = body[4] as usize;
+    assert_eq!(body.len(), 5 + 19 * steps, "5 header bytes + 19 per step");
+    (body[1], body[5..].chunks(19).collect())
+}
+
+fn step_reply(step: &[u8]) -> u16 {
+    u16::from_le_bytes([step[10], step[11]])
+}
+
+#[tokio::test]
+async fn analyze_puzzle_answers_a_header_and_fixed_width_steps() {
+    let history = one_move_history();
+    let response = post_slow("/analyze-puzzle?max_plies=3", history.clone()).await;
+
+    assert_eq!(response.status, StatusCode::OK, "{}", response.text());
+    assert_eq!(
+        response.content_type.as_deref(),
+        Some("application/octet-stream")
+    );
+    let (flags, steps) = analysis_steps(&response.body);
+    assert_eq!(flags & !1, 0, "only bit 0 is defined");
+    assert!(
+        (1..=2).contains(&steps.len()),
+        "three plies are at most two solver steps"
+    );
+    // Black is to move after the history: its best move must be playable.
+    let mut game = Game::from_moves(&history).expect("legal history");
+    let best = u16::from_le_bytes([steps[0][0], steps[0][1]]);
+    let mv = Move::try_from_u16(best).expect("a decodable move");
+    game.try_make(&mv).expect("the solver's move is legal");
+    // Scores are White-relative: Black's best is the lowest.
+    let best_score = i32::from_le_bytes(steps[0][2..6].try_into().unwrap());
+    let second_score = i32::from_le_bytes(steps[0][6..10].try_into().unwrap());
+    assert!(best_score <= second_score);
+    assert!((1..=10).contains(&steps[0][12]), "found_at_level");
+    assert_eq!(steps[0][18] & 0xF0, 0, "theme bits 12-15 are always 0");
+}
+
+#[tokio::test]
+async fn analyze_puzzle_honours_the_ply_budget() {
+    let one = post_slow("/analyze-puzzle?max_plies=1", Vec::new()).await;
+    assert_eq!(one.status, StatusCode::OK, "{}", one.text());
+    let (flags, steps) = analysis_steps(&one.body);
+    assert_eq!(
+        flags, 0,
+        "an empty move list has no last move to trigger on"
+    );
+    assert_eq!(steps.len(), 1);
+    assert_eq!(step_reply(steps[0]), 0xFFFF, "budget spent: no reply");
+
+    // Anything below 1 is raised to 1: the same deterministic answer.
+    let zero = post_slow("/analyze-puzzle?max_plies=0", Vec::new()).await;
+    assert_eq!(zero.body, one.body);
+    let negative = post_slow("/analyze-puzzle?max_plies=-7", Vec::new()).await;
+    assert_eq!(negative.body, one.body);
+
+    let two = post_slow("/analyze-puzzle?max_plies=2", Vec::new()).await;
+    let (_, steps) = analysis_steps(&two.body);
+    assert_eq!(steps.len(), 1);
+    assert_ne!(step_reply(steps[0]), 0xFFFF, "two plies: move and reply");
+}
+
+#[tokio::test]
+async fn analyze_puzzle_flags_a_piece_left_hanging_by_the_last_move() {
+    let response = post_slow("/analyze-puzzle?max_plies=1", blunder_history()).await;
+    assert_eq!(response.status, StatusCode::OK, "{}", response.text());
+    let (flags, _) = analysis_steps(&response.body);
+    assert_eq!(flags, 1, "HANGING_AFTER_LAST_MOVE");
+}
+
+#[tokio::test]
+async fn analyze_puzzle_rejects_a_bad_move_list_or_budget() {
+    for body in [
+        vec![0xFF, 0xFF],
+        vec![0x00],
+        one_move_history()[..1].to_vec(),
+    ] {
+        let response = post("/analyze-puzzle", body).await;
+        assert_eq!(
+            response.status,
+            StatusCode::BAD_REQUEST,
+            "{}",
+            response.text()
+        );
+    }
+    let response = post("/analyze-puzzle?max_plies=many", Vec::new()).await;
+    assert_eq!(
+        response.status,
+        StatusCode::BAD_REQUEST,
+        "{}",
+        response.text()
+    );
+}
+
+#[tokio::test]
+async fn analyze_puzzle_answers_409_for_a_finished_game() {
+    let response = post("/analyze-puzzle", KING_CAPTURE_HISTORY.to_vec()).await;
+    assert_eq!(response.status, StatusCode::CONFLICT, "{}", response.text());
+}
+
+#[tokio::test]
+async fn analyze_puzzle_sits_behind_the_bearer_token() {
+    let response = send(
+        token_router("secret"),
+        post_request("/analyze-puzzle", Vec::new()),
+    )
+    .await;
+    assert_eq!(response.status, StatusCode::UNAUTHORIZED);
+}
+
 // ── /game-over-reason ────────────────────────────────────────────────────────
 
 /// White wins in five plies by capturing the black king:

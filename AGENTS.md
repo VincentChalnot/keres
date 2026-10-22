@@ -35,6 +35,8 @@ Four binaries share one library crate (`keres_engine`, `src/lib.rs`):
 | `src/engine/`                  | The AI: search, evaluation, types/config                              |
 | `src/engine/search/`            | Negamax + alpha-beta (`alpha_beta.rs`, `negamax.rs`), quiescence, killer moves, repetition detection seeded from `Game`'s own history (`loop_detection.rs`), root entry point (`mod.rs::root_search`) |
 | `src/engine/eval/`               | Position evaluation: material, mobility, king safety, pins, promotion, piece-square tables, tempo |
+| `src/engine/tactics.rs`          | Rule-level tactical facts from the real move generator: reachable/attacked squares (also used by the GUI's hover preview), static exchange, hanging pieces, move themes |
+| `src/engine/puzzle.rs`           | `/analyze-puzzle`: plays out the solver's best line at level 10, `found_at_level`, and encodes the 5 + 19·S byte response (layout in `docs/PROTOCOL.md`) |
 | `src/engine/tt.rs`               | Transposition table                                                    |
 | `src/engine/constants.rs`         | Tunables: `MAX_DEPTH` (4), eval weights                                |
 | `src/engine/tree_recorder.rs`      | Optional full search-tree recording for `debug-tree`: streamed JSONL or packed binary (format in `docs/SEARCH_TREE.md`) |

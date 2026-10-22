@@ -23,7 +23,7 @@
 
 use axum::{
     body::Bytes,
-    extract::{DefaultBodyLimit, Path, State},
+    extract::{DefaultBodyLimit, Path, RawQuery, State},
     http::{header, HeaderValue, Method, Request, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
@@ -39,6 +39,7 @@ use tower_http::cors::{Any, CorsLayer};
 use crate::board::BOARD_SIZE;
 use crate::engine::constants::KING_VALUE;
 use crate::engine::constants::{MAX_DEPTH, MAX_LEVEL, MIN_LEVEL};
+use crate::engine::puzzle;
 use crate::engine::search::{root_search, RootSearchResult};
 use crate::engine::types::SearchConfig;
 use crate::game::Game;
@@ -339,6 +340,10 @@ pub fn router(config: ApiConfig) -> Router {
             post(evaluate_moves).layer(DefaultBodyLimit::max(history_limit)),
         )
         .route(
+            "/analyze-puzzle",
+            post(analyze_puzzle).layer(DefaultBodyLimit::max(history_limit)),
+        )
+        .route(
             "/game-over-reason",
             post(game_over_reason).layer(DefaultBodyLimit::max(history_limit)),
         )
@@ -560,6 +565,75 @@ async fn evaluate_moves(State(state): State<Arc<AppState>>, payload: Bytes) -> A
     Ok(Binary(response))
 }
 
+/// Query parameter of `/analyze-puzzle`: the ply budget of the analysed line.
+const MAX_PLIES_PARAM: &str = "max_plies";
+
+/// Read `max_plies` from a raw query string: absent means
+/// [`puzzle::DEFAULT_MAX_PLIES`], a number is clamped to
+/// `MIN_MAX_PLIES..=MAX_MAX_PLIES`, anything else is a client error.
+fn parse_max_plies(query: Option<&str>) -> Result<u8, ApiError> {
+    let value = query
+        .unwrap_or("")
+        .split('&')
+        .filter_map(|pair| pair.split_once('='))
+        .find(|(name, _)| *name == MAX_PLIES_PARAM)
+        .map(|(_, value)| value);
+    match value {
+        None => Ok(puzzle::DEFAULT_MAX_PLIES),
+        Some(value) => value
+            .parse::<i64>()
+            .map(puzzle::clamp_max_plies)
+            .map_err(|_| ApiError::bad_request(format!("{MAX_PLIES_PARAM} must be an integer\n"))),
+    }
+}
+
+/// Analyse the position reached by a move history as a puzzle candidate
+/// (see [`puzzle::analyze_puzzle`] and `docs/PROTOCOL.md`).
+///
+/// The whole analysis holds one search slot and gets one search budget per
+/// analysed ply. A finished game, or a position without legal moves, is a
+/// `409` like on the engine-move routes.
+async fn analyze_puzzle(
+    State(state): State<Arc<AppState>>,
+    RawQuery(query): RawQuery,
+    payload: Bytes,
+) -> ApiResult {
+    let max_plies = parse_max_plies(query.as_deref())?;
+    let game = decode_history(&state.config, &payload)?;
+    if game.is_game_over() {
+        return Err(ApiError::conflict("no legal move: the game is over\n"));
+    }
+
+    // The position the opponent's last move was played from, for the
+    // "hanging after the last move" trigger. The history already replayed, so
+    // its prefix does too.
+    let previous = match payload.len().checked_sub(MOVE_BYTES) {
+        Some(prefix) => {
+            let board_before = decode_history(&state.config, &payload[..prefix])?.board;
+            let last =
+                Move::try_from_u16(u16::from_le_bytes([payload[prefix], payload[prefix + 1]]))
+                    .ok_or_else(|| ApiError::bad_request("last move is not decodable\n"))?;
+            Some((board_before, last))
+        }
+        None => None,
+    };
+
+    let budget = state
+        .config
+        .search_timeout
+        .saturating_mul(u32::from(max_plies));
+    let analysis = run_blocking(&state, budget, move || {
+        let last_move = previous
+            .as_ref()
+            .map(|(board_before, mv)| puzzle::LastMove { board_before, mv });
+        puzzle::analyze_puzzle(&game, last_move, max_plies)
+    })
+    .await?
+    .map_err(|_| ApiError::conflict("no legal move: the game is over\n"))?;
+
+    Ok(Binary(analysis.to_bytes()))
+}
+
 /// Wire size of a `/game-over-reason` response: one reason code.
 pub const REASON_BYTES: usize = 1;
 
@@ -641,6 +715,20 @@ async fn run_blocking_search(
     game: Game,
     config: SearchConfig,
 ) -> Result<RootSearchResult, ApiError> {
+    run_blocking(state, state.config.search_timeout, move || {
+        root_search(&game, &config, None)
+    })
+    .await
+}
+
+/// Run CPU-bound `work` on the blocking pool under one search slot, giving up
+/// after `budget`. The permit is held for the whole of `work`, however many
+/// searches it runs.
+async fn run_blocking<T: Send + 'static>(
+    state: &Arc<AppState>,
+    budget: Duration,
+    work: impl FnOnce() -> T + Send + 'static,
+) -> Result<T, ApiError> {
     let _permit = tokio::time::timeout(
         state.config.search_queue_timeout,
         state.search_slots.acquire(),
@@ -649,9 +737,9 @@ async fn run_blocking_search(
     .map_err(|_| ApiError::unavailable("engine is busy, retry later\n"))?
     .map_err(|_| ApiError::internal("engine shutting down\n"))?;
 
-    let search = tokio::task::spawn_blocking(move || root_search(&game, &config, None));
+    let task = tokio::task::spawn_blocking(work);
 
-    tokio::time::timeout(state.config.search_timeout, search)
+    tokio::time::timeout(budget, task)
         .await
         .map_err(|_| ApiError::unavailable("search exceeded its time budget\n"))?
         .map_err(|_| ApiError::internal("search task failed\n"))
@@ -738,6 +826,32 @@ mod tests {
         let err = decode_history(&config, &[0u8; 6]).unwrap_err();
         assert_eq!(err.status, StatusCode::BAD_REQUEST);
         assert!(err.message.contains("exceeds the maximum"));
+    }
+
+    #[test]
+    fn max_plies_defaults_to_nine_and_clamps_to_one_through_fifteen() {
+        assert_eq!(parse_max_plies(None).unwrap(), 9);
+        assert_eq!(parse_max_plies(Some("")).unwrap(), 9);
+        assert_eq!(parse_max_plies(Some("other=3")).unwrap(), 9);
+        assert_eq!(parse_max_plies(Some("max_plies=4")).unwrap(), 4);
+        assert_eq!(parse_max_plies(Some("x=1&max_plies=4")).unwrap(), 4);
+        assert_eq!(parse_max_plies(Some("max_plies=0")).unwrap(), 1);
+        assert_eq!(parse_max_plies(Some("max_plies=-2")).unwrap(), 1);
+        assert_eq!(parse_max_plies(Some("max_plies=15")).unwrap(), 15);
+        assert_eq!(parse_max_plies(Some("max_plies=16")).unwrap(), 15);
+        assert_eq!(parse_max_plies(Some("max_plies=4000")).unwrap(), 15);
+        for bad in [
+            "max_plies=",
+            "max_plies=x",
+            "max_plies=1.5",
+            "max_plies=99999999999999999999",
+        ] {
+            assert_eq!(
+                parse_max_plies(Some(bad)).unwrap_err().status,
+                StatusCode::BAD_REQUEST,
+                "{bad}"
+            );
+        }
     }
 
     #[test]

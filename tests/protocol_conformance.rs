@@ -558,3 +558,66 @@ async fn game_over_reason_answers_one_byte_next_to_the_unchanged_game_flags() {
     let in_progress = post("/game-over-reason", Vec::new()).await;
     assert_eq!(in_progress.body, vec![0u8], "an untouched game is 0x00");
 }
+
+#[test]
+fn analyze_puzzle_flag_and_theme_bits_are_the_documented_ones() {
+    use keres_engine::engine::puzzle;
+    use keres_engine::engine::tactics::theme;
+
+    assert_eq!(puzzle::FORMAT_VERSION, 1);
+    assert_eq!(puzzle::FLAG_HANGING_AFTER_LAST_MOVE, 0b0000_0001);
+    assert_eq!(puzzle::HEADER_BYTES, 5);
+    assert_eq!(puzzle::STEP_BYTES, 19);
+    assert_eq!(puzzle::NO_REPLY, 0xFFFF);
+
+    assert_eq!(theme::CAPTURE, 0x0001);
+    assert_eq!(theme::HANGING, 0x0002);
+    assert_eq!(theme::FORK, 0x0004);
+    assert_eq!(theme::KING_THREAT, 0x0008);
+    assert_eq!(theme::DISCOVERED, 0x0010);
+    assert_eq!(theme::PIN, 0x0020);
+    assert_eq!(theme::SKEWER, 0x0040);
+    assert_eq!(theme::PROMOTION, 0x0080);
+    assert_eq!(theme::SACRIFICE, 0x0100);
+    assert_eq!(theme::QUIET, 0x0200);
+    assert_eq!(theme::STACK, 0x0400);
+    assert_eq!(theme::UNSTACK, 0x0800);
+}
+
+#[tokio::test]
+async fn analyze_puzzle_body_is_a_five_byte_header_then_nineteen_byte_steps() {
+    // Empty history: the fresh position, White to move, one ply.
+    let router = keres_engine::api::router(keres_engine::api::ApiConfig {
+        search_timeout: std::time::Duration::from_secs(900),
+        ..Default::default()
+    });
+    let response = send(
+        router,
+        post_request("/analyze-puzzle?max_plies=1", Vec::new()),
+    )
+    .await;
+    assert_eq!(response.status, 200);
+    let body = &response.body;
+
+    assert_eq!(body.len(), 5 + 19, "header + one step");
+    assert_eq!(body[0], 1, "[0] format version");
+    assert_eq!(body[1], 0, "[1] trigger flags");
+    assert_eq!(
+        &body[2..4],
+        &[0, 0],
+        "[2..4) i16 LE material, symmetric start"
+    );
+    assert_eq!(body[4], 1, "[4] S");
+    let mv = u16::from_le_bytes([body[5], body[6]]);
+    assert!(
+        Move::try_from_u16(mv).is_some(),
+        "[0..2) of a step: the move"
+    );
+    assert_eq!(&body[5 + 10..5 + 12], &[0xFF, 0xFF], "[10..12): no reply");
+    assert!((1..=10).contains(&body[5 + 12]), "[12]: found_at_level");
+    assert_eq!(
+        &body[5 + 15..5 + 17],
+        &body[5 + 13..5 + 15],
+        "material after move and after (absent) reply agree"
+    );
+}

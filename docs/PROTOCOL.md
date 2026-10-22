@@ -129,6 +129,7 @@ expected is rejected rather than silently truncated.
 | POST   | `/engine-move-game/:level` | `N × 2` bytes: full `Move` history from the initial position | 2 bytes: the engine's chosen `Move`     | (cap+1)×2 B |
 | POST   | `/evaluate-game`     | `N × 2` bytes: full `Move` history from the initial position | 4 bytes: `i32` LE score, White's point of view | (cap+1)×2 B |
 | POST   | `/evaluate-moves`    | `N × 2` bytes: full `Move` history from the initial position | `M × 6` bytes: per legal move, a `Move` (LE `u16`) + `i32` LE score, best first | (cap+1)×2 B |
+| POST   | `/analyze-puzzle?max_plies=N` | `N × 2` bytes: full `Move` history from the initial position | `5 + 19·S` bytes: header + `S` solver steps, see [`/analyze-puzzle`](#analyze-puzzle) | (cap+1)×2 B |
 | POST   | `/game-over-reason`  | `N × 2` bytes: full `Move` history from the initial position | 1 byte: why the game is over (`0` = in progress) | (cap+1)×2 B |
 
 `cap` is `KERES_MAX_HISTORY_MOVES` (default 4096). A history one move over the
@@ -202,6 +203,125 @@ piece but the king does **not** end the game (there is no such rule).
 Codes above `4` are reserved; clients should treat an unknown code as
 "over, reason unknown".
 
+## `/analyze-puzzle`
+
+`POST /analyze-puzzle?max_plies=N` — the facts a platform needs to judge a
+puzzle candidate. The engine reports rule-level facts and scores only; every
+acceptance threshold lives on the caller.
+
+**Request.** Same body, limit, auth and replay as `/evaluate-moves`: the move
+list (2 bytes per `Move`, from the initial position) leading to the
+*candidate position*. `max_plies` is the number of plies in the analysed
+line: default `9`, clamped to `1..=15` (`0` and negatives become `1`, large
+values `15`); a value that is not an integer is a `400`. An undecodable or
+illegal move list is a `400`; a game that is already over, or a position
+without legal moves, is a `409` (as on the engine-move routes). The empty
+list is valid: the initial position.
+
+**What it does.** The side to move in the candidate position is the
+*solver*. Starting there, in a loop: search the position at level 10 (the
+same search, exact root scores and history handling as `/evaluate-moves`),
+record a *step*, play the solver's best move; if the game is over or the ply
+budget is spent, stop; otherwise search again for the defender's best reply
+(level 10), play it, record it in the step, and go on with the next solver
+step if the game is not over and budget remains. The line is never cut on a
+quality criterion — the caller decides where the puzzle ends. The line
+continues the real game: repetition counts and the 40-ply counter include the
+given history. A solver step is one ply, a reply another, so `N` plies are at
+most `ceil(N / 2)` steps; the last step has no reply when the budget ends
+on it. The call is deterministic.
+
+**Cost.** One level-10 search per ply (about the cost of one
+`/evaluate-moves` each), plus for every solver step the `found_at_level`
+searches below (cheaper, shallower ones). The whole analysis holds one search
+slot, and its wall-clock budget is
+`KERES_SEARCH_TIMEOUT_SECS` per analysed ply (`503` beyond it). Measured on a
+release build, a 24-ply mid-game position with `max_plies=9` takes ~4.2 s
+against ~0.32 s for one `/evaluate-moves` on it (24 cores).
+
+**Response** (`200`, `application/octet-stream`, little-endian): a 5-byte
+header, then `S` steps of 19 bytes (`5 + 19·S` bytes in all).
+
+| Offset | Type | Field |
+|---|---|---|
+| 0 | `u8` | format version, `1` |
+| 1 | `u8` | trigger flags (below) |
+| 2..4 | `i16` | material balance of the candidate position |
+| 4 | `u8` | `S`, the number of solver steps (`>= 1`) |
+
+Each step:
+
+| Offset | Type | Field |
+|---|---|---|
+| 0..2 | `u16` | the solver's best move (`Move` layout above) |
+| 2..6 | `i32` | its score |
+| 6..10 | `i32` | the second-best move's score |
+| 10..12 | `u16` | the defender's reply (`Move`); `0xFFFF` = none: the game ended after the solver's move, or the ply budget is spent |
+| 12 | `u8` | `found_at_level`, `1..=10` |
+| 13..15 | `i16` | material balance after the solver's move |
+| 15..17 | `i16` | material balance after the reply (the same as the previous field without a reply) |
+| 17..19 | `u16` | themes of the solver's move (below); bits 12–15 are `0` |
+
+*Scores* are in `/evaluate-moves` units and from **White's** point of view,
+whoever the solver is (a forced win is `±(1000 - ply)`): the best score is
+the one `/evaluate-moves` ranks first, the second is the best of the *other*
+legal moves, exact like all root scores. With a single legal move the second
+score equals the best; so it does when another move ties the best.
+
+*Material balance* is White minus Black over piece base values, engine units
+(soldier 10 … rook 60; both halves of a stack count), no positional term;
+**kings count 0**.
+
+*`found_at_level`* is the lowest engine level `1..=10` (the bot levels of
+`/engine-move-game/:level`, `docs/LEVELS.md`) whose search picks the same best
+move in that position, with every random element of the level (noise,
+blunder chance, slip chance) switched off — so it measures how easy the move
+is to find, deterministically. Without noise, a level's search is determined
+by its depth, quiescence and killer settings alone, so levels sharing them
+always agree, and a level that searches exactly like level 10 *is* the
+reference. With the current ladder this means the value is `1` (depth 2),
+`2` (depth 3, which levels 2–8 share) or `10` (needs the full depth 4); the
+levels in between are never reported. It is derived from
+`SearchConfig::for_level`, so it follows a retuned ladder.
+
+**Trigger flags** (byte 1; bits other than bit 0 are `0`):
+
+| Bit | Name | Meaning |
+|---|---|---|
+| 0 | `HANGING_AFTER_LAST_MOVE` | in the candidate position the solver can win material by capturing an enemy piece that was not capturable that way before the opponent's last move. *Capturable that way* = the capture nets material on static exchange: the piece is undefended, or defended insufficiently (the exchange on its square, with the least valuable capturer each time and stopping when going on would lose material, is positive for the capturer); the solver's turn is assumed in both positions. A piece is *new* when it stands where the opponent just moved to, or its square was not capturable that way in the position before the opponent's move. Kings are never targets. Move list empty: `0`. |
+
+**Themes** (step bytes 17..19). Detected from the position before and after
+the solver's move with the real move rules (stacks, the ballista's one-way
+slide, promotion). A piece *attacks* a square when a move of it would
+capture an enemy piece there next move. *Static exchange* is the swap-off
+described under `HANGING_AFTER_LAST_MOVE`. A target is *worthwhile* for a
+piece when capturing it with that piece nets material on static exchange;
+the king always is.
+
+| Bit | Name | Definition |
+|---|---|---|
+| 0 | `CAPTURE` | the destination held an enemy piece or stack |
+| 1 | `HANGING` | a capture whose exchange on the destination nets material: the captured piece was undefended, or losing on static exchange for its owner (also set for a king capture) |
+| 2 | `FORK` | after the move, the moved piece (the whole stack, or the top piece that moved alone) attacks at least two worthwhile targets; the king plus any one worthwhile piece qualifies |
+| 3 | `KING_THREAT` | after the move some piece of the solver can capture the enemy king next move (including by discovery) |
+| 4 | `DISCOVERED` | moving uncovers an attack: another friendly piece (not the mover, not what is left of its stack) newly attacks a worthwhile target — the king or a piece — straight through the square the mover left |
+| 5 | `PIN` | the move creates an x-ray line *attacker → enemy piece → more valuable enemy piece or the king* on one straight or diagonal line: the front piece is attacked, and the attacker would capture the one behind it if the front one were gone (the front one is not the king). Only lines that did not exist before the move count |
+| 6 | `SKEWER` | likewise, new lines where the front piece (the king included) is worth more than the non-king piece behind it |
+| 7 | `PROMOTION` | the moved piece, or the top piece when unstacking, is promoted on arrival (soldier → paladin, ballista → rook) |
+| 8 | `SACRIFICE` | a non-king piece lands where the opponent's exchange on that square wins more than the move captured: the move loses material on static exchange (and it is still the engine's best move) |
+| 9 | `QUIET` | neither `CAPTURE` nor `KING_THREAT` (so a promotion, a stack or an unstack can be quiet) |
+| 10 | `STACK` | the destination held a friendly piece: the mover is stacked onto it |
+| 11 | `UNSTACK` | the move splits a stack (`Move` bit 14 set): the top piece leaves alone. Unstacking onto a friendly piece sets both `UNSTACK` and `STACK` |
+| 12–15 | — | `0` |
+
+All themes are static: no search, only the move generator and the exchange
+rule above. Pins and skewers are found by lifting the front piece off the
+board, so they cover every piece that attacks along a line as it moves —
+sliders, and the short-range paladin and guard over their two squares. A
+piece's value is the base value of the piece or whole stack. `FORK` does not
+check that the forking piece itself survives, and `KING_THREAT` is a plain
+attack on the king (the game has no check rule: a king is simply captured).
+
 ## Game-ending rules
 
 The game state after every move is checked against these rules; the game
@@ -209,9 +329,9 @@ then carries the `game-over` flag (and `white-wins` or `draw`) in the 83-byte
 board, and no further move is legal: a history that plays on is a `400` on
 every route that replays a history (`/replay-moves`, `/engine-move-game`,
 `/engine-move-game/:level`, `/evaluate-game`, `/evaluate-moves`,
-`/game-over-reason`), and a finished game answers like any finished game
-elsewhere — an empty `/evaluate-moves`, `0`/`±1000` from `/evaluate-game`,
-`409` from the engine-move routes.
+`/game-over-reason`, `/analyze-puzzle`), and a finished game answers like any
+finished game elsewhere — an empty `/evaluate-moves`, `0`/`±1000` from
+`/evaluate-game`, `409` from the engine-move routes and `/analyze-puzzle`.
 
 **Precedence.** When several rules hit on the same move, the lowest code
 wins: king capture (1), then the no-capture counter (2), then insufficient
@@ -256,13 +376,13 @@ occurrence.
 | Status | When |
 |--------|------|
 | `200` | success |
-| `400` | wrong body length, undecodable board/game/move, a history that is not a whole number of moves, is over the cap or plays on after the game ended, `:level` outside `1..=10` |
+| `400` | wrong body length, undecodable board/game/move, a history that is not a whole number of moves, is over the cap or plays on after the game ended, `:level` outside `1..=10`, a non-integer `max_plies` |
 | `401` | `KERES_API_TOKEN` is set and the `Authorization: Bearer` header is missing or wrong |
 | `404` / `405` | unknown path / wrong method |
 | `409` | the request was well-formed but the position refuses it: an illegal move, a game that is already over, no legal move to search |
 | `413` | body over the route's limit (see the table above) |
 | `500` | a panic caught by the outermost layer — a bug; please report it (`SECURITY.md`) |
-| `503` | the engine is saturated (no search slot within the queue timeout) or the search exceeded `KERES_SEARCH_TIMEOUT_SECS` |
+| `503` | the engine is saturated (no search slot within the queue timeout) or the search exceeded `KERES_SEARCH_TIMEOUT_SECS` (`/analyze-puzzle`: that budget per analysed ply) |
 
 A malformed payload is never a `500`. Every decoder on this path is fallible,
 and `tests/api_robustness.rs` fuzzes each route asserting exactly that.

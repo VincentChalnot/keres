@@ -2,6 +2,7 @@
 
 pub mod constants;
 pub mod eval;
+pub mod puzzle;
 pub mod search;
 pub mod tactics;
 pub mod tree_recorder;
