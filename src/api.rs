@@ -442,7 +442,7 @@ async fn play_move(payload: Bytes) -> ApiResult {
 }
 
 async fn replay_moves(State(state): State<Arc<AppState>>, payload: Bytes) -> ApiResult {
-    let game = decode_history(&state.config, &payload)?.0;
+    let game = decode_history(&state.config, &payload)?;
     Ok(Binary(game.to_binary().to_vec()))
 }
 
@@ -452,16 +452,16 @@ async fn engine_move_board(State(state): State<Arc<AppState>>, payload: Bytes) -
         max_depth: MAX_DEPTH,
         ..Default::default()
     };
-    run_search(&state, game, config, Vec::new()).await
+    run_search(&state, game, config).await
 }
 
 async fn engine_move_game(State(state): State<Arc<AppState>>, payload: Bytes) -> ApiResult {
-    let (game, history) = decode_history(&state.config, &payload)?;
+    let game = decode_history(&state.config, &payload)?;
     let config = SearchConfig {
         max_depth: MAX_DEPTH,
         ..Default::default()
     };
-    run_search(&state, game, config, history).await
+    run_search(&state, game, config).await
 }
 
 /// Same as `/engine-move-game`, but plays at a caller-chosen strength level
@@ -480,8 +480,8 @@ async fn engine_move_game_leveled(
             "level must be between {MIN_LEVEL} and {MAX_LEVEL}, got {level}"
         )));
     }
-    let (game, history) = decode_history(&state.config, &payload)?;
-    run_search(&state, game, SearchConfig::for_level(level), history).await
+    let game = decode_history(&state.config, &payload)?;
+    run_search(&state, game, SearchConfig::for_level(level)).await
 }
 
 /// Wire size of an `/evaluate-game` response: one little-endian `i32`.
@@ -498,7 +498,7 @@ pub const EVAL_BYTES: usize = 4;
 /// `+KING_VALUE` / `-KING_VALUE` for a win and `0` for a draw without
 /// searching.
 async fn evaluate_game(State(state): State<Arc<AppState>>, payload: Bytes) -> ApiResult {
-    let (game, history) = decode_history(&state.config, &payload)?;
+    let game = decode_history(&state.config, &payload)?;
     let white_to_move = game.is_white_to_move();
 
     let score = if game.is_game_over() {
@@ -511,7 +511,7 @@ async fn evaluate_game(State(state): State<Arc<AppState>>, payload: Bytes) -> Ap
         }
     } else {
         let config = SearchConfig::for_level(MAX_LEVEL);
-        let result = run_blocking_search(&state, game, config, history).await?;
+        let result = run_blocking_search(&state, game, config).await?;
         if result.best_move.is_none() {
             // The side to move has no legal move: it has lost.
             if white_to_move {
@@ -543,13 +543,13 @@ pub const MOVE_EVAL_BYTES: usize = MOVE_BYTES + EVAL_BYTES;
 /// `/evaluate-game`. A finished game, or a position without legal moves,
 /// answers an empty body.
 async fn evaluate_moves(State(state): State<Arc<AppState>>, payload: Bytes) -> ApiResult {
-    let (game, history) = decode_history(&state.config, &payload)?;
+    let game = decode_history(&state.config, &payload)?;
     if game.is_game_over() {
         return Ok(Binary(Vec::new()));
     }
     let white_to_move = game.is_white_to_move();
     let config = SearchConfig::for_level(MAX_LEVEL);
-    let result = run_blocking_search(&state, game, config, history).await?;
+    let result = run_blocking_search(&state, game, config).await?;
 
     let mut response = Vec::with_capacity(result.root_scores.len() * MOVE_EVAL_BYTES);
     for (mv, score) in result.root_scores {
@@ -572,7 +572,7 @@ pub const REASON_BYTES: usize = 1;
 /// accepted ends exactly at the position the reason describes. It is a pure
 /// rules lookup: no search, so it takes no search slot.
 async fn game_over_reason(State(state): State<Arc<AppState>>, payload: Bytes) -> ApiResult {
-    let game = decode_history(&state.config, &payload)?.0;
+    let game = decode_history(&state.config, &payload)?;
     let code = game.game_over_reason().map_or(0, GameOverReason::code);
     Ok(Binary(vec![code]))
 }
@@ -595,7 +595,7 @@ fn decode_game(bytes: &[u8]) -> Result<Game, ApiError> {
 }
 
 /// Strictly decode and replay a move history, enforcing the configured cap.
-fn decode_history(config: &ApiConfig, bytes: &[u8]) -> Result<(Game, Vec<u64>), ApiError> {
+fn decode_history(config: &ApiConfig, bytes: &[u8]) -> Result<Game, ApiError> {
     if !bytes.len().is_multiple_of(MOVE_BYTES) {
         return Err(ApiError::bad_request(format!(
             "move history length must be a multiple of {MOVE_BYTES}, got {}",
@@ -609,7 +609,7 @@ fn decode_history(config: &ApiConfig, bytes: &[u8]) -> Result<(Game, Vec<u64>), 
             config.max_history_moves
         )));
     }
-    Game::replay_moves(bytes).map_err(ApiError::bad_request)
+    Game::from_moves(bytes).map_err(ApiError::bad_request)
 }
 
 /// Run `root_search` off the async runtime, under the concurrency limit and
@@ -618,15 +618,14 @@ fn decode_history(config: &ApiConfig, bytes: &[u8]) -> Result<(Game, Vec<u64>), 
 /// The search is CPU-bound and internally parallel (Rayon), so running it
 /// directly in a handler would block a Tokio worker for the whole search and
 /// starve every other connection on that thread.
-async fn run_search(
-    state: &Arc<AppState>,
-    game: Game,
-    config: SearchConfig,
-    history: Vec<u64>,
-) -> ApiResult {
-    let best_move = run_blocking_search(state, game, config, history)
-        .await?
-        .best_move;
+async fn run_search(state: &Arc<AppState>, game: Game, config: SearchConfig) -> ApiResult {
+    // A finished game has no move to play, whichever rule ended it (king
+    // capture, 40-move rule, insufficient material, threefold repetition):
+    // the same 409 as a position with no legal move.
+    if game.is_game_over() {
+        return Err(ApiError::conflict("no legal move: the game is over\n"));
+    }
+    let best_move = run_blocking_search(state, game, config).await?.best_move;
 
     // No legal move means the game is over — that is a statement about the
     // position the caller sent, so it is a 409, not a 500.
@@ -641,7 +640,6 @@ async fn run_blocking_search(
     state: &Arc<AppState>,
     game: Game,
     config: SearchConfig,
-    history: Vec<u64>,
 ) -> Result<RootSearchResult, ApiError> {
     let _permit = tokio::time::timeout(
         state.config.search_queue_timeout,
@@ -651,7 +649,7 @@ async fn run_blocking_search(
     .map_err(|_| ApiError::unavailable("engine is busy, retry later\n"))?
     .map_err(|_| ApiError::internal("engine shutting down\n"))?;
 
-    let search = tokio::task::spawn_blocking(move || root_search(&game, &config, &history, None));
+    let search = tokio::task::spawn_blocking(move || root_search(&game, &config, None));
 
     tokio::time::timeout(state.config.search_timeout, search)
         .await

@@ -24,9 +24,12 @@
 //! `record_game`): a corpus for later analysis, kept apart from human games.
 //!
 //! Rules mirror the platform as far as the engine can see them: the game
-//! ends on `Game::is_game_over` (king capture, 40-move rule,
-//! insufficient material) or on the first recurrence of a position (the
-//! same repetition rule the engine's `LoopDetector` assumes).
+//! ends on `Game::is_game_over` (king capture, 40-move rule, insufficient
+//! material, threefold repetition) — nothing arena-specific. Every game is
+//! finite on its own (a position can occur at most twice before the third
+//! occurrence ends the game, and there are finitely many positions), so
+//! deterministic engines cannot loop forever; `--max-plies` stays only as a
+//! safety cap for pathologically long games.
 //!
 //! With deterministic configurations (no noise, no blunders) every game from
 //! the start position is a replay of one of two games; `--random-plies`
@@ -44,7 +47,7 @@ use keres_engine::engine::{root_search, SearchConfig};
 use keres_engine::game_over::GameOverReason;
 use keres_engine::{Game, Move};
 use serde_json::json;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 use std::fmt;
 use std::io::Write;
 use std::str::FromStr;
@@ -218,30 +221,25 @@ fn noise_free(config: &SearchConfig) -> SearchConfig {
     }
 }
 
-/// A position plus the board-hash history the engine and repetition rule need.
+/// A game in progress. `Game` carries its own position history, so the
+/// threefold-repetition rule and the engine's search see the same game.
 struct Playout {
     game: Game,
-    history: Vec<u64>,
-    seen: HashSet<u64>,
 }
 
 impl Playout {
     fn start() -> Self {
-        let game = Game::new();
-        let hash = game.board_hash();
-        Playout {
-            game,
-            history: vec![hash],
-            seen: HashSet::from([hash]),
-        }
+        Playout { game: Game::new() }
     }
 
-    /// Play `mv`; returns `true` if it repeated an earlier position.
-    fn play(&mut self, mv: &Move) -> bool {
+    fn play(&mut self, mv: &Move) {
         self.game.make(mv);
-        let hash = self.game.board_hash();
-        self.history.push(hash);
-        !self.seen.insert(hash)
+    }
+
+    /// The position just reached has occurred before (it is not a draw yet
+    /// unless the game rule says so).
+    fn repeated(&self) -> bool {
+        self.game.position_occurrences() > 1
     }
 }
 
@@ -262,7 +260,8 @@ fn random_opening(plies: u32, rng: &mut Rng) -> Vec<Move> {
                 continue 'retry;
             }
             let mv = moves[((rng.next_f32() * moves.len() as f32) as usize).min(moves.len() - 1)];
-            if pos.play(&mv) || pos.game.is_game_over() {
+            pos.play(&mv);
+            if pos.repeated() || pos.game.is_game_over() {
                 continue 'retry;
             }
             line.push(mv);
@@ -316,7 +315,7 @@ impl fmt::Display for Ending {
             Ending::KingCaptured => "king captured",
             Ending::FortyMoves => "40-move rule",
             Ending::InsufficientMaterial => "insufficient material",
-            Ending::Repetition => "repetition",
+            Ending::Repetition => "threefold repetition",
             Ending::NoMoves => "no legal moves",
             Ending::PlyCap => "ply cap",
         })
@@ -344,6 +343,7 @@ fn ending_of(game: &Game) -> Ending {
         GameOverReason::KingCaptured => Ending::KingCaptured,
         GameOverReason::FortyMoveRule => Ending::FortyMoves,
         GameOverReason::InsufficientMaterial => Ending::InsufficientMaterial,
+        GameOverReason::ThreefoldRepetition => Ending::Repetition,
     }
 }
 
@@ -382,7 +382,7 @@ fn play_game(
             (black, &mut stats[1])
         };
         let start = Instant::now();
-        let searched = root_search(&pos.game, &side.config, &pos.history, None);
+        let searched = root_search(&pos.game, &side.config, None);
         s.time += start.elapsed();
         s.moves += 1;
         let Some(mv) = searched.best_move else {
@@ -390,7 +390,7 @@ fn play_game(
         };
         let could_take_king = king_capturable(&pos.game);
         let before = pos.game.clone();
-        let repeated = pos.play(&mv);
+        pos.play(&mv);
         // Any immediate win (a king capture) is equally fast.
         let won_now = pos.game.is_game_over()
             && !pos.game.is_draw()
@@ -406,9 +406,7 @@ fn play_game(
         }));
         if !pos.game.is_game_over() && king_capturable(&pos.game) {
             // What would the same search without noise/blunders have done?
-            // (`history` without the move just played is the root's history.)
-            let root_history = &pos.history[..pos.history.len() - 1];
-            let clean = root_search(&before, &noise_free(&side.config), root_history, None);
+            let clean = root_search(&before, &noise_free(&side.config), None);
             let clean_hangs = clean.best_move.is_some_and(|cm| {
                 let mut after = before.clone();
                 after.make(&cm);
@@ -421,9 +419,6 @@ fn play_game(
             } else {
                 s.hung_king_avoidable += 1;
             }
-        }
-        if repeated && !pos.game.is_game_over() {
-            break (0, Ending::Repetition);
         }
     };
     GameRecord {
@@ -620,15 +615,13 @@ fn run_quality(args: &QualityArgs) {
             if pos.game.is_game_over() {
                 break;
             }
-            let best = root_search(&pos.game, &clean, &pos.history, None).best_score;
+            let best = root_search(&pos.game, &clean, None).best_score;
             let start = Instant::now();
-            let played = root_search(&pos.game, &side.config, &pos.history, None);
+            let played = root_search(&pos.game, &side.config, None);
             time += start.elapsed();
             let Some(mv) = played.best_move else { break };
             losses.push(best - played.best_score);
-            if pos.play(&mv) {
-                break;
-            }
+            pos.play(&mv);
         }
         eprintln!(
             "game {}/{} done, {} moves so far",

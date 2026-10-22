@@ -437,7 +437,7 @@ async fn engine_move_game_returns_a_legal_move_for_the_replayed_history() {
 
     let raw = response.u16s()[0];
     let mv = Move::try_from_u16(raw).expect("the engine must answer with a decodable move");
-    let (position, _) = Game::replay_moves(&history).expect("the history is legal");
+    let position = Game::from_moves(&history).expect("the history is legal");
     assert!(
         legal_move_encodings(&position).contains(&mv.to_u16()),
         "{mv} is not legal after the opening move"
@@ -638,7 +638,7 @@ async fn game_over_reason_is_zero_for_a_game_in_progress() {
 #[tokio::test]
 async fn game_over_reason_reports_a_king_capture() {
     assert_eq!(reason_of(&KING_CAPTURE_HISTORY).await, 1);
-    let (game, _) = Game::replay_moves(&KING_CAPTURE_HISTORY).expect("the history is legal");
+    let game = Game::from_moves(&KING_CAPTURE_HISTORY).expect("the history is legal");
     assert!(game.is_game_over() && game.white_wins());
 }
 
@@ -654,6 +654,117 @@ async fn game_over_reason_reports_insufficient_material() {
     let (history, game) = scripted_game(4);
     assert!(game.is_draw() && game.moves_without_capture() < 40);
     assert_eq!(reason_of(&history).await, 3);
+}
+
+// ── Threefold repetition ─────────────────────────────────────────────────────
+
+/// A 4-ply shuffle from the initial position that brings it back exactly:
+/// a White piece steps sideways onto an empty square (`0x2345`, square 69 to
+/// 70) and back (`0x22c6`), and so does a Black one (`0x0601`, 1 to 12, and
+/// `0x008c`). The initial position is the 1st occurrence, it is back at ply 4
+/// (2nd) and at ply 8 (3rd).
+const SHUFFLE_CYCLE: [u16; 4] = [0x2345, 0x0601, 0x22c6, 0x008c];
+
+/// The first `plies` moves of the endlessly repeated shuffle, as a history.
+fn shuffle_history(plies: usize) -> Vec<u8> {
+    SHUFFLE_CYCLE
+        .iter()
+        .cycle()
+        .take(plies)
+        .flat_map(|m| m.to_le_bytes())
+        .collect()
+}
+
+#[tokio::test]
+async fn game_over_reason_reports_threefold_repetition() {
+    assert_eq!(reason_of(&shuffle_history(8)).await, 4);
+    let game = Game::from_moves(&shuffle_history(8)).expect("the history is legal");
+    assert!(game.is_game_over() && game.is_draw() && !game.white_wins());
+    // The counter differs on every occurrence of the position; it plays no part.
+    assert_eq!(game.moves_without_capture(), 8);
+}
+
+#[tokio::test]
+async fn the_second_occurrence_of_a_position_does_not_end_the_game() {
+    for plies in [4, 5, 6, 7] {
+        assert_eq!(reason_of(&shuffle_history(plies)).await, 0, "{plies} plies");
+    }
+}
+
+#[tokio::test]
+async fn replay_moves_flags_a_threefold_repetition_as_a_draw() {
+    let response = post("/replay-moves", shuffle_history(8)).await;
+    assert_eq!(response.status, StatusCode::OK, "{}", response.text());
+    assert_eq!(response.body.len(), GAME_BYTES);
+    // White to move (0x80), game over (0x40), draw (0x10), nobody wins (0x20).
+    assert_eq!(response.body[81], 0x80 | 0x40 | 0x10);
+    assert_eq!(response.body[82], 8);
+
+    let response = post("/replay-moves", shuffle_history(7)).await;
+    assert_eq!(response.body[81], 0, "black to move, game in progress");
+}
+
+#[tokio::test]
+async fn a_history_continuing_past_a_threefold_repetition_is_refused_everywhere() {
+    let mut history = shuffle_history(8);
+    history.extend_from_slice(&SHUFFLE_CYCLE[0].to_le_bytes());
+    for path in [
+        "/replay-moves",
+        "/game-over-reason",
+        "/engine-move-game",
+        "/engine-move-game/5",
+        "/evaluate-game",
+        "/evaluate-moves",
+    ] {
+        let response = post(path, history.clone()).await;
+        assert_eq!(
+            response.status,
+            StatusCode::BAD_REQUEST,
+            "{path}: {}",
+            response.text()
+        );
+        assert!(response.text().contains("already over"), "{path}");
+    }
+}
+
+#[tokio::test]
+async fn a_game_finished_by_repetition_answers_like_any_finished_game() {
+    let history = shuffle_history(8);
+
+    let response = post("/evaluate-moves", history.clone()).await;
+    assert_eq!(response.status, StatusCode::OK, "{}", response.text());
+    assert!(response.body.is_empty());
+
+    let response = post("/evaluate-game", history.clone()).await;
+    assert_eq!(response.status, StatusCode::OK, "{}", response.text());
+    assert_eq!(response.body, 0i32.to_le_bytes(), "a draw scores 0");
+
+    for path in ["/engine-move-game", "/engine-move-game/5"] {
+        let response = post(path, history.clone()).await;
+        assert_eq!(
+            response.status,
+            StatusCode::CONFLICT,
+            "{path}: {}",
+            response.text()
+        );
+    }
+
+    let replayed = post("/replay-moves", history).await;
+    let response = post("/engine-move-board", replayed.body).await;
+    assert_eq!(response.status, StatusCode::CONFLICT, "{}", response.text());
+}
+
+#[tokio::test]
+async fn the_engine_does_not_play_in_a_game_finished_by_a_king_capture() {
+    for path in ["/engine-move-game", "/engine-move-game/5"] {
+        let response = post(path, KING_CAPTURE_HISTORY.to_vec()).await;
+        assert_eq!(
+            response.status,
+            StatusCode::CONFLICT,
+            "{path}: {}",
+            response.text()
+        );
+    }
 }
 
 #[tokio::test]

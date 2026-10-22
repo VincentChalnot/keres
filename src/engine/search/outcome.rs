@@ -14,7 +14,13 @@ pub const DECIDED_SCORE: i32 = KING_VALUE / 2;
 /// `KING_VALUE - ply` for a win (so shallower wins score higher, like a king
 /// capture), `0` for a draw. `None` while play continues.
 ///
-/// Mirrors `check_game_over` exactly. That full board scan only runs after a
+/// Mirrors `check_game_over` exactly (the board-only rules, codes 1–3 of
+/// `GameOverReason`). Threefold repetition needs the line's history, not just
+/// the board, so it is not decided here but when the search enters a node:
+/// see `loop_detection`, which scores it `0` — a draw, like the other draw
+/// rules — and counts positions exactly like `Game::make`.
+///
+/// That full board scan only runs after a
 /// capture or once the 40-move counter is reached: no other move can change
 /// the outcome (a quiet promotion only creates a paladin or rook, which never
 /// turns sufficient material into insufficient material).

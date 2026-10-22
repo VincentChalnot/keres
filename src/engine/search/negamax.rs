@@ -28,7 +28,7 @@ pub fn negamax(
     mut alpha: i32,
     beta: i32,
     config: &SearchConfig,
-    loop_detector: &mut LoopDetector,
+    loop_detector: &mut LoopDetector<'_>,
     killers: &mut KillerTable,
     tt_ptr: Option<*mut TranspositionTable>,
     recorder: Option<&TreeRecorder>,
@@ -38,8 +38,7 @@ pub fn negamax(
     let hash = game.board_hash();
 
     if loop_detector.push(hash) {
-        loop_detector.pop(hash);
-        return 0; // Repetition → draw.
+        return 0; // Repetition → draw (nothing was pushed, nothing to pop).
     }
 
     // ── 2. Transposition table lookup ────────────────────────────────────────
@@ -272,6 +271,71 @@ mod tests {
             score > 0,
             "expected positive score after capturing soldier, got {}",
             score
+        );
+    }
+
+    fn search_with(game: &mut Game, ld: &mut LoopDetector<'_>) -> i32 {
+        let config = SearchConfig {
+            max_depth: 1,
+            ..Default::default()
+        };
+        let mut killers = KillerTable::new(MAX_KILLER_DEPTH);
+        negamax(
+            game,
+            0,
+            -10_000,
+            10_000,
+            &config,
+            ld,
+            &mut killers,
+            None,
+            None,
+            0,
+        )
+    }
+
+    fn rook_up_game() -> Game {
+        let mut game = minimal_game();
+        game.board.set_piece(
+            &Position::new(3, 5),
+            Some(Piece::new(Color::White, PieceType::Rook, None)),
+        );
+        game
+    }
+
+    #[test]
+    fn a_position_already_on_the_search_path_is_a_draw() {
+        let mut game = rook_up_game();
+        let mut ld = LoopDetector::new();
+        assert_ne!(search_with(&mut game, &mut ld), 0, "fresh: a rook up");
+        let mut ld = LoopDetector::new();
+        assert!(!ld.push(game.board_hash()));
+        assert_eq!(search_with(&mut game, &mut ld), 0, "second visit: a cycle");
+        assert!(
+            ld.contains(game.board_hash()),
+            "the earlier visit stays on the path"
+        );
+    }
+
+    #[test]
+    fn a_position_that_occurred_twice_in_the_game_is_a_draw_but_once_is_not() {
+        let mut game = rook_up_game();
+        let hash = game.board_hash();
+
+        let once = [(hash, 1)].into_iter().collect();
+        let mut ld = LoopDetector::with_history(&once);
+        assert_ne!(
+            search_with(&mut game, &mut ld),
+            0,
+            "2nd occurrence plays on"
+        );
+
+        let twice = [(hash, 2)].into_iter().collect();
+        let mut ld = LoopDetector::with_history(&twice);
+        assert_eq!(
+            search_with(&mut game, &mut ld),
+            0,
+            "3rd occurrence is a draw"
         );
     }
 }

@@ -11,7 +11,7 @@ pub mod rng;
 
 use crate::engine::constants::MAX_KILLER_DEPTH;
 use crate::engine::search::killer::KillerTable;
-use crate::engine::search::loop_detection::LoopDetector;
+use crate::engine::search::loop_detection::{position_counts, LoopDetector, PositionCounts};
 use crate::engine::search::negamax::negamax;
 use crate::engine::search::rng::Rng;
 use crate::engine::tree_recorder::TreeRecorder;
@@ -54,14 +54,14 @@ pub struct RootSearchResult {
 /// transposition table shard (shared via DashMap) and independent killer/
 /// loop-detector state.
 ///
-/// `game_history` is an optional slice of board hashes for positions already
-/// played in the real game. These are pre-loaded into each thread's
-/// `LoopDetector` so that the engine avoids repeating any previously seen
-/// position (draw by repetition from the 1st recurrence).
+/// The repetition history is `game`'s own (`Game::position_history`): every
+/// thread's `LoopDetector` is seeded with how often each position of the real
+/// game occurred, so a line reaching a position for the third time is a draw
+/// exactly when the game rule would end the game there (see
+/// `loop_detection`).
 pub fn root_search(
     game: &Game,
     config: &SearchConfig,
-    game_history: &[u64],
     recorder: Option<&TreeRecorder>,
 ) -> RootSearchResult {
     let start = Instant::now();
@@ -80,7 +80,7 @@ pub fn root_search(
             blunder_chance: 0.0,
             ..config.clone()
         };
-        return root_search(game, &shallow, game_history, recorder);
+        return root_search(game, &shallow, recorder);
     }
 
     // Generate all root moves.
@@ -103,6 +103,8 @@ pub fn root_search(
         };
     }
 
+    let before_root = position_counts(game);
+
     // Evaluate each root move in parallel.
     let mut results: Vec<(Move, i32)> = root_moves
         .par_iter()
@@ -116,14 +118,7 @@ pub fn root_search(
 
             let mut local_tt = TranspositionTable::new(crate::engine::constants::TT_SIZE / 8);
             let tt_ptr = Some(&mut local_tt as *mut TranspositionTable);
-            let mut ld = LoopDetector::new();
-            // Pre-populate with real-game history so the engine avoids repeating
-            // any already-played position (draw by repetition from 1st recurrence).
-            for &h in game_history {
-                let _ = ld.push(h);
-            }
-            let root_hash = game.board_hash();
-            let _ = ld.push(root_hash);
+            let mut ld = LoopDetector::with_history(&before_root);
 
             let mut killers = KillerTable::new(MAX_KILLER_DEPTH);
 
@@ -163,7 +158,7 @@ pub fn root_search(
 
     // Extract PV by re-running a single-threaded search and following best moves.
     let pv = if let Some(bm) = best_move {
-        extract_pv(game, bm, config)
+        extract_pv(game, bm, config, &before_root)
     } else {
         vec![]
     };
@@ -232,7 +227,12 @@ fn select_root_move(
 
 /// Re-run the search from `root` → `first_move` and walk down the TT best
 /// moves to extract the principal variation.
-fn extract_pv(game: &Game, first_move: Move, config: &SearchConfig) -> Vec<Move> {
+fn extract_pv(
+    game: &Game,
+    first_move: Move,
+    config: &SearchConfig,
+    before_root: &PositionCounts,
+) -> Vec<Move> {
     let mut pv = vec![first_move];
     let mut game_clone = game.clone();
     let undo = game_clone.make_unchecked(&first_move);
@@ -243,7 +243,7 @@ fn extract_pv(game: &Game, first_move: Move, config: &SearchConfig) -> Vec<Move>
 
     let mut tt = TranspositionTable::new(crate::engine::constants::TT_SIZE);
     let tt_ptr = Some(&mut tt as *mut TranspositionTable);
-    let mut ld = LoopDetector::new();
+    let mut ld = LoopDetector::with_history(before_root);
     let mut killers = KillerTable::new(MAX_KILLER_DEPTH);
 
     let _ = negamax(
@@ -309,7 +309,7 @@ mod tests {
             max_depth: 2,
             ..Default::default()
         };
-        let result = root_search(&game, &config, &[], None);
+        let result = root_search(&game, &config, None);
         assert!(
             result.best_move.is_some(),
             "Expected a move from root search"
@@ -327,7 +327,7 @@ mod tests {
             max_depth: 2,
             ..Default::default()
         };
-        let result = root_search(&game, &config, &[], None);
+        let result = root_search(&game, &config, None);
         assert!(
             result.best_score > 0,
             "Expected positive score for material advantage, got {}",
@@ -335,24 +335,53 @@ mod tests {
         );
     }
 
-    #[test]
-    fn root_search_accepts_game_history_and_returns_move() {
-        // Build a minimal game and pass the initial position hash as game history.
-        // The call must not panic and must still return a valid move even when
-        // the engine is instructed to treat a revisit to the root as a draw.
-        let game = minimal_game();
-        let initial_hash = game.board_hash();
+    fn score_of(result: &RootSearchResult, mv: &Move) -> i32 {
+        result
+            .root_scores
+            .iter()
+            .find(|(m, _)| m == mv)
+            .expect("every legal root move is scored")
+            .1
+    }
 
-        let config = SearchConfig {
+    fn repetition_config() -> SearchConfig {
+        SearchConfig {
             max_depth: 2,
             ..Default::default()
-        };
-        let result = root_search(&game, &config, &[initial_hash], None);
-        // A move should still be found (the engine selects among non-repeating moves).
-        assert!(
-            result.best_move.is_some(),
-            "Expected a move even with game history present"
-        );
+        }
+    }
+
+    #[test]
+    fn a_move_reaching_a_third_occurrence_scores_as_a_draw() {
+        use crate::game::shuffle;
+        // White is a rook up, so Black is losing — except by taking the
+        // draw: its last shuffle move recreates the starting position for
+        // the 3rd time.
+        let game = shuffle::played(7);
+        let drawing = shuffle::cycle()[3];
+        let result = root_search(&game, &repetition_config(), None);
+        assert_eq!(score_of(&result, &drawing), 0);
+        assert_eq!(result.best_move, Some(drawing));
+        assert_eq!(result.best_score, 0);
+        // The game rule agrees: that move really ends the game drawn.
+        let mut played = game.clone();
+        played.make(&drawing);
+        assert!(played.is_draw());
+    }
+
+    #[test]
+    fn a_move_reaching_only_a_second_occurrence_is_not_a_draw() {
+        use crate::game::shuffle;
+        let game = shuffle::played(3);
+        let repeating = shuffle::cycle()[3];
+        let result = root_search(&game, &repetition_config(), None);
+        let score = score_of(&result, &repeating);
+        assert!(score < 0, "Black is a rook down, got {score}");
+        assert!(result.best_score < 0);
+        // The game rule agrees: that move does not end the game.
+        let mut played = game.clone();
+        played.make(&repeating);
+        assert!(!played.is_game_over());
     }
 
     /// One distinct dummy move per score, in order.
@@ -468,7 +497,7 @@ mod tests {
             max_depth: 2,
             ..Default::default()
         };
-        let result = root_search(&game, &config, &[], None);
+        let result = root_search(&game, &config, None);
         assert!(
             (1..KV / 2).contains(&result.best_score),
             "winning the last guard is only a material gain, got {}",
@@ -495,8 +524,8 @@ mod tests {
             ..Default::default()
         };
         game.set_moves_without_capture(30);
-        assert!(root_search(&game, &config, &[], None).best_score > 0);
+        assert!(root_search(&game, &config, None).best_score > 0);
         game.set_moves_without_capture(39);
-        assert_eq!(root_search(&game, &config, &[], None).best_score, 0);
+        assert_eq!(root_search(&game, &config, None).best_score, 0);
     }
 }

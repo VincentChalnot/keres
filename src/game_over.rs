@@ -14,7 +14,19 @@ pub enum GameOverReason {
     /// Neither side can ever give mate (see `SideMaterial::is_insufficient`):
     /// a draw.
     InsufficientMaterial = 3,
+    /// The same position (same 81 squares, same side to move) occurred for
+    /// the [`REPETITION_DRAW_OCCURRENCES`]-th time: a draw.
+    ThreefoldRepetition = 4,
 }
+
+/// The occurrence of a position that ends the game in a draw. The initial
+/// position counts as the first occurrence of itself, and the
+/// `moves_without_capture` counter is not part of a position.
+///
+/// The search (`engine::search::loop_detection`) scores a real-game
+/// occurrence number `REPETITION_DRAW_OCCURRENCES` as a draw too, so the two
+/// can never disagree about when the game is over.
+pub const REPETITION_DRAW_OCCURRENCES: usize = 3;
 
 impl GameOverReason {
     /// The one-byte wire code.
@@ -92,8 +104,13 @@ pub fn check_promotion(piece: &Piece, position: &Position) -> Option<Piece> {
     Some(Piece::new(piece.color, promoted_bottom, promoted_top))
 }
 
-/// Decide whether `board` (with `moves_without_capture` quiet moves played
-/// since the last capture) is a finished game.
+/// Decide whether `board` (with `moves_without_capture` plies played since
+/// the last capture) is a finished game, as far as the board alone says.
+///
+/// Rule precedence when several hit on the same move: king capture (1),
+/// then the no-capture counter (2), then insufficient material (3) — the
+/// lowest [`GameOverReason`] code wins. Repetition (4) needs the game's
+/// history and is added by [`check_game_over_with_repetition`].
 ///
 /// One pass over the board, no allocation: the search calls this on every
 /// capture it explores (see `engine::search::outcome`), not just `Game::make`.
@@ -126,6 +143,25 @@ pub fn check_game_over(board: &Board, moves_without_capture: u8) -> GameOverResu
     }
 
     GameOverResult::ongoing()
+}
+
+/// [`check_game_over`] plus the repetition rule: `occurrences` is how many
+/// times the position on `board` (side to move included) has occurred in the
+/// game so far, counting this one. A board-only ending (codes 1–3) takes
+/// precedence over repetition (code 4), so a king capture, the 40-move rule or
+/// insufficient material landing on the same move as a third occurrence is
+/// reported as that rule.
+pub fn check_game_over_with_repetition(
+    board: &Board,
+    moves_without_capture: u8,
+    occurrences: usize,
+) -> GameOverResult {
+    let result = check_game_over(board, moves_without_capture);
+    if result.game_over || occurrences < REPETITION_DRAW_OCCURRENCES {
+        result
+    } else {
+        GameOverResult::draw(GameOverReason::ThreefoldRepetition)
+    }
 }
 
 /// True if either king can be captured by a pseudo-legal move of the other
@@ -632,6 +668,57 @@ mod tests {
         assert_eq!(GameOverReason::KingCaptured.code(), 1);
         assert_eq!(GameOverReason::FortyMoveRule.code(), 2);
         assert_eq!(GameOverReason::InsufficientMaterial.code(), 3);
+        assert_eq!(GameOverReason::ThreefoldRepetition.code(), 4);
+    }
+
+    // ── check_game_over_with_repetition ──────────────────────────────────────
+
+    #[test]
+    fn the_third_occurrence_is_a_repetition_draw_and_the_second_is_not() {
+        let board = Board::new();
+        for occurrences in [0usize, 1, 2] {
+            assert_ongoing(
+                &check_game_over_with_repetition(&board, 0, occurrences),
+                &format!("occurrence {occurrences}"),
+            );
+        }
+        for occurrences in [3usize, 4, 100] {
+            let result = check_game_over_with_repetition(&board, 0, occurrences);
+            assert_draw(&result, &format!("occurrence {occurrences}"));
+            assert_eq!(result.reason, Some(GameOverReason::ThreefoldRepetition));
+        }
+    }
+
+    #[test]
+    fn repetition_ranks_below_every_board_rule() {
+        let no_white_king = board_of(&[
+            (king(Color::Black), at(4, 0)),
+            (single(Color::White, PieceType::Rook), at(8, 8)),
+        ]);
+        let bare_kings = board_of(&[
+            (king(Color::White), at(4, 8)),
+            (king(Color::Black), at(4, 0)),
+        ]);
+        let reason =
+            |board: &Board, counter: u8| check_game_over_with_repetition(board, counter, 3).reason;
+
+        assert_eq!(
+            reason(&no_white_king, 40),
+            Some(GameOverReason::KingCaptured)
+        );
+        assert_eq!(
+            reason(&Board::new(), 40),
+            Some(GameOverReason::FortyMoveRule)
+        );
+        assert_eq!(
+            reason(&bare_kings, 0),
+            Some(GameOverReason::InsufficientMaterial)
+        );
+        assert_eq!(reason(&bare_kings, 40), Some(GameOverReason::FortyMoveRule));
+        assert_eq!(
+            reason(&Board::new(), 39),
+            Some(GameOverReason::ThreefoldRepetition)
+        );
     }
 
     // ── check_game_over: insufficient material ───────────────────────────────

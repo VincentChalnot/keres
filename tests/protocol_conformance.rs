@@ -536,6 +536,7 @@ fn game_over_reason_codes_are_the_documented_bytes() {
     assert_eq!(GameOverReason::KingCaptured.code(), 1);
     assert_eq!(GameOverReason::FortyMoveRule.code(), 2);
     assert_eq!(GameOverReason::InsufficientMaterial.code(), 3);
+    assert_eq!(GameOverReason::ThreefoldRepetition.code(), 4);
 }
 
 #[tokio::test]

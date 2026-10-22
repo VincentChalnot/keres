@@ -1,5 +1,5 @@
 use crate::board::{Board, Color, Piece, Position, BOARD_SIZE};
-use crate::game_over::{check_game_over, check_promotion, GameOverReason};
+use crate::game_over::{check_game_over_with_repetition, check_promotion, GameOverReason};
 use crate::moves::{Move, MoveGenerator, PotentialMove};
 use ahash::RandomState;
 use once_cell::sync::Lazy;
@@ -14,6 +14,9 @@ pub struct UndoInfo {
     pub prev_game_over: bool,
     pub prev_white_wins: bool,
     pub prev_draw: bool,
+    /// The move went through [`Game::make`]/[`Game::try_make`] and pushed the
+    /// position it was played from onto the game's history; `unmake` pops it.
+    recorded: bool,
 }
 
 impl UndoInfo {
@@ -30,7 +33,14 @@ pub struct Game {
     game_over: bool,
     white_wins: bool,
     draw: bool,
+    /// Consecutive non-capturing plies; see [`Game::moves_without_capture`].
     moves_without_capture: u8,
+    /// Board hash of every position a move was made *from* through
+    /// [`Game::make`]/[`Game::try_make`], oldest first — the initial
+    /// position first, the current one excluded. It is what the
+    /// threefold-repetition rule counts, and what the search is seeded with.
+    /// [`Game::make_unchecked`] (the search's hot path) does not record.
+    history: Vec<u64>,
 }
 
 impl Game {
@@ -42,6 +52,7 @@ impl Game {
             white_wins: false,
             draw: false,
             moves_without_capture: 0,
+            history: Vec::new(),
         }
     }
 
@@ -53,6 +64,7 @@ impl Game {
             white_wins: false,
             draw: false,
             moves_without_capture: 0,
+            history: Vec::new(),
         }
     }
 
@@ -86,6 +98,22 @@ impl Game {
         self.draw
     }
 
+    /// Board hashes of the positions earlier in this game, oldest first (the
+    /// initial position first), the current position excluded. Only moves made
+    /// through [`Game::make`]/[`Game::try_make`] are recorded, and a `Game`
+    /// decoded from its binary form starts with no history.
+    pub fn position_history(&self) -> &[u64] {
+        &self.history
+    }
+
+    /// How many times the current position (side to move included, the
+    /// `moves_without_capture` counter ignored) has occurred in this game,
+    /// counting now: `1` the first time it is reached.
+    pub fn position_occurrences(&self) -> usize {
+        let hash = self.board_hash();
+        1 + self.history.iter().filter(|&&past| past == hash).count()
+    }
+
     /// Why the game is over, or `None` while it is still in progress.
     ///
     /// Not stored: a finished game is frozen (`check_legal` refuses further
@@ -97,9 +125,22 @@ impl Game {
         if !self.game_over {
             return None;
         }
-        check_game_over(&self.board, self.moves_without_capture).reason
+        check_game_over_with_repetition(
+            &self.board,
+            self.moves_without_capture,
+            self.position_occurrences(),
+        )
+        .reason
     }
 
+    /// The no-capture counter: **plies** (half-moves — one per move of either
+    /// side, so 40 is 20 moves each) played since the last capture or since
+    /// the start. Every move adds 1 (saturating at 255) except a capture,
+    /// which resets it to 0: a move whose destination holds an enemy piece —
+    /// a king, a lone piece or a whole stack, stacked or unstacked mover alike.
+    /// Stacking on a friendly piece, unstacking, and promotion do not reset
+    /// it. The game is a draw as soon as it reaches 40 (`>= 40`, rule 2 in
+    /// `docs/PROTOCOL.md`).
     pub fn moves_without_capture(&self) -> u8 {
         self.moves_without_capture
     }
@@ -137,7 +178,8 @@ impl Game {
     /// Any move that originates outside the process — an HTTP payload, a save
     /// file, a CLI argument — must go through [`Game::try_make`] instead.
     ///
-    /// Performs full game-over checking after the move.
+    /// Performs full game-over checking after the move, and records the
+    /// position it was played from for the repetition rule.
     pub fn make(&mut self, mv: &Move) -> UndoInfo {
         self.make_inner(mv, true)
     }
@@ -178,9 +220,10 @@ impl Game {
         }
     }
 
-    /// Apply a move in-place without checking game-over conditions.
-    /// Useful for minimax search where a fast `UndoInfo::is_king_captured()`
-    /// check can be used instead.
+    /// Apply a move in-place without checking game-over conditions or
+    /// recording the position history. Useful for minimax search where a fast
+    /// `UndoInfo::is_king_captured()` check can be used instead (repetition is
+    /// the search's own business, see `engine::search::loop_detection`).
     pub fn make_unchecked(&mut self, mv: &Move) -> UndoInfo {
         self.make_inner(mv, false)
     }
@@ -194,7 +237,11 @@ impl Game {
             prev_game_over: self.game_over,
             prev_white_wins: self.white_wins,
             prev_draw: self.draw,
+            recorded: check_game_over_flag,
         };
+        if check_game_over_flag {
+            self.history.push(self.board_hash());
+        }
 
         let piece = self.board.get_piece(&mv.from).copied().unwrap_or_else(|| {
             panic!(
@@ -269,7 +316,11 @@ impl Game {
 
         // Check for game over conditions
         if check_game_over_flag {
-            let result = check_game_over(&self.board, self.moves_without_capture);
+            let result = check_game_over_with_repetition(
+                &self.board,
+                self.moves_without_capture,
+                self.position_occurrences(),
+            );
             if result.game_over {
                 self.game_over = result.game_over;
                 self.white_wins = result.white_wins;
@@ -289,6 +340,9 @@ impl Game {
         self.game_over = undo.prev_game_over;
         self.white_wins = undo.prev_white_wins;
         self.draw = undo.prev_draw;
+        if undo.recorded {
+            self.history.pop();
+        }
     }
 
     /// Apply a null move (pass turn without moving a piece).
@@ -314,31 +368,25 @@ impl Game {
     /// never a panic and never an impossible position. The error names the
     /// offending move's index so a caller can report *which* move in the
     /// history was bad.
+    ///
+    /// The returned game carries the position history of the replay, so the
+    /// repetition rule has already been applied: a history whose third
+    /// occurrence of a position ends the game cannot continue past it (the
+    /// next move is refused like any move after game over).
     pub fn from_moves(move_bytes: &[u8]) -> Result<Self, String> {
-        Self::replay_moves(move_bytes).map(|(game, _)| game)
-    }
-
-    /// Like [`Game::from_moves`], but also returns the board hash of every
-    /// position a move was made *from* (the initial position first, the
-    /// final one excluded) — exactly the history the search's repetition
-    /// detection needs.
-    pub fn replay_moves(move_bytes: &[u8]) -> Result<(Self, Vec<u64>), String> {
         if !move_bytes.len().is_multiple_of(2) {
             return Err("Move data length must be a multiple of 2".to_string());
         }
         let mut game = Game::new();
-        let mut history = Vec::with_capacity(move_bytes.len() / 2);
+        game.history.reserve(move_bytes.len() / 2);
         for (index, chunk) in move_bytes.as_chunks::<2>().0.iter().enumerate() {
             let move_u16 = u16::from_le_bytes([chunk[0], chunk[1]]);
             let mv = Move::try_from_u16(move_u16)
                 .ok_or_else(|| format!("move {index}: 0x{move_u16:04x} is not a valid move"))?;
-            // Capture the hash BEFORE applying the move, i.e. each position
-            // from which a move was actually made.
-            history.push(game.board_hash());
             game.try_make(&mv)
                 .map_err(|e| format!("move {index} ({mv}): {e}"))?;
         }
-        Ok((game, history))
+        Ok(game)
     }
 
     // ── Binary serialisation ─────────────────────────────────────────────────
@@ -390,6 +438,7 @@ impl Game {
             white_wins,
             draw,
             moves_without_capture,
+            history: Vec::new(),
         })
     }
 
@@ -409,6 +458,68 @@ impl Game {
 impl Default for Game {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Test fixture shared with the search tests: White is a rook up and both
+/// sides shuffle (White's rook, Black's king) so that the starting position
+/// comes back every 4 plies.
+#[cfg(test)]
+pub(crate) mod shuffle {
+    use super::*;
+
+    pub fn game() -> Game {
+        let mut board = Board::empty();
+        let set = |board: &mut Board, x, y, color, piece| {
+            board.set_piece(&Position::new(x, y), Some(Piece::new(color, piece, None)));
+        };
+        set(
+            &mut board,
+            4,
+            8,
+            Color::White,
+            crate::board::PieceType::King,
+        );
+        set(
+            &mut board,
+            4,
+            0,
+            Color::Black,
+            crate::board::PieceType::King,
+        );
+        set(
+            &mut board,
+            8,
+            4,
+            Color::White,
+            crate::board::PieceType::Rook,
+        );
+        Game::from_board(board)
+    }
+
+    /// White rook out, Black king out, White rook back, Black king back.
+    pub fn cycle() -> [Move; 4] {
+        let mv = |from: (usize, usize), to: (usize, usize)| Move {
+            from: Position::new(from.0, from.1),
+            to: Position::new(to.0, to.1),
+            unstack: false,
+        };
+        [
+            mv((8, 4), (8, 5)),
+            mv((4, 0), (3, 0)),
+            mv((8, 5), (8, 4)),
+            mv((3, 0), (4, 0)),
+        ]
+    }
+
+    /// The first `plies` moves of the endlessly repeated [`cycle`], played
+    /// through `Game::make` so the repetition rule runs.
+    pub fn played(plies: usize) -> Game {
+        let mut game = game();
+        for mv in cycle().iter().cycle().take(plies) {
+            game.make(mv);
+        }
+        game
     }
 }
 
@@ -1311,5 +1422,153 @@ mod tests {
 
             let _undo = game.make(&mv);
         }
+    }
+
+    // ── Threefold repetition ─────────────────────────────────────────────────
+
+    #[test]
+    fn the_second_occurrence_of_a_position_does_not_end_the_game() {
+        // 4 plies: the initial position is back for the 2nd time.
+        let game = shuffle::played(4);
+        assert_eq!(game.position_occurrences(), 2);
+        assert!(!game.is_game_over());
+        assert_eq!(game.game_over_reason(), None);
+    }
+
+    #[test]
+    fn the_third_occurrence_of_a_position_is_a_draw() {
+        // 8 plies: the initial position (counted as its own first
+        // occurrence) is back for the 3rd time.
+        let game = shuffle::played(8);
+        assert_eq!(game.position_occurrences(), 3);
+        assert!(game.is_game_over());
+        assert!(game.is_draw());
+        assert!(!game.white_wins());
+        assert_eq!(
+            game.game_over_reason(),
+            Some(GameOverReason::ThreefoldRepetition)
+        );
+        // The draw shows in the wire flags: game-over + draw, nobody wins.
+        let flags = game.to_binary()[BOARD_SIZE];
+        assert_eq!(flags & 0b0111_0000, 0b0101_0000);
+    }
+
+    #[test]
+    fn a_game_cannot_continue_past_the_drawing_move() {
+        let mut game = shuffle::played(8);
+        let err = game.try_make(&shuffle::cycle()[0]).unwrap_err();
+        assert!(err.contains("already over"), "{err}");
+    }
+
+    #[test]
+    fn the_no_capture_counter_is_not_part_of_the_position() {
+        // The counter differs on every occurrence (0, 4, 8) yet the position
+        // is the same, and it is the 40-move counter that stays out of it.
+        let game = shuffle::played(8);
+        assert_eq!(game.moves_without_capture(), 8);
+        let hashes: Vec<u64> = game.position_history().to_vec();
+        assert_eq!(hashes.len(), 8);
+        assert_eq!(hashes[0], hashes[4]);
+        assert_eq!(hashes[0], game.board_hash());
+    }
+
+    #[test]
+    fn the_same_squares_with_the_other_side_to_move_is_another_position() {
+        let mut game = shuffle::played(4);
+        let before = game.board_hash();
+        game.set_white_to_move(false);
+        assert_ne!(game.board_hash(), before);
+        assert_eq!(game.position_occurrences(), 1);
+    }
+
+    #[test]
+    fn unmaking_a_move_forgets_its_position() {
+        let mut game = shuffle::played(7);
+        let drawing = shuffle::cycle()[3];
+        let undo = game.make(&drawing);
+        assert!(game.is_game_over());
+        game.unmake(&drawing, undo);
+        assert!(!game.is_game_over());
+        assert_eq!(game.position_history().len(), 7);
+        assert_eq!(game.position_occurrences(), 2);
+    }
+
+    #[test]
+    fn make_unchecked_does_not_record_positions() {
+        let mut game = shuffle::game();
+        let mv = shuffle::cycle()[0];
+        let undo = game.make_unchecked(&mv);
+        assert!(game.position_history().is_empty());
+        game.unmake(&mv, undo);
+        assert!(game.position_history().is_empty());
+    }
+
+    #[test]
+    fn a_capture_resets_the_counter_but_stacking_and_promotion_do_not() {
+        // A rook takes a soldier: counter back to 0.
+        let mut game = shuffle::game();
+        game.board.set_piece(
+            &Position::new(8, 6),
+            Some(Piece::new(Color::Black, PieceType::Soldier, None)),
+        );
+        game.set_moves_without_capture(17);
+        game.make(&Move {
+            from: Position::new(8, 4),
+            to: Position::new(8, 6),
+            unstack: false,
+        });
+        assert_eq!(game.moves_without_capture(), 0);
+
+        // A rook stacks onto a friendly soldier: just another quiet ply.
+        let mut game = shuffle::game();
+        game.board.set_piece(
+            &Position::new(8, 6),
+            Some(Piece::new(Color::White, PieceType::Soldier, None)),
+        );
+        game.set_moves_without_capture(17);
+        game.make(&Move {
+            from: Position::new(8, 4),
+            to: Position::new(8, 6),
+            unstack: false,
+        });
+        assert_eq!(game.moves_without_capture(), 18);
+
+        // A soldier promoting on the last rank without capturing: quiet too.
+        let mut game = shuffle::game();
+        game.board.set_piece(
+            &Position::new(0, 1),
+            Some(Piece::new(Color::White, PieceType::Soldier, None)),
+        );
+        game.set_moves_without_capture(17);
+        game.make(&Move {
+            from: Position::new(0, 1),
+            to: Position::new(0, 0),
+            unstack: false,
+        });
+        assert_eq!(game.moves_without_capture(), 18);
+    }
+
+    #[test]
+    fn the_counter_counts_plies_and_the_fortieth_quiet_ply_is_a_draw() {
+        let mut game = shuffle::game();
+        game.set_moves_without_capture(38);
+        let [white_out, black_out, ..] = shuffle::cycle();
+        game.make(&white_out);
+        assert_eq!(game.moves_without_capture(), 39);
+        assert!(!game.is_game_over(), "39 plies without a capture play on");
+        game.make(&black_out);
+        assert_eq!(game.moves_without_capture(), 40);
+        assert!(game.is_game_over() && game.is_draw());
+        assert_eq!(game.game_over_reason(), Some(GameOverReason::FortyMoveRule));
+    }
+
+    #[test]
+    fn the_forty_move_rule_outranks_repetition_on_the_same_move() {
+        // The counter is at 39 and the next move is also a 3rd occurrence.
+        let mut game = shuffle::played(7);
+        game.set_moves_without_capture(39);
+        game.make(&shuffle::cycle()[3]);
+        assert!(game.is_game_over() && game.is_draw());
+        assert_eq!(game.game_over_reason(), Some(GameOverReason::FortyMoveRule));
     }
 }

@@ -258,30 +258,31 @@ fn main() {
             max_depth: MAX_DEPTH,
             ..Default::default()
         };
-        let result = root_search(game, &config, &[], None);
+        let result = root_search(game, &config, None);
         result
             .best_move
             .ok_or_else(|| "No moves available".to_string())
     }
 
     /// Replay an optional base64 move list from the initial position,
-    /// returning the game and its position history. Exits on bad input.
-    fn replay_moves_arg(moves: Option<&str>) -> (Game, Vec<u64>) {
+    /// returning the game (which carries its position history). Exits on bad
+    /// input.
+    fn replay_moves_arg(moves: Option<&str>) -> Game {
         let Some(b64) = moves else {
-            return (Game::new(), Vec::new());
+            return Game::new();
         };
         let move_bytes = general_purpose::STANDARD.decode(b64).unwrap_or_else(|e| {
             eprintln!("Failed to decode base64 move sequence: {}", e);
             std::process::exit(1);
         });
-        Game::replay_moves(&move_bytes).unwrap_or_else(|e| {
+        Game::from_moves(&move_bytes).unwrap_or_else(|e| {
             eprintln!("Failed to replay moves: {}", e);
             std::process::exit(1);
         })
     }
 
     fn run_openings(args: &OpeningsArgs) {
-        let (game, mut history) = replay_moves_arg(args.moves.as_deref());
+        let game = replay_moves_arg(args.moves.as_deref());
         let config = SearchConfig {
             max_depth: args
                 .max_depth
@@ -289,7 +290,7 @@ fn main() {
             ..Default::default()
         };
         let start = Instant::now();
-        let searches = expand_openings(&game, &mut history, &config, args, 0);
+        let searches = expand_openings(&game, &config, args, 0);
         eprintln!("{searches} searches in {:.2?}", start.elapsed());
     }
 
@@ -298,12 +299,11 @@ fn main() {
     /// `args.plies` is reached. Returns the number of searches run.
     fn expand_openings(
         game: &Game,
-        history: &mut Vec<u64>,
         config: &SearchConfig,
         args: &OpeningsArgs,
         ply: usize,
     ) -> usize {
-        let result = root_search(game, config, history, None);
+        let result = root_search(game, config, None);
         let mut searches = 1;
         let Some(&(_, best)) = result.root_scores.first() else {
             return searches;
@@ -324,16 +324,14 @@ fn main() {
             if child.is_game_over() {
                 continue;
             }
-            history.push(game.board_hash());
-            searches += expand_openings(&child, history, config, args, ply + 1);
-            history.pop();
+            searches += expand_openings(&child, config, args, ply + 1);
         }
         searches
     }
 
     fn run_debug_tree(args: &DebugTreeArgs) {
         // ── Decode moves and reconstruct game ────────────────────────────────
-        let (game, _) = replay_moves_arg(args.moves.as_deref());
+        let game = replay_moves_arg(args.moves.as_deref());
 
         // ── Build search config ──────────────────────────────────────────────
         let config = SearchConfig {
@@ -359,7 +357,7 @@ fn main() {
 
         // ── Run search ───────────────────────────────────────────────────────
         let start = Instant::now();
-        let result = root_search(&game, &config, &[], recorder.as_ref());
+        let result = root_search(&game, &config, recorder.as_ref());
         let elapsed = start.elapsed();
 
         if let Some(r) = &recorder {
