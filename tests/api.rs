@@ -407,7 +407,7 @@ async fn a_grossly_oversized_history_is_refused_by_the_body_limit() {
 async fn engine_move_board_returns_a_legal_move_for_the_position() {
     let game = new_game_bytes().await;
 
-    let response = post("/engine-move-board", game).await;
+    let response = post_slow("/engine-move-board", game).await;
 
     assert_eq!(response.status, StatusCode::OK, "{}", response.text());
     assert_eq!(response.body.len(), MOVE_BYTES);
@@ -430,7 +430,7 @@ async fn engine_move_game_returns_a_legal_move_for_the_replayed_history() {
     let opening = first_plain_move(&moves_for(&game).await);
     let history = move_bytes(opening).to_vec();
 
-    let response = post("/engine-move-game", history.clone()).await;
+    let response = post_slow("/engine-move-game", history.clone()).await;
 
     assert_eq!(response.status, StatusCode::OK, "{}", response.text());
     assert_eq!(response.body.len(), MOVE_BYTES);
@@ -491,7 +491,7 @@ async fn engine_move_game_rejects_a_non_numeric_level() {
 
 #[tokio::test]
 async fn evaluate_game_returns_a_white_relative_score_for_a_history() {
-    let response = post("/evaluate-game", Vec::new()).await;
+    let response = post_slow("/evaluate-game", Vec::new()).await;
 
     assert_eq!(response.status, StatusCode::OK, "{}", response.text());
     assert_eq!(response.body.len(), api::EVAL_BYTES);
