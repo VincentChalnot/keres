@@ -288,6 +288,7 @@ mod tests {
     use super::*;
     use crate::board::{Board, Color, Piece, PieceType, Position};
     use crate::game::Game;
+    use crate::game_over::NO_CAPTURE_DRAW_PLIES;
 
     fn minimal_game() -> Game {
         let mut board = Board::empty();
@@ -507,9 +508,10 @@ mod tests {
     }
 
     #[test]
-    fn root_search_scores_the_fortieth_quiet_move_as_a_draw() {
+    fn root_search_scores_the_hundredth_quiet_ply_as_a_draw() {
         // White is a rook up but has no capture, and its next move is the
-        // 40th without one: every move ends the game drawn.
+        // 100th ply without one: every move ends the game drawn, while the
+        // 99th still scores as a rook-up position.
         let mut game = minimal_game();
         game.board.set_piece(
             &Position::new(3, 5),
@@ -523,9 +525,20 @@ mod tests {
             max_depth: 2,
             ..Default::default()
         };
-        game.set_moves_without_capture(30);
+        // One ply deep, so only White's own move is scored: the 99th quiet
+        // ply plays on, the 100th is the draw.
+        let one_ply = SearchConfig {
+            max_depth: 1,
+            ..Default::default()
+        };
+        game.set_moves_without_capture(NO_CAPTURE_DRAW_PLIES - 2);
+        assert!(root_search(&game, &one_ply, None).best_score > 0);
+        game.set_moves_without_capture(NO_CAPTURE_DRAW_PLIES - 1);
+        assert_eq!(root_search(&game, &one_ply, None).best_score, 0);
+        // Far from the threshold a deeper search still sees the material.
+        game.set_moves_without_capture(NO_CAPTURE_DRAW_PLIES - 30);
         assert!(root_search(&game, &config, None).best_score > 0);
-        game.set_moves_without_capture(39);
+        game.set_moves_without_capture(NO_CAPTURE_DRAW_PLIES - 1);
         assert_eq!(root_search(&game, &config, None).best_score, 0);
     }
 }

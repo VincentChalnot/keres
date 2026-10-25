@@ -147,7 +147,7 @@ pub fn preflight(path: &str, origin: &str) -> Request<Body> {
 /// pick among equals coming from an LCG. Returns the move history in the
 /// `/replay-moves` wire format together with the finished [`Game`].
 ///
-/// Seed 0 ends on the 40-move rule, seed 4 on insufficient material (both
+/// Seed 7 ends on the 50-move rule, seed 4 on insufficient material (both
 /// asserted by the tests that use them, so a rules change that moves the
 /// ending fails loudly rather than silently weakening the coverage).
 pub fn scripted_game(seed: u64) -> (Vec<u8>, keres_engine::game::Game) {

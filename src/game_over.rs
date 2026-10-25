@@ -9,8 +9,9 @@ use crate::moves::MoveGenerator;
 pub enum GameOverReason {
     /// One side's king was captured; the other side wins.
     KingCaptured = 1,
-    /// 40 moves without a capture: a draw.
-    FortyMoveRule = 2,
+    /// [`NO_CAPTURE_DRAW_PLIES`] plies (50 moves each, the chess 50-move
+    /// rule) without a capture: a draw.
+    FiftyMoveRule = 2,
     /// Neither side can ever give mate (see `SideMaterial::is_insufficient`):
     /// a draw.
     InsufficientMaterial = 3,
@@ -27,6 +28,12 @@ pub enum GameOverReason {
 /// occurrence number `REPETITION_DRAW_OCCURRENCES` as a draw too, so the two
 /// can never disagree about when the game is over.
 pub const REPETITION_DRAW_OCCURRENCES: usize = 3;
+
+/// The no-capture draw threshold, in **plies** (half-moves, both sides
+/// counted): the chess 50-move rule, so `100` is 50 moves each. A game is a
+/// draw as soon as `moves_without_capture >= NO_CAPTURE_DRAW_PLIES` after a
+/// move (rule 2 in `docs/PROTOCOL.md`).
+pub const NO_CAPTURE_DRAW_PLIES: u8 = 100;
 
 impl GameOverReason {
     /// The one-byte wire code.
@@ -131,8 +138,8 @@ pub fn check_game_over(board: &Board, moves_without_capture: u8) -> GameOverResu
         return GameOverResult::win(true);
     }
 
-    if moves_without_capture >= 40 {
-        return GameOverResult::draw(GameOverReason::FortyMoveRule);
+    if moves_without_capture >= NO_CAPTURE_DRAW_PLIES {
+        return GameOverResult::draw(GameOverReason::FiftyMoveRule);
     }
 
     // A king under attack is not a drawn position: the attacker captures it
@@ -148,7 +155,7 @@ pub fn check_game_over(board: &Board, moves_without_capture: u8) -> GameOverResu
 /// [`check_game_over`] plus the repetition rule: `occurrences` is how many
 /// times the position on `board` (side to move included) has occurred in the
 /// game so far, counting this one. A board-only ending (codes 1–3) takes
-/// precedence over repetition (code 4), so a king capture, the 40-move rule or
+/// precedence over repetition (code 4), so a king capture, the 50-move rule or
 /// insufficient material landing on the same move as a third occurrence is
 /// reported as that rule.
 pub fn check_game_over_with_repetition(
@@ -583,15 +590,51 @@ mod tests {
         );
     }
 
-    // ── check_game_over: 40-move rule ────────────────────────────────────────
+    // ── check_game_over: 50-move rule ────────────────────────────────────────
 
     #[test]
-    fn forty_moves_without_a_capture_is_a_draw() {
+    fn the_draw_threshold_is_one_hundred_plies() {
+        assert_eq!(NO_CAPTURE_DRAW_PLIES, 100);
+    }
+
+    #[test]
+    fn counters_below_the_threshold_are_not_over() {
+        // 40 was the former threshold: the whole 40..=99 range must play on.
+        let board = Board::new();
+        for counter in 0..NO_CAPTURE_DRAW_PLIES {
+            assert_ongoing(
+                &check_game_over(&board, counter),
+                &format!("{counter} plies without a capture"),
+            );
+        }
+    }
+
+    #[test]
+    fn the_counter_draw_is_reported_before_insufficient_material() {
+        let bare_kings = board_of(&[
+            (king(Color::White), at(4, 8)),
+            (king(Color::Black), at(4, 0)),
+        ]);
+        assert_eq!(
+            check_game_over(&bare_kings, NO_CAPTURE_DRAW_PLIES - 1).reason,
+            Some(GameOverReason::InsufficientMaterial)
+        );
+        assert_eq!(
+            check_game_over(&bare_kings, NO_CAPTURE_DRAW_PLIES).reason,
+            Some(GameOverReason::FiftyMoveRule)
+        );
+    }
+
+    #[test]
+    fn a_hundred_plies_without_a_capture_is_a_draw() {
         let board = Board::new();
 
-        assert_ongoing(&check_game_over(&board, 39), "39 moves without a capture");
+        assert_ongoing(
+            &check_game_over(&board, NO_CAPTURE_DRAW_PLIES - 1),
+            "99 plies without a capture",
+        );
 
-        for counter in [40u8, 41, 100, u8::MAX] {
+        for counter in [NO_CAPTURE_DRAW_PLIES, 101, 200, u8::MAX] {
             assert_draw(
                 &check_game_over(&board, counter),
                 &format!("{counter} moves without a capture"),
@@ -600,16 +643,16 @@ mod tests {
     }
 
     #[test]
-    fn the_forty_move_draw_is_only_checked_after_the_win_conditions() {
+    fn the_fifty_move_draw_is_only_checked_after_the_win_conditions() {
         let no_white_king = board_of(&[
             (king(Color::Black), at(4, 0)),
             (single(Color::Black, PieceType::Rook), at(0, 0)),
             (single(Color::White, PieceType::Rook), at(8, 8)),
         ]);
         assert_win(
-            &check_game_over(&no_white_king, 40),
+            &check_game_over(&no_white_king, NO_CAPTURE_DRAW_PLIES),
             false,
-            "white king captured on the 40th quiet move",
+            "white king captured on the 100th quiet ply",
         );
 
         let no_black_king = board_of(&[
@@ -618,9 +661,9 @@ mod tests {
             (single(Color::Black, PieceType::Rook), at(8, 0)),
         ]);
         assert_win(
-            &check_game_over(&no_black_king, 40),
+            &check_game_over(&no_black_king, NO_CAPTURE_DRAW_PLIES),
             true,
-            "black king captured on the 40th quiet move",
+            "black king captured on the 100th quiet ply",
         );
     }
 
@@ -652,21 +695,24 @@ mod tests {
             Some(GameOverReason::KingCaptured)
         );
         assert_eq!(
-            reason(&Board::new(), 40),
-            Some(GameOverReason::FortyMoveRule)
+            reason(&Board::new(), NO_CAPTURE_DRAW_PLIES),
+            Some(GameOverReason::FiftyMoveRule)
         );
         assert_eq!(
             reason(&bare_kings, 0),
             Some(GameOverReason::InsufficientMaterial)
         );
         // Both draw rules apply: the move counter is reported first.
-        assert_eq!(reason(&bare_kings, 40), Some(GameOverReason::FortyMoveRule));
+        assert_eq!(
+            reason(&bare_kings, NO_CAPTURE_DRAW_PLIES),
+            Some(GameOverReason::FiftyMoveRule)
+        );
     }
 
     #[test]
     fn wire_codes_are_stable() {
         assert_eq!(GameOverReason::KingCaptured.code(), 1);
-        assert_eq!(GameOverReason::FortyMoveRule.code(), 2);
+        assert_eq!(GameOverReason::FiftyMoveRule.code(), 2);
         assert_eq!(GameOverReason::InsufficientMaterial.code(), 3);
         assert_eq!(GameOverReason::ThreefoldRepetition.code(), 4);
     }
@@ -703,20 +749,23 @@ mod tests {
             |board: &Board, counter: u8| check_game_over_with_repetition(board, counter, 3).reason;
 
         assert_eq!(
-            reason(&no_white_king, 40),
+            reason(&no_white_king, NO_CAPTURE_DRAW_PLIES),
             Some(GameOverReason::KingCaptured)
         );
         assert_eq!(
-            reason(&Board::new(), 40),
-            Some(GameOverReason::FortyMoveRule)
+            reason(&Board::new(), NO_CAPTURE_DRAW_PLIES),
+            Some(GameOverReason::FiftyMoveRule)
         );
         assert_eq!(
             reason(&bare_kings, 0),
             Some(GameOverReason::InsufficientMaterial)
         );
-        assert_eq!(reason(&bare_kings, 40), Some(GameOverReason::FortyMoveRule));
         assert_eq!(
-            reason(&Board::new(), 39),
+            reason(&bare_kings, NO_CAPTURE_DRAW_PLIES),
+            Some(GameOverReason::FiftyMoveRule)
+        );
+        assert_eq!(
+            reason(&Board::new(), NO_CAPTURE_DRAW_PLIES - 1),
             Some(GameOverReason::ThreefoldRepetition)
         );
     }

@@ -66,7 +66,7 @@ discriminant — it only ever appears via the special byte above).
 |-------|------------------------------------------------------------------------------------------|
 | 0–80  | 81 board squares, one byte each (see piece encoding above)                               |
 | 81    | Flags byte: `0x80` white-to-move, `0x40` game-over, `0x20` white-wins, `0x10` draw       |
-| 82    | `moves_without_capture` counter (`u8`, in **plies**); the game is a draw at `>= 40` — see [Game-ending rules](#game-ending-rules) |
+| 82    | `moves_without_capture` counter (`u8`, in **plies**); the game is a draw at `>= 100` — see [Game-ending rules](#game-ending-rules) |
 
 This is the `BOARD_SIZE + 2` = 83-byte format sent/received by `/new`,
 `/moves`, `/play`, `/replay-moves`, `/engine-move-board`.
@@ -164,7 +164,7 @@ in the engine's internal units (a soldier is worth 10, a rook 60, the king
 1000 - `src/engine/constants.rs`; a forced win is `±(1000 - ply)`). A finished game is answered without
 searching: `+1000` White won, `-1000` Black won, `0` draw. An illegal or
 malformed history is a `400`. The score depends on the history (repetition
-detection, the 40-move counter), so callers must cache it per move *in a
+detection, the 50-move counter), so callers must cache it per move *in a
 game line*, never per board.
 
 `/evaluate-moves` runs the same level-10 search as `/evaluate-game` but
@@ -178,7 +178,7 @@ full alpha-beta window, so each score is the move's *exact* value at the search
 depth, not a bound — the first record's score equals `/evaluate-game`. A forced
 win/loss is `±(1000 - ply)`; a drawing move scores `0`. A finished game, or a
 position with no legal move, answers an empty `200` body. Scores depend on
-the history (repetition, 40-move counter) and on the engine version/depth, so
+the history (repetition, 50-move counter) and on the engine version/depth, so
 cache them per game line and tag them with the version. It costs the same as
 `/evaluate-game` and takes one search slot.
 
@@ -193,7 +193,7 @@ history illegal, so such a history is a `400` (as for `/replay-moves`).
 |------|---------|--------|
 | `0` | game not over | — |
 | `1` | king captured | the side that captured it wins |
-| `2` | 40 plies without a capture (`moves_without_capture >= 40`) | draw |
+| `2` | 100 plies (50 moves each) without a capture — the chess 50-move rule (`moves_without_capture >= 100`) | draw |
 | `3` | insufficient material on **both** sides (a side is insufficient with a bare king, king + one unstacked knight, or king + only bishops/guards that all stand on one square colour), **and** neither king is attacked by a pseudo-legal move of the other side — an attacked king is captured next turn, so a doomed side cannot force a draw by exposing it | draw |
 | `4` | threefold repetition: the same position occurs for the third time | draw |
 
@@ -226,7 +226,7 @@ budget is spent, stop; otherwise search again for the defender's best reply
 (level 10), play it, record it in the step, and go on with the next solver
 step if the game is not over and budget remains. The line is never cut on a
 quality criterion — the caller decides where the puzzle ends. The line
-continues the real game: repetition counts and the 40-ply counter include the
+continues the real game: repetition counts and the no-capture counter include the
 given history. A solver step is one ply, a reply another, so `N` plies are at
 most `ceil(N / 2)` steps; the last step has no reply when the budget ends
 on it. The call is deterministic.
@@ -340,14 +340,23 @@ rule — a king capture is a win, the others draws — and so does the code
 `/game-over-reason` reports.
 
 **The no-capture counter** (`moves_without_capture`, byte 82, rule 2) counts
-**plies** — one per move of either side, so `40` is 20 moves each. It starts
+**plies** — one per move of either side, so `100` is 50 moves each (the chess 50-move rule). It starts
 at `0`; every move adds `1` (saturating at `255`) except a capture, which
 resets it to `0`. A capture is a move whose destination square holds an
 *enemy* piece — a lone piece, a whole stack or a king, whether the mover is
 a full stack or an unstacked top piece. Stacking onto a friendly piece,
 unstacking, and promotion are not captures and do not reset it. The game is
-a draw as soon as the counter reaches `40` after a move (`>= 40`), unless
-rule 1 applies to the same move.
+a draw as soon as the counter reaches `100` after a move (`>= 100`), unless
+rule 1 applies to the same move. A counter of `40`–`99` is an ordinary
+ongoing game.
+
+The engine applies the current threshold to whatever counter it is given: it
+keeps no per-game rule version, and a history recorded under an older
+threshold (`40`) replays under the current one (`/replay-moves`,
+`/evaluate-game`, `/evaluate-moves`, `/analyze-puzzle` and `/game-over-reason`
+rebuild the game from the move list, so such a history is no longer over at
+ply 40). Evaluations computed under the old threshold are stale for counters
+`40`–`99`.
 
 **Threefold repetition** (rule 4). The game is a draw the moment the same
 position occurs for the third time. A position is the 81 squares (pieces and

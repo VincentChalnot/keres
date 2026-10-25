@@ -134,12 +134,13 @@ impl Game {
     }
 
     /// The no-capture counter: **plies** (half-moves — one per move of either
-    /// side, so 40 is 20 moves each) played since the last capture or since
+    /// side, so 100 is 50 moves each) played since the last capture or since
     /// the start. Every move adds 1 (saturating at 255) except a capture,
     /// which resets it to 0: a move whose destination holds an enemy piece —
     /// a king, a lone piece or a whole stack, stacked or unstacked mover alike.
     /// Stacking on a friendly piece, unstacking, and promotion do not reset
-    /// it. The game is a draw as soon as it reaches 40 (`>= 40`, rule 2 in
+    /// it. The game is a draw as soon as it reaches
+    /// [`NO_CAPTURE_DRAW_PLIES`](crate::game_over::NO_CAPTURE_DRAW_PLIES) (100, the chess 50-move rule; rule 2 in
     /// `docs/PROTOCOL.md`).
     pub fn moves_without_capture(&self) -> u8 {
         self.moves_without_capture
@@ -527,6 +528,7 @@ pub(crate) mod shuffle {
 mod tests {
     use super::*;
     use crate::board::PieceType;
+    use crate::game_over::NO_CAPTURE_DRAW_PLIES;
 
     fn empty_game() -> Game {
         Game::from_board(Board::empty())
@@ -1162,7 +1164,7 @@ mod tests {
             &Position::new(5, 5),
             Some(Piece::new(Color::Black, PieceType::Soldier, None)),
         );
-        game.set_moves_without_capture(39);
+        game.set_moves_without_capture(NO_CAPTURE_DRAW_PLIES - 1);
 
         let mv = Move {
             from: Position::new(4, 4),
@@ -1173,7 +1175,7 @@ mod tests {
 
         assert!(game.is_game_over());
         assert!(game.is_draw());
-        assert_eq!(game.moves_without_capture(), 40);
+        assert_eq!(game.moves_without_capture(), NO_CAPTURE_DRAW_PLIES);
     }
 
     #[test]
@@ -1463,7 +1465,7 @@ mod tests {
     #[test]
     fn the_no_capture_counter_is_not_part_of_the_position() {
         // The counter differs on every occurrence (0, 4, 8) yet the position
-        // is the same, and it is the 40-move counter that stays out of it.
+        // is the same, and it is the no-capture counter that stays out of it.
         let game = shuffle::played(8);
         assert_eq!(game.moves_without_capture(), 8);
         let hashes: Vec<u64> = game.position_history().to_vec();
@@ -1549,26 +1551,26 @@ mod tests {
     }
 
     #[test]
-    fn the_counter_counts_plies_and_the_fortieth_quiet_ply_is_a_draw() {
+    fn the_counter_counts_plies_and_the_hundredth_quiet_ply_is_a_draw() {
         let mut game = shuffle::game();
-        game.set_moves_without_capture(38);
+        game.set_moves_without_capture(NO_CAPTURE_DRAW_PLIES - 2);
         let [white_out, black_out, ..] = shuffle::cycle();
         game.make(&white_out);
-        assert_eq!(game.moves_without_capture(), 39);
-        assert!(!game.is_game_over(), "39 plies without a capture play on");
+        assert_eq!(game.moves_without_capture(), NO_CAPTURE_DRAW_PLIES - 1);
+        assert!(!game.is_game_over(), "99 plies without a capture play on");
         game.make(&black_out);
-        assert_eq!(game.moves_without_capture(), 40);
+        assert_eq!(game.moves_without_capture(), NO_CAPTURE_DRAW_PLIES);
         assert!(game.is_game_over() && game.is_draw());
-        assert_eq!(game.game_over_reason(), Some(GameOverReason::FortyMoveRule));
+        assert_eq!(game.game_over_reason(), Some(GameOverReason::FiftyMoveRule));
     }
 
     #[test]
-    fn the_forty_move_rule_outranks_repetition_on_the_same_move() {
-        // The counter is at 39 and the next move is also a 3rd occurrence.
+    fn the_fifty_move_rule_outranks_repetition_on_the_same_move() {
+        // The counter is at 99 and the next move is also a 3rd occurrence.
         let mut game = shuffle::played(7);
-        game.set_moves_without_capture(39);
+        game.set_moves_without_capture(NO_CAPTURE_DRAW_PLIES - 1);
         game.make(&shuffle::cycle()[3]);
         assert!(game.is_game_over() && game.is_draw());
-        assert_eq!(game.game_over_reason(), Some(GameOverReason::FortyMoveRule));
+        assert_eq!(game.game_over_reason(), Some(GameOverReason::FiftyMoveRule));
     }
 }

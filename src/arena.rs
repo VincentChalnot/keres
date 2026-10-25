@@ -24,7 +24,7 @@
 //! `record_game`): a corpus for later analysis, kept apart from human games.
 //!
 //! Rules mirror the platform as far as the engine can see them: the game
-//! ends on `Game::is_game_over` (king capture, 40-move rule, insufficient
+//! ends on `Game::is_game_over` (king capture, 50-move rule, insufficient
 //! material, threefold repetition) — nothing arena-specific. Every game is
 //! finite on its own (a position can occur at most twice before the third
 //! occurrence ends the game, and there are finitely many positions), so
@@ -302,7 +302,7 @@ impl SideStats {
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Ending {
     KingCaptured,
-    FortyMoves,
+    FiftyMoves,
     InsufficientMaterial,
     Repetition,
     NoMoves,
@@ -313,7 +313,7 @@ impl fmt::Display for Ending {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(match self {
             Ending::KingCaptured => "king captured",
-            Ending::FortyMoves => "40-move rule",
+            Ending::FiftyMoves => "50-move rule",
             Ending::InsufficientMaterial => "insufficient material",
             Ending::Repetition => "threefold repetition",
             Ending::NoMoves => "no legal moves",
@@ -341,7 +341,7 @@ fn ending_of(game: &Game) -> Ending {
         .expect("a finished arena game always ended on a rule")
     {
         GameOverReason::KingCaptured => Ending::KingCaptured,
-        GameOverReason::FortyMoveRule => Ending::FortyMoves,
+        GameOverReason::FiftyMoveRule => Ending::FiftyMoves,
         GameOverReason::InsufficientMaterial => Ending::InsufficientMaterial,
         GameOverReason::ThreefoldRepetition => Ending::Repetition,
     }

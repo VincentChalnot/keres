@@ -568,8 +568,8 @@ async fn moves_without_capture_boundaries_never_produce_a_server_error() {
     let game = new_game_bytes().await;
     let allowed = [StatusCode::OK, StatusCode::BAD_REQUEST];
 
-    // 39/40 straddle the no-capture draw threshold, 254/255 the u8 ceiling.
-    for counter in [0u8, 1, 39, 40, 254, 255] {
+    // 99/100 straddle the no-capture draw threshold, 254/255 the u8 ceiling.
+    for counter in [0u8, 1, 39, 40, 99, 100, 254, 255] {
         let mut body = game.clone();
         body[BOARD_COUNTER] = counter;
         let response = send(router.clone(), post_request("/moves", body.clone())).await;

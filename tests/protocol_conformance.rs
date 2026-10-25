@@ -295,7 +295,7 @@ fn game_flag_byte_packs_each_state_into_its_documented_bit() {
 
 #[test]
 fn game_byte_eighty_two_is_the_raw_moves_without_capture_counter() {
-    for counter in [0u8, 1, 39, 40, 200, 255] {
+    for counter in [0u8, 1, 40, 99, 100, 200, 255] {
         let mut game = Game::from_board(Board::new());
         game.set_moves_without_capture(counter);
         assert_eq!(
@@ -534,7 +534,7 @@ fn game_over_reason_codes_are_the_documented_bytes() {
 
     // 0 is reserved for "not over".
     assert_eq!(GameOverReason::KingCaptured.code(), 1);
-    assert_eq!(GameOverReason::FortyMoveRule.code(), 2);
+    assert_eq!(GameOverReason::FiftyMoveRule.code(), 2);
     assert_eq!(GameOverReason::InsufficientMaterial.code(), 3);
     assert_eq!(GameOverReason::ThreefoldRepetition.code(), 4);
 }

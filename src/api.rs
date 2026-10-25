@@ -55,8 +55,10 @@ pub const PLAY_BYTES: usize = GAME_BYTES + MOVE_BYTES;
 
 /// Default cap on the length of a replayed move history.
 ///
-/// Generous next to any reachable game (the 40-move no-capture rule bounds a
-/// real game at a few thousand plies) but small enough that replaying a
+/// Strictly above any reachable game: every capture resets the no-capture
+/// counter and the draw fires on its 100th ply, so a real game is at most
+/// 100 plies per capture times the 39 captures the 40 starting units allow
+/// (3900 plies). Small enough that replaying a
 /// maximum-size history stays cheap, which matters because replay happens
 /// before any other work and is driven entirely by the request body.
 pub const DEFAULT_MAX_HISTORY_MOVES: usize = 4096;
@@ -694,7 +696,7 @@ fn decode_history(config: &ApiConfig, bytes: &[u8]) -> Result<Game, ApiError> {
 /// starve every other connection on that thread.
 async fn run_search(state: &Arc<AppState>, game: Game, config: SearchConfig) -> ApiResult {
     // A finished game has no move to play, whichever rule ended it (king
-    // capture, 40-move rule, insufficient material, threefold repetition):
+    // capture, 50-move rule, insufficient material, threefold repetition):
     // the same 409 as a position with no legal move.
     if game.is_game_over() {
         return Err(ApiError::conflict("no legal move: the game is over\n"));

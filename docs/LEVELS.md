@@ -32,7 +32,7 @@ current values.
 | Slip | `decided_slip_chance` | In a decided position (`|best| >= DECIDED_SCORE`) the best move is played unless this roll hits, in which case the normal noisy choice is used. 0 from L4 up. |
 
 The search also knows every game-ending rule (`src/engine/search/outcome.rs`
-and `loop_detection.rs`): king capture is the only win; the 40-move rule,
+and `loop_detection.rs`): king capture is the only win; the 50-move rule (100 plies),
 insufficient material and threefold repetition are draws. A line reaching a
 position that already occurred inside the search tree, or already twice in the
 real game, scores 0 (see `PROTOCOL.md`, *Search and repetition*). Wins are

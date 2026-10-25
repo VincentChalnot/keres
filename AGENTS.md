@@ -30,7 +30,7 @@ Four binaries share one library crate (`keres_engine`, `src/lib.rs`):
 | `src/board.rs`               | `Board`, `Piece`, `Position`, binary encode/decode (the wire format) |
 | `src/game.rs`                | `Game`: turn state, make/unmake moves, game-over tracking, position history for the repetition rule (`make`/`try_make` record it, `make_unchecked` — the search's — does not), `to_binary`/`from_binary` (no history on the wire) |
 | `src/moves.rs`                | `Move`, `PotentialMove`, `MoveGenerator` — legal move generation per piece type |
-| `src/game_over.rs`            | Win/draw condition checks (king capture, 40-ply no-capture rule, insufficient material, threefold repetition) and `GameOverReason` wire codes |
+| `src/game_over.rs`            | Win/draw condition checks (king capture, 100-ply no-capture rule (`NO_CAPTURE_DRAW_PLIES`), insufficient material, threefold repetition) and `GameOverReason` wire codes |
 | `src/cli_rendering.rs`        | Terminal board rendering + game-state hashing used by the CLI        |
 | `src/engine/`                  | The AI: search, evaluation, types/config                              |
 | `src/engine/search/`            | Negamax + alpha-beta (`alpha_beta.rs`, `negamax.rs`), quiescence, killer moves, repetition detection seeded from `Game`'s own history (`loop_detection.rs`), root entry point (`mod.rs::root_search`) |

@@ -2,7 +2,7 @@
 
 use crate::engine::constants::KING_VALUE;
 use crate::game::{Game, UndoInfo};
-use crate::game_over::check_game_over;
+use crate::game_over::{check_game_over, NO_CAPTURE_DRAW_PLIES};
 
 /// Lowest absolute score that means "the game is decided": a forced king
 /// capture (`KING_VALUE - ply`). Positional scores never get near it — the
@@ -21,7 +21,7 @@ pub const DECIDED_SCORE: i32 = KING_VALUE / 2;
 /// rules — and counts positions exactly like `Game::make`.
 ///
 /// That full board scan only runs after a
-/// capture or once the 40-move counter is reached: no other move can change
+/// capture or once the no-capture counter reaches `NO_CAPTURE_DRAW_PLIES`: no other move can change
 /// the outcome (a quiet promotion only creates a paladin or rook, which never
 /// turns sufficient material into insufficient material).
 #[inline]
@@ -31,7 +31,7 @@ pub fn move_outcome(game: &Game, undo: &UndoInfo, ply: usize) -> Option<i32> {
         return Some(win);
     }
     let counter = game.moves_without_capture();
-    if counter != 0 && counter < 40 {
+    if counter != 0 && counter < NO_CAPTURE_DRAW_PLIES {
         return None;
     }
     let result = check_game_over(&game.board, counter);

@@ -23,8 +23,8 @@ for the full illustrated rules.
 
 - **Game logic** (`src/board.rs`, `src/game.rs`, `src/moves.rs`,
   `src/game_over.rs`): board representation, legal move generation, stacking
-  rules, promotion, draw/win detection (king capture, 40 plies without a
-  capture, insufficient material, threefold repetition).
+  rules, promotion, draw/win detection (king capture, 100 plies without a
+  capture (50-move rule), insufficient material, threefold repetition).
 - **AI engine** (`src/engine/`): Negamax with alpha-beta pruning, quiescence
   search, a transposition table, killer-move ordering, and
   repetition-aware search (threefold repetition is a draw), parallelized with

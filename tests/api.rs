@@ -15,6 +15,7 @@ use common::*;
 use keres_engine::api::{self, ApiConfig, CorsPolicy, GAME_BYTES, MOVE_BYTES, PLAY_BYTES};
 use keres_engine::board::{Board, Color, Piece, PieceType, Position};
 use keres_engine::game::Game;
+use keres_engine::game_over::NO_CAPTURE_DRAW_PLIES;
 use keres_engine::moves::{Move, PotentialMove};
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -750,6 +751,49 @@ async fn analyze_puzzle_sits_behind_the_bearer_token() {
     assert_eq!(response.status, StatusCode::UNAUTHORIZED);
 }
 
+// ── The no-capture counter below the draw threshold ─────────────────────────
+
+/// `counter` patched into byte 82 of the initial position.
+async fn new_game_with_counter(counter: u8) -> Vec<u8> {
+    let mut game = new_game_bytes().await;
+    game[GAME_BYTES - 1] = counter;
+    game
+}
+
+#[tokio::test]
+async fn a_counter_between_the_old_and_the_new_threshold_is_not_a_finished_game() {
+    // 40 was the former threshold: 40..=99 plays on, `/moves` lists the same
+    // moves as for a fresh game and `/play` applies one.
+    let fresh = moves_for(&new_game_bytes().await).await;
+    for counter in [40u8, 41, 60, NO_CAPTURE_DRAW_PLIES - 1] {
+        let game = new_game_with_counter(counter).await;
+        assert_eq!(moves_for(&game).await, fresh, "counter {counter}");
+
+        let chosen = first_plain_move(&fresh);
+        let response = post("/play", play_body(&game, chosen)).await;
+        assert_eq!(response.status, StatusCode::OK, "counter {counter}");
+        let played = Game::from_binary(response.body.try_into().expect("83 bytes")).unwrap();
+        assert_eq!(played.moves_without_capture(), counter + 1);
+    }
+}
+
+#[tokio::test]
+async fn play_ends_the_game_as_a_draw_on_the_hundredth_quiet_ply_only() {
+    let fresh = moves_for(&new_game_bytes().await).await;
+    let chosen = first_plain_move(&fresh);
+    for (counter, over) in [
+        (NO_CAPTURE_DRAW_PLIES - 2, false),
+        (NO_CAPTURE_DRAW_PLIES - 1, true),
+    ] {
+        let game = new_game_with_counter(counter).await;
+        let response = post("/play", play_body(&game, chosen)).await;
+        assert_eq!(response.status, StatusCode::OK, "counter {counter}");
+        let played = Game::from_binary(response.body.try_into().expect("83 bytes")).unwrap();
+        assert_eq!(played.is_game_over(), over, "counter {counter}");
+        assert_eq!(played.is_draw(), over, "counter {counter}");
+    }
+}
+
 // ── /game-over-reason ────────────────────────────────────────────────────────
 
 /// White wins in five plies by capturing the black king:
@@ -789,16 +833,16 @@ async fn game_over_reason_reports_a_king_capture() {
 }
 
 #[tokio::test]
-async fn game_over_reason_reports_the_forty_move_rule() {
-    let (history, game) = scripted_game(0);
-    assert!(game.is_draw() && game.moves_without_capture() >= 40);
+async fn game_over_reason_reports_the_fifty_move_rule() {
+    let (history, game) = scripted_game(7);
+    assert!(game.is_draw() && game.moves_without_capture() >= NO_CAPTURE_DRAW_PLIES);
     assert_eq!(reason_of(&history).await, 2);
 }
 
 #[tokio::test]
 async fn game_over_reason_reports_insufficient_material() {
     let (history, game) = scripted_game(4);
-    assert!(game.is_draw() && game.moves_without_capture() < 40);
+    assert!(game.is_draw() && game.moves_without_capture() < NO_CAPTURE_DRAW_PLIES);
     assert_eq!(reason_of(&history).await, 3);
 }
 
